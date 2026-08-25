@@ -19,6 +19,30 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+    <!-- Pantalla de login (Supabase Auth — magic link) -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="onboarding-logo">🏪</div>
+      <h1>Stock Kiosco</h1>
+      <p class="onboarding-lead">Ingresá con tu email para acceder a tu stock desde cualquier dispositivo, en vivo.</p>
+
+      <form id="auth-form" class="auth-form">
+        <div class="form-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" required placeholder="tu@email.com" autocomplete="email" />
+        </div>
+        <span class="field-error" id="auth-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-auth-enviar">Enviar link de acceso</button>
+      </form>
+
+      <div id="auth-check-email" class="auth-check-email hidden">
+        <p>📩 Te enviamos un link de acceso a</p>
+        <p class="auth-email-destacado" id="auth-check-email-addr"></p>
+        <p class="hint">Abrilo desde este mismo dispositivo para entrar. No hace falta contraseña.</p>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Banner instalar PWA -->
   <div id="install-banner" class="install-banner hidden">
