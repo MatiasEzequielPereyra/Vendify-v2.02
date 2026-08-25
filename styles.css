@@ -1365,3 +1365,41 @@ kbd {
   .venta-carrito-col { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 0.75rem; }
   .modal-venta-content { height: 92vh; }
 }
+
+/* ===== Modo empleado (bloqueo con PIN) ===== */
+.empleado-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--warning-bg, #78350f);
+  color: #fff;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+body.modo-empleado .header-left,
+body.modo-empleado .stats,
+body.modo-empleado .filtro-activo,
+body.modo-empleado .controls,
+body.modo-empleado .grid-section,
+body.modo-empleado .footer,
+body.modo-empleado #btn-cerrar-sesion,
+body.modo-empleado #btn-theme,
+body.modo-empleado #btn-config,
+body.modo-empleado #btn-export,
+body.modo-empleado #btn-nuevo,
+body.modo-empleado #btn-modo-empleado,
+body.modo-empleado .sesion-badge,
+body.modo-empleado #btn-cerrar-venta {
+  display: none !important;
+}
+
+body.modo-empleado .header {
+  justify-content: center;
+}
+
+body.modo-empleado #modal-venta .modal-backdrop {
+  pointer-events: none;
+}

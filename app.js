@@ -10,11 +10,14 @@
 const THEME_KEY = "kiosco_theme";
 const ONBOARDING_KEY = "kiosco_onboarding_done";
 const INSTALL_DISMISS_KEY = "kiosco_install_dismiss";
+const MODO_EMPLEADO_KEY = "kiosco_modo_empleado";
 const MAX_IMG_SIZE = 400;
 
 let deferredInstallPrompt = null;
 let sesionActual = null;
 let realtimeChannel = null;
+let pinEmpleado = null;
+let pinResolverActual = null;
 
 const CATEGORIAS_DEFAULT = [
   "Bebidas", "Golosinas", "Snacks", "Cigarrillos", "Lácteos",
@@ -97,9 +100,100 @@ async function mostrarApp() {
 
   await cargarCategorias();
   await cargarProductos();
+  await cargarConfiguracion();
   actualizarFiltroCategorias();
   renderGrid();
   suscribirRealtime();
+
+  if (localStorage.getItem(MODO_EMPLEADO_KEY) === "1") {
+    activarModoEmpleado(false);
+  }
+}
+
+// =====================
+// Modo empleado (PIN — sin usar el mail del dueño)
+// =====================
+async function cargarConfiguracion() {
+  const { data, error } = await supabaseClient
+    .from("configuracion")
+    .select("pin_empleado")
+    .eq("user_id", sesionActual.user.id)
+    .maybeSingle();
+  pinEmpleado = error ? null : data?.pin_empleado || null;
+  actualizarEstadoPinUI();
+}
+
+function actualizarEstadoPinUI() {
+  const el = $("#pin-empleado-estado");
+  if (!el) return;
+  el.textContent = pinEmpleado
+    ? "✅ PIN configurado. El botón \"Modo empleado\" ya se puede usar."
+    : "Todavía no configuraste un PIN.";
+}
+
+async function guardarPinEmpleado() {
+  const input = $("#pin-empleado");
+  const valor = input.value.trim();
+  if (!/^\d{4,6}$/.test(valor)) {
+    mostrarToast("El PIN debe tener entre 4 y 6 números", "error");
+    return;
+  }
+  const { error } = await supabaseClient
+    .from("configuracion")
+    .upsert({ user_id: sesionActual.user.id, pin_empleado: valor, actualizado: new Date().toISOString() });
+  if (error) {
+    mostrarToast("No se pudo guardar el PIN", "error");
+    return;
+  }
+  pinEmpleado = valor;
+  input.value = "";
+  actualizarEstadoPinUI();
+  mostrarToast("PIN guardado");
+}
+
+function pedirPin(titulo) {
+  return new Promise((resolve) => {
+    $("#pin-input").value = "";
+    $("#pin-error").textContent = "";
+    $("#modal-pin").querySelector("h2").textContent = titulo || "Ingresá el PIN";
+    $("#modal-pin").classList.remove("hidden");
+    pinResolverActual = resolve;
+    setTimeout(() => $("#pin-input").focus(), 50);
+  });
+}
+
+function cerrarModalPin(resultado) {
+  $("#modal-pin").classList.add("hidden");
+  if (pinResolverActual) {
+    pinResolverActual(resultado);
+    pinResolverActual = null;
+  }
+}
+
+function activarModoEmpleado(mostrarAviso = true) {
+  if (!pinEmpleado) {
+    mostrarToast("Primero configurá un PIN en Configuración", "error");
+    return;
+  }
+  document.body.classList.add("modo-empleado");
+  localStorage.setItem(MODO_EMPLEADO_KEY, "1");
+  $("#empleado-bar")?.classList.remove("hidden");
+  abrirVenta();
+  if (mostrarAviso) mostrarToast("Modo empleado activado — solo pantalla de venta");
+}
+
+async function intentarSalirModoEmpleado() {
+  const pin = await pedirPin("Ingresá el PIN para salir del modo empleado");
+  if (pin === null) return;
+  if (pin !== pinEmpleado) {
+    mostrarToast("PIN incorrecto", "error");
+    return;
+  }
+  document.body.classList.remove("modo-empleado");
+  localStorage.removeItem(MODO_EMPLEADO_KEY);
+  $("#empleado-bar")?.classList.add("hidden");
+  cerrarVenta();
+  mostrarToast("Modo administrador activado");
 }
 
 async function enviarMagicLink(e) {
@@ -846,6 +940,10 @@ function abrirVenta() {
 }
 
 function cerrarVenta() {
+  if (document.body.classList.contains("modo-empleado")) {
+    intentarSalirModoEmpleado();
+    return;
+  }
   $("#modal-venta").classList.add("hidden");
   carrito = [];
 }
@@ -1021,7 +1119,23 @@ function inicializarEventos() {
   $("#btn-empty-nuevo")?.addEventListener("click", () => abrirModal());
   $("#btn-vender").addEventListener("click", abrirVenta);
   $("#btn-cerrar-venta").addEventListener("click", cerrarVenta);
-  $("#modal-venta .modal-backdrop").addEventListener("click", cerrarVenta);
+  $("#modal-venta .modal-backdrop").addEventListener("click", () => {
+    if (!document.body.classList.contains("modo-empleado")) cerrarVenta();
+  });
+
+  $("#btn-modo-empleado")?.addEventListener("click", () => activarModoEmpleado(true));
+  $("#btn-salir-modo-empleado")?.addEventListener("click", intentarSalirModoEmpleado);
+  $("#btn-guardar-pin")?.addEventListener("click", guardarPinEmpleado);
+  $("#pin-empleado")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); guardarPinEmpleado(); }
+  });
+  $("#btn-cerrar-pin")?.addEventListener("click", () => cerrarModalPin(null));
+  $("#btn-pin-cancelar")?.addEventListener("click", () => cerrarModalPin(null));
+  $("#btn-pin-confirmar")?.addEventListener("click", () => cerrarModalPin($("#pin-input").value.trim()));
+  $("#pin-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); cerrarModalPin($("#pin-input").value.trim()); }
+  });
+  $("#modal-pin .modal-backdrop")?.addEventListener("click", () => cerrarModalPin(null));
   $("#venta-buscador").addEventListener("input", renderVentaProductos);
   $("#venta-productos-lista").addEventListener("click", (e) => {
     const item = e.target.closest(".venta-producto-item");
@@ -1134,8 +1248,11 @@ function inicializarEventos() {
     const escribiendo = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 
     if (e.key === "Escape") {
-      if (!$("#modal").classList.contains("hidden")) cerrarModal();
-      else if (!$("#modal-venta").classList.contains("hidden")) cerrarVenta();
+      if (!$("#modal-pin").classList.contains("hidden")) cerrarModalPin(null);
+      else if (!$("#modal").classList.contains("hidden")) cerrarModal();
+      else if (!$("#modal-venta").classList.contains("hidden")) {
+        if (!document.body.classList.contains("modo-empleado")) cerrarVenta();
+      }
       else if (!$("#modal-config").classList.contains("hidden")) cerrarConfig();
       else if (!$("#modal-confirm").classList.contains("hidden")) {
         cerrarConfirm();
@@ -1144,6 +1261,7 @@ function inicializarEventos() {
       return;
     }
     if (escribiendo) return;
+    if (document.body.classList.contains("modo-empleado")) return;
 
     if (e.key === "n" || e.key === "N") { e.preventDefault(); abrirModal(); }
     else if (e.key === "v" || e.key === "V") { e.preventDefault(); abrirVenta(); }

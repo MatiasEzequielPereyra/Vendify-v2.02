@@ -14,13 +14,15 @@ App de control de stock **y ventas** para kioscos. **PWA instalable**, con **sin
    (otra consulta nueva). Esto agrega el sistema de ventas: tablas `ventas` y `venta_items`,
    más la función `registrar_venta` que cobra un carrito completo y descuenta todo el stock
    de una sola vez.
-4. Andá a **Authentication → Providers** y confirmá que **Email** esté habilitado (login por magic link,
+4. Corré también [`supabase/schema_config.sql`](./supabase/schema_config.sql) (otra consulta
+   nueva). Esto agrega la tabla `configuracion`, donde se guarda el PIN del modo empleado.
+5. Andá a **Authentication → Providers** y confirmá que **Email** esté habilitado (login por magic link,
    sin contraseña).
-5. Andá a **Authentication → URL Configuration** y poné tu dominio real (no `localhost`) en
+6. Andá a **Authentication → URL Configuration** y poné tu dominio real (no `localhost`) en
    **Site URL**, y agregalo también en **Redirect URLs** (podés usar un comodín, ej.
    `https://tu-dominio.com/*`). Si esto queda mal configurado, el link del email termina
    llevando a `localhost:3000`.
-6. Andá a **Project Settings → API** y copiá:
+7. Andá a **Project Settings → API** y copiá:
    - **Project URL**
    - **anon public key**
 
@@ -57,6 +59,28 @@ Si en el momento de cobrar no queda stock suficiente de algo (por ejemplo, se ve
 otro dispositivo segundos antes), la venta completa se cancela y no se cobra nada — así nunca
 queda una venta "a medias" ni un stock inconsistente.
 
+## Modo empleado (PIN, sin usar tu mail)
+
+Pensado para que un empleado use el dispositivo del mostrador solo para vender, sin poder
+tocar productos, precios ni configuración, y sin necesitar el mail del dueño en ningún momento.
+
+**Configurarlo (el dueño, una sola vez):**
+1. Iniciá sesión normalmente con tu mail.
+2. Abrí **⚙️ Config → Modo empleado** y definí un PIN de 4 a 6 números.
+
+**Usarlo en el mostrador:**
+1. Con la sesión del dueño ya abierta en ese dispositivo, tocá **🔒 Modo empleado**.
+2. La app queda bloqueada mostrando solo la pantalla de venta — el empleado puede cobrar,
+   pero no ve productos, precios de compra, configuración ni el botón de cerrar sesión.
+3. Para volver al modo administrador, tocá **Salir con PIN** e ingresá el PIN.
+
+El bloqueo se guarda en ese dispositivo (persiste aunque se cierre y reabra la app), así que
+lo normal es configurarlo una vez en la tablet o compu del mostrador y dejarla siempre así.
+
+> Nota: esto es una traba de uso, no una cuenta de usuario separada. Por debajo, todo sigue
+> guardándose con el mismo usuario (el dueño); el PIN solo oculta la interfaz de administración
+> para que el empleado no la toque sin querer.
+
 ## Control de stock manual (fuera del modo venta)
 
 - **Botón "−" en la tarjeta** → venta rápida de 1 unidad.
@@ -73,6 +97,7 @@ para tener un historial completo de qué pasó con cada producto.
 - ✅ Login por email (sin contraseña) — cada kiosco ve solo sus propios datos
 - ✅ Stock sincronizado en vivo entre todos los dispositivos (Supabase Realtime)
 - ✅ **Modo Venta**: carrito, cobro y descuento de stock atómico para varios productos a la vez
+- ✅ **Modo empleado con PIN**: el mostrador vende sin acceso a productos ni al mail del dueño
 - ✅ Venta rápida / reposición / ajuste manual con historial de movimientos
 - ✅ Fotos, precio de compra/venta y margen
 - ✅ Categorías configurables
@@ -92,8 +117,8 @@ para tener un historial completo de qué pasó con cada producto.
 - Código de barras (escaneo con la cámara) para agregar al carrito más rápido
 
 ### Mediano plazo
-- Roles: dueño / empleado (empleado no puede editar precios ni eliminar productos,
-  solo puede vender)
+- Roles reales por usuario (hoy el modo empleado es una traba de PIN, no una cuenta
+  separada con permisos propios en Supabase)
 - Multi-local (un mismo dueño con más de un kiosco)
 - Plan free limitado + plan Pro mensual
 
@@ -109,7 +134,8 @@ kiosco-stock/
 ├── supabase-config.js       ← completar con tu URL y anon key
 ├── supabase/
 │   ├── schema.sql            ← correr primero (stock básico)
-│   └── schema_ventas.sql     ← correr después (modo venta / carrito)
+│   ├── schema_ventas.sql     ← correr después (modo venta / carrito)
+│   └── schema_config.sql     ← correr después (PIN de modo empleado)
 ├── sw.js                     ← service worker (offline de la interfaz)
 ├── manifest.json             ← PWA
 ├── icons/

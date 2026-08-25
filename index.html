@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-    <!-- Pantalla de login (Supabase Auth — magic link) -->
+  <!-- Pantalla de login (Supabase Auth — magic link) -->
   <div id="auth-screen" class="auth-screen hidden">
     <div class="auth-card">
       <div class="onboarding-logo">🏪</div>
@@ -42,7 +42,6 @@
       </div>
     </div>
   </div>
-
 
   <!-- Banner instalar PWA -->
   <div id="install-banner" class="install-banner hidden">
@@ -105,8 +104,17 @@
         <button id="btn-nuevo" class="btn btn-primary">
           <span>+</span> Nuevo producto
         </button>
+        <button id="btn-modo-empleado" class="btn btn-secondary" title="Bloquear la app en modo vendedor">
+          🔒 Modo empleado
+        </button>
       </div>
     </header>
+
+    <!-- Barra visible solo cuando la app está bloqueada en modo empleado -->
+    <div id="empleado-bar" class="empleado-bar hidden">
+      <span>🔒 Modo empleado — solo venta</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-salir-modo-empleado">Salir con PIN</button>
+    </div>
 
     <!-- Stats -->
     <section class="stats">
@@ -298,6 +306,19 @@
 
         <div class="config-divider"></div>
 
+        <h3 class="config-section-title">Modo empleado</h3>
+        <p class="hint" style="margin-bottom: 0.85rem;">
+          Definí un PIN para que los empleados puedan usar solo la pantalla de venta,
+          sin acceso a productos ni configuración, y sin necesitar tu mail.
+        </p>
+        <div class="config-add-row">
+          <input type="text" id="pin-empleado" placeholder="PIN (4 a 6 dígitos)" maxlength="6" inputmode="numeric" autocomplete="off" />
+          <button type="button" class="btn btn-primary btn-sm" id="btn-guardar-pin">Guardar PIN</button>
+        </div>
+        <p class="hint" id="pin-empleado-estado"></p>
+
+        <div class="config-divider"></div>
+
         <h3 class="config-section-title">Datos de prueba</h3>
         <p class="hint" style="margin-bottom: 0.75rem;">
           Carga productos típicos de kiosco para probar la app.
@@ -308,6 +329,27 @@
       </div>
       <div class="modal-actions" style="padding: 0 1.3rem 1.2rem;">
         <button type="button" class="btn btn-primary" id="btn-cerrar-config-ok">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ingresar PIN (salir de modo empleado) -->
+  <div id="modal-pin" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Ingresá el PIN</h2>
+        <button class="btn-icon" id="btn-cerrar-pin" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <input type="password" id="pin-input" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off" style="text-align:center; font-size:1.4rem; letter-spacing:0.3rem;" />
+        </div>
+        <span class="field-error" id="pin-error"></span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-pin-cancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-pin-confirmar">Ingresar</button>
       </div>
     </div>
   </div>
