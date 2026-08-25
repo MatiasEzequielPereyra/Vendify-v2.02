@@ -10,7 +10,7 @@
  * está configurada en supabase/schema.sql — cada usuario solo puede
  * ver y modificar SUS propios productos.
  */
-const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
-const SUPABASE_ANON_KEY = "TU-ANON-KEY-ACA";
+const SUPABASE_URL = "https://puhkmblnptntorwptvld.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1aGttYmxucHRudG9yd3B0dmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MTcxMTEsImV4cCI6MjEwMzE5MzExMX0.k5zICWroYkhh3YCCspQpnAB0yXoFVrYo1JkcFQfP79o";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
