@@ -92,6 +92,9 @@
         <button id="btn-theme" class="btn btn-ghost" title="Cambiar tema (T)">
           <span id="theme-icon">☀️</span>
         </button>
+        <button id="btn-historial" class="btn btn-ghost" title="Historial de ventas (tickets)">
+          📋 Historial
+        </button>
         <button id="btn-config" class="btn btn-ghost" title="Configuración">
           ⚙️ Config
         </button>
@@ -104,16 +107,15 @@
         <button id="btn-nuevo" class="btn btn-primary">
           <span>+</span> Nuevo producto
         </button>
-        <button id="btn-modo-empleado" class="btn btn-secondary" title="Bloquear la app en modo vendedor">
+        <button id="btn-modo-empleado" class="btn btn-secondary" title="Bloquear edición para empleados">
           🔒 Modo empleado
         </button>
       </div>
     </header>
 
-    <!-- Barra visible solo cuando la app está bloqueada en modo empleado -->
+    <!-- Aviso visible solo cuando la app está en modo empleado -->
     <div id="empleado-bar" class="empleado-bar hidden">
-      <span>🔒 Modo empleado — solo venta</span>
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-salir-modo-empleado">Salir con PIN</button>
+      <span>🔒 Modo empleado activo — solo se puede vender, el resto está bloqueado</span>
     </div>
 
     <!-- Stats -->
@@ -404,6 +406,34 @@
   </div>
 
   <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modal Historial de ventas (tickets) -->
+  <div id="modal-historial" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-historial-content">
+      <div class="modal-header">
+        <h2>Historial de ventas</h2>
+        <button class="btn-icon" id="btn-cerrar-historial" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="historial-filtros">
+          <select id="historial-rango" class="select">
+            <option value="hoy">Hoy</option>
+            <option value="ayer">Ayer</option>
+            <option value="7dias">Últimos 7 días</option>
+            <option value="mes">Este mes</option>
+            <option value="todo">Todo</option>
+          </select>
+        </div>
+        <div class="historial-resumen" id="historial-resumen"></div>
+        <div id="historial-lista" class="historial-lista"></div>
+        <div id="historial-vacio" class="empty-state hidden" style="padding: 2rem 1rem;">
+          <div class="empty-illustration">🧾</div>
+          <h3>No hay ventas en este período</h3>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Venta (POS) -->
   <div id="modal-venta" class="modal hidden" role="dialog" aria-modal="true">

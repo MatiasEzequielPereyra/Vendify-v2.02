@@ -178,12 +178,12 @@ function activarModoEmpleado(mostrarAviso = true) {
   document.body.classList.add("modo-empleado");
   localStorage.setItem(MODO_EMPLEADO_KEY, "1");
   $("#empleado-bar")?.classList.remove("hidden");
-  abrirVenta();
-  if (mostrarAviso) mostrarToast("Modo empleado activado — solo pantalla de venta");
+  actualizarBotonModoEmpleado();
+  if (mostrarAviso) mostrarToast("Modo empleado activado: solo se puede vender");
 }
 
 async function intentarSalirModoEmpleado() {
-  const pin = await pedirPin("Ingresá el PIN para salir del modo empleado");
+  const pin = await pedirPin("Ingresá el PIN de administrador para salir");
   if (pin === null) return;
   if (pin !== pinEmpleado) {
     mostrarToast("PIN incorrecto", "error");
@@ -192,8 +192,32 @@ async function intentarSalirModoEmpleado() {
   document.body.classList.remove("modo-empleado");
   localStorage.removeItem(MODO_EMPLEADO_KEY);
   $("#empleado-bar")?.classList.add("hidden");
-  cerrarVenta();
+  actualizarBotonModoEmpleado();
   mostrarToast("Modo administrador activado");
+}
+
+function actualizarBotonModoEmpleado() {
+  const btn = $("#btn-modo-empleado");
+  if (!btn) return;
+  const activo = document.body.classList.contains("modo-empleado");
+  btn.textContent = activo ? "🔓 Salir modo empleado" : "🔒 Modo empleado";
+  btn.title = activo ? "Salir con el PIN de administrador" : "Bloquear edición para empleados";
+}
+
+function bloqueadoEnModoEmpleado() {
+  if (document.body.classList.contains("modo-empleado")) {
+    mostrarToast("Acción bloqueada en modo empleado", "error");
+    return true;
+  }
+  return false;
+}
+
+function toggleModoEmpleado() {
+  if (document.body.classList.contains("modo-empleado")) {
+    intentarSalirModoEmpleado();
+  } else {
+    activarModoEmpleado(true);
+  }
 }
 
 async function enviarMagicLink(e) {
@@ -475,6 +499,7 @@ function renderListaCategoriasConfig() {
 }
 
 async function agregarCategoria() {
+  if (bloqueadoEnModoEmpleado()) return;
   const input = $("#nueva-categoria");
   const nombre = input.value.trim();
   if (!nombre) {
@@ -502,6 +527,7 @@ async function agregarCategoria() {
 }
 
 async function eliminarCategoria(index) {
+  if (bloqueadoEnModoEmpleado()) return;
   const nombre = categorias[index];
   if (!nombre) return;
   const enUso = productos.some((p) => p.categoria === nombre);
@@ -784,6 +810,7 @@ function aplicarDeltaStock(delta) {
 }
 
 async function confirmarAjusteStock() {
+  if (bloqueadoEnModoEmpleado()) return;
   if (!stockAjusteId) return;
   const p = productos.find((x) => x.id === stockAjusteId);
   if (!p) return;
@@ -818,6 +845,7 @@ async function confirmarAjusteStock() {
 // =====================
 async function guardarProducto(e) {
   e.preventDefault();
+  if (bloqueadoEnModoEmpleado()) return;
   const nombre = $("#nombre").value.trim();
 
   if (!nombre) {
@@ -878,6 +906,7 @@ async function guardarProducto(e) {
 }
 
 async function eliminarProducto(id) {
+  if (bloqueadoEnModoEmpleado()) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
   const ok = await confirmar(
@@ -899,6 +928,7 @@ async function eliminarProducto(id) {
 
 // "sumar" = reposición de mercadería (ingreso) · "restar" = venta
 async function cambiarStock(id, delta) {
+  if (bloqueadoEnModoEmpleado()) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
   if (delta < 0 && p.stock === 0) return;
@@ -940,10 +970,6 @@ function abrirVenta() {
 }
 
 function cerrarVenta() {
-  if (document.body.classList.contains("modo-empleado")) {
-    intentarSalirModoEmpleado();
-    return;
-  }
   $("#modal-venta").classList.add("hidden");
   carrito = [];
 }
@@ -1087,6 +1113,7 @@ async function confirmarVenta() {
 // Export CSV
 // =====================
 function exportarCSV() {
+  if (bloqueadoEnModoEmpleado()) return;
   if (productos.length === 0) {
     mostrarToast("No hay productos para exportar", "error");
     return;
@@ -1109,6 +1136,121 @@ function exportarCSV() {
 }
 
 // =====================
+// Historial de ventas (tickets)
+// =====================
+function rangoFechas(clave) {
+  const ahora = new Date();
+  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  let desde = null;
+  let hasta = null;
+
+  switch (clave) {
+    case "hoy":
+      desde = inicioHoy;
+      break;
+    case "ayer": {
+      desde = new Date(inicioHoy);
+      desde.setDate(desde.getDate() - 1);
+      hasta = new Date(inicioHoy);
+      break;
+    }
+    case "7dias":
+      desde = new Date(inicioHoy);
+      desde.setDate(desde.getDate() - 6);
+      break;
+    case "mes":
+      desde = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+      break;
+    case "todo":
+    default:
+      desde = null;
+  }
+  return { desde, hasta };
+}
+
+async function abrirHistorial() {
+  $("#modal-historial").classList.remove("hidden");
+  await renderHistorial();
+}
+
+function cerrarHistorial() {
+  $("#modal-historial").classList.add("hidden");
+}
+
+async function renderHistorial() {
+  const cont = $("#historial-lista");
+  const vacio = $("#historial-vacio");
+  const resumen = $("#historial-resumen");
+  cont.innerHTML = `<p class="hint" style="text-align:center;padding:1rem;">Cargando...</p>`;
+  vacio.classList.add("hidden");
+
+  const clave = $("#historial-rango").value;
+  const { desde, hasta } = rangoFechas(clave);
+
+  let query = supabaseClient
+    .from("ventas")
+    .select("*, venta_items(*)")
+    .order("creado", { ascending: false });
+
+  if (desde) query = query.gte("creado", desde.toISOString());
+  if (hasta) query = query.lt("creado", hasta.toISOString());
+
+  const { data, error } = await query;
+
+  if (error) {
+    cont.innerHTML = "";
+    mostrarToast("No se pudo cargar el historial", "error");
+    return;
+  }
+
+  const ventasList = data || [];
+
+  if (ventasList.length === 0) {
+    cont.innerHTML = "";
+    resumen.innerHTML = "";
+    vacio.classList.remove("hidden");
+    return;
+  }
+  vacio.classList.add("hidden");
+
+  const totalPeriodo = ventasList.reduce((a, v) => a + (v.total || 0), 0);
+  resumen.innerHTML = `
+    <span><strong>${ventasList.length}</strong> ticket${ventasList.length === 1 ? "" : "s"}</span>
+    <span><strong>${formatearPrecio(totalPeriodo)}</strong> vendido</span>
+  `;
+
+  cont.innerHTML = ventasList
+    .map((v) => {
+      const fecha = new Date(v.creado);
+      const fechaTexto = fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const horaTexto = fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      const items = (v.venta_items || []).sort((a, b) => a.producto_nombre.localeCompare(b.producto_nombre, "es"));
+
+      const itemsHtml = items
+        .map(
+          (it) => `
+            <div class="ticket-item-row">
+              <span>${it.cantidad}× ${escapeHtml(it.producto_nombre)}</span>
+              <span>${formatearPrecio(it.subtotal)}</span>
+            </div>`
+        )
+        .join("");
+
+      return `
+        <details class="ticket-card">
+          <summary>
+            <span class="ticket-fecha">${fechaTexto} · ${horaTexto}</span>
+            ${v.medio_pago ? `<span class="ticket-medio">${escapeHtml(v.medio_pago)}</span>` : ""}
+            <span class="ticket-total">${formatearPrecio(v.total)}</span>
+          </summary>
+          <div class="ticket-items">${itemsHtml || '<p class="hint">Sin detalle de artículos</p>'}</div>
+        </details>
+      `;
+    })
+    .join("");
+}
+
+// =====================
 // Eventos
 // =====================
 function inicializarEventos() {
@@ -1119,12 +1261,13 @@ function inicializarEventos() {
   $("#btn-empty-nuevo")?.addEventListener("click", () => abrirModal());
   $("#btn-vender").addEventListener("click", abrirVenta);
   $("#btn-cerrar-venta").addEventListener("click", cerrarVenta);
-  $("#modal-venta .modal-backdrop").addEventListener("click", () => {
-    if (!document.body.classList.contains("modo-empleado")) cerrarVenta();
-  });
+  $("#modal-venta .modal-backdrop").addEventListener("click", cerrarVenta);
 
-  $("#btn-modo-empleado")?.addEventListener("click", () => activarModoEmpleado(true));
-  $("#btn-salir-modo-empleado")?.addEventListener("click", intentarSalirModoEmpleado);
+  $("#btn-modo-empleado")?.addEventListener("click", toggleModoEmpleado);
+  $("#btn-historial")?.addEventListener("click", abrirHistorial);
+  $("#btn-cerrar-historial")?.addEventListener("click", cerrarHistorial);
+  $("#modal-historial .modal-backdrop")?.addEventListener("click", cerrarHistorial);
+  $("#historial-rango")?.addEventListener("change", renderHistorial);
   $("#btn-guardar-pin")?.addEventListener("click", guardarPinEmpleado);
   $("#pin-empleado")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); guardarPinEmpleado(); }
@@ -1226,6 +1369,7 @@ function inicializarEventos() {
   $("#productos-grid").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
+    if (document.body.classList.contains("modo-empleado")) return;
     const card = btn.closest(".producto-card");
     const id = card?.dataset.id;
     if (!id) return;
@@ -1250,9 +1394,8 @@ function inicializarEventos() {
     if (e.key === "Escape") {
       if (!$("#modal-pin").classList.contains("hidden")) cerrarModalPin(null);
       else if (!$("#modal").classList.contains("hidden")) cerrarModal();
-      else if (!$("#modal-venta").classList.contains("hidden")) {
-        if (!document.body.classList.contains("modo-empleado")) cerrarVenta();
-      }
+      else if (!$("#modal-venta").classList.contains("hidden")) cerrarVenta();
+      else if (!$("#modal-historial").classList.contains("hidden")) cerrarHistorial();
       else if (!$("#modal-config").classList.contains("hidden")) cerrarConfig();
       else if (!$("#modal-confirm").classList.contains("hidden")) {
         cerrarConfirm();
@@ -1261,12 +1404,13 @@ function inicializarEventos() {
       return;
     }
     if (escribiendo) return;
-    if (document.body.classList.contains("modo-empleado")) return;
 
-    if (e.key === "n" || e.key === "N") { e.preventDefault(); abrirModal(); }
-    else if (e.key === "v" || e.key === "V") { e.preventDefault(); abrirVenta(); }
-    else if (e.key === "/") { e.preventDefault(); $("#buscador").focus(); }
+    const bloqueadoPorEmpleado = document.body.classList.contains("modo-empleado");
+    if (e.key === "v" || e.key === "V") { e.preventDefault(); abrirVenta(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTema(); }
+    else if (e.key === "/") { e.preventDefault(); $("#buscador").focus(); }
+    else if (bloqueadoPorEmpleado) return;
+    else if (e.key === "n" || e.key === "N") { e.preventDefault(); abrirModal(); }
   });
 }
 

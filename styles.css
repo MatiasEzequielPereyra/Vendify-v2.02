@@ -1366,40 +1366,116 @@ kbd {
   .modal-venta-content { height: 92vh; }
 }
 
-/* ===== Modo empleado (bloqueo con PIN) ===== */
+/* ===== Modo empleado (bloquea edición, deja ver y vender) ===== */
 .empleado-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--warning-bg, #78350f);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Se sigue viendo todo el panel (stock, stats, búsqueda) y se puede vender.
+   Solo se ocultan las acciones que crean/editan/borran/ajustan datos. */
+body.modo-empleado #btn-cerrar-sesion,
+body.modo-empleado #btn-config,
+body.modo-empleado #btn-export,
+body.modo-empleado #btn-nuevo,
+body.modo-empleado .sesion-badge,
+body.modo-empleado .card-acciones,
+body.modo-empleado .card-stock-controls {
+  display: none !important;
+}
+
+body.modo-empleado .producto-card .card-body {
+  padding-bottom: 1rem;
+}
+
+/* ===== Historial de ventas (tickets) ===== */
+.modal-historial-content {
+  max-width: 560px;
+}
+
+.historial-filtros {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.historial-resumen {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  background: var(--bg-soft, rgba(59, 130, 246, 0.08));
+  border-radius: var(--radius-sm, 10px);
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.historial-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.ticket-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--surface);
+  padding: 0.15rem 0.9rem;
+}
+
+.ticket-card summary {
+  list-style: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  background: var(--warning-bg, #78350f);
-  color: #fff;
-  padding: 0.55rem 1rem;
+  padding: 0.65rem 0;
+  font-size: 0.9rem;
+}
+
+.ticket-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.ticket-fecha {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.ticket-medio {
+  font-size: 0.78rem;
+  background: var(--chip-bg, rgba(148, 163, 184, 0.18));
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.ticket-total {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.ticket-items {
+  border-top: 1px dashed var(--border);
+  padding: 0.6rem 0 0.75rem;
+}
+
+.ticket-item-row {
+  display: flex;
+  justify-content: space-between;
   font-size: 0.85rem;
-  font-weight: 600;
-}
-
-body.modo-empleado .header-left,
-body.modo-empleado .stats,
-body.modo-empleado .filtro-activo,
-body.modo-empleado .controls,
-body.modo-empleado .grid-section,
-body.modo-empleado .footer,
-body.modo-empleado #btn-cerrar-sesion,
-body.modo-empleado #btn-theme,
-body.modo-empleado #btn-config,
-body.modo-empleado #btn-export,
-body.modo-empleado #btn-nuevo,
-body.modo-empleado #btn-modo-empleado,
-body.modo-empleado .sesion-badge,
-body.modo-empleado #btn-cerrar-venta {
-  display: none !important;
-}
-
-body.modo-empleado .header {
-  justify-content: center;
-}
-
-body.modo-empleado #modal-venta .modal-backdrop {
-  pointer-events: none;
+  padding: 0.2rem 0;
+  color: var(--text-muted);
 }

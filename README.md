@@ -61,8 +61,9 @@ queda una venta "a medias" ni un stock inconsistente.
 
 ## Modo empleado (PIN, sin usar tu mail)
 
-Pensado para que un empleado use el dispositivo del mostrador solo para vender, sin poder
-tocar productos, precios ni configuración, y sin necesitar el mail del dueño en ningún momento.
+Pensado para que un empleado use el dispositivo del mostrador para vender y consultar stock,
+sin poder crear, editar ni borrar productos, ajustar stock a mano, tocar categorías,
+configuración ni exportar datos — y sin necesitar el mail del dueño en ningún momento.
 
 **Configurarlo (el dueño, una sola vez):**
 1. Iniciá sesión normalmente con tu mail.
@@ -70,16 +71,28 @@ tocar productos, precios ni configuración, y sin necesitar el mail del dueño e
 
 **Usarlo en el mostrador:**
 1. Con la sesión del dueño ya abierta en ese dispositivo, tocá **🔒 Modo empleado**.
-2. La app queda bloqueada mostrando solo la pantalla de venta — el empleado puede cobrar,
-   pero no ve productos, precios de compra, configuración ni el botón de cerrar sesión.
-3. Para volver al modo administrador, tocá **Salir con PIN** e ingresá el PIN.
+2. La interfaz queda igual que siempre (stock, búsqueda, historial, botón Vender), pero
+   desaparecen los botones de crear/editar/borrar productos, los +/− de stock en cada
+   tarjeta, Configuración y Exportar CSV. El empleado sigue pudiendo vender normalmente
+   desde **🧾 Vender**.
+3. Para volver a modo administrador, el mismo botón ahora dice **🔓 Salir modo empleado**:
+   tocalo e ingresá el PIN de administrador que configuraste en el paso anterior.
 
 El bloqueo se guarda en ese dispositivo (persiste aunque se cierre y reabra la app), así que
 lo normal es configurarlo una vez en la tablet o compu del mostrador y dejarla siempre así.
 
 > Nota: esto es una traba de uso, no una cuenta de usuario separada. Por debajo, todo sigue
-> guardándose con el mismo usuario (el dueño); el PIN solo oculta la interfaz de administración
-> para que el empleado no la toque sin querer.
+> guardándose con el mismo usuario (el dueño); el PIN solo oculta las acciones de edición
+> para que el empleado no las toque, sin querer o queriendo.
+
+## Historial de ventas (tickets)
+
+Botón **📋 Historial** en el header: lista cada venta cobrada, con fecha, hora, total, medio
+de pago, y al desplegarla, el detalle de qué productos y cantidades incluyó.
+
+Tiene un filtro rápido por período (Hoy / Ayer / Últimos 7 días / Este mes / Todo) y muestra
+arriba el total de tickets y lo vendido en ese rango, para tener un control rápido de cómo
+viene el día o la semana.
 
 ## Control de stock manual (fuera del modo venta)
 
@@ -97,7 +110,9 @@ para tener un historial completo de qué pasó con cada producto.
 - ✅ Login por email (sin contraseña) — cada kiosco ve solo sus propios datos
 - ✅ Stock sincronizado en vivo entre todos los dispositivos (Supabase Realtime)
 - ✅ **Modo Venta**: carrito, cobro y descuento de stock atómico para varios productos a la vez
-- ✅ **Modo empleado con PIN**: el mostrador vende sin acceso a productos ni al mail del dueño
+- ✅ **Historial de ventas**: cada ticket con fecha, hora, total, medio de pago y detalle de artículos, filtrable por período
+- ✅ **Modo empleado con PIN**: el mostrador vende (y consulta stock) sin poder editar nada
+  ni usar el mail del dueño
 - ✅ Venta rápida / reposición / ajuste manual con historial de movimientos
 - ✅ Fotos, precio de compra/venta y margen
 - ✅ Categorías configurables
@@ -110,11 +125,11 @@ para tener un historial completo de qué pasó con cada producto.
 ## Roadmap para seguir comercializando
 
 ### Corto plazo
-- Reportes: ventas de hoy/semana, producto más vendido, margen del mes
-  (ya está la data en `ventas` / `venta_items`, falta la pantalla)
 - Impresión o envío del ticket (PDF / WhatsApp)
 - Cola de acciones pendientes cuando no hay internet, para no perder ventas offline
 - Código de barras (escaneo con la cámara) para agregar al carrito más rápido
+- Reportes más avanzados: producto más vendido, margen del mes, comparar períodos
+  (ya está toda la data en `ventas` / `venta_items`; el historial de hoy es la base de esto)
 
 ### Mediano plazo
 - Roles reales por usuario (hoy el modo empleado es una traba de PIN, no una cuenta
@@ -148,5 +163,8 @@ Los datos viven en Supabase (Postgres), no en el navegador. Cada dispositivo se 
 con el mismo email y ve/edita los mismos productos en tiempo real gracias a Supabase Realtime,
 protegidos por Row Level Security (cada usuario solo accede a sus propias filas). El cobro de
 una venta con varios productos se resuelve en una sola transacción de base de datos
-(`registrar_venta`), evitando ventas parciales o stock inconsistente entre dispositivos.
+(`registrar_venta`), evitando ventas parciales o stock inconsistente entre dispositivos. El
+modo empleado es un bloqueo de interfaz (con guarda también en el código, no solo visual):
+todas las acciones de edición se siguen ejecutando con el mismo usuario dueño por debajo, el
+PIN solo decide si esos botones están disponibles en ese dispositivo en ese momento.
 
