@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="description" content="Control de stock y mercadería para kioscos. Instalable en el celular." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stock Kiosco" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <title>Stock Kiosco · Control de inventario</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <!-- Pantalla de login (Supabase Auth — magic link) -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="onboarding-logo">🏪</div>
+      <h1>Stock Kiosco</h1>
+      <p class="onboarding-lead">Ingresá con tu email para acceder a tu stock desde cualquier dispositivo, en vivo.</p>
+
+      <form id="auth-form" class="auth-form">
+        <div class="form-group">
+          <label for="auth-email">Email</label>
+          <input type="email" id="auth-email" required placeholder="tu@email.com" autocomplete="email" />
+        </div>
+        <span class="field-error" id="auth-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-auth-enviar">Enviar link de acceso</button>
+      </form>
+
+      <div id="auth-check-email" class="auth-check-email hidden">
+        <p>📩 Te enviamos un link de acceso a</p>
+        <p class="auth-email-destacado" id="auth-check-email-addr"></p>
+        <p class="hint">Abrilo desde este mismo dispositivo para entrar. No hace falta contraseña.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banner instalar PWA -->
+  <div id="install-banner" class="install-banner hidden">
+    <div class="install-banner-content">
+      <span>📱 Instalá Stock Kiosco en tu teléfono</span>
+      <div class="install-banner-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="btn-install">Instalar</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-install-dismiss">Ahora no</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding primera vez -->
+  <div id="onboarding" class="onboarding hidden">
+    <div class="onboarding-card">
+      <div class="onboarding-logo">🏪</div>
+      <h1>Stock Kiosco</h1>
+      <p class="onboarding-lead">Controlá la mercadería de tu kiosco de forma simple.</p>
+      <ul class="onboarding-list">
+        <li>📦 Stock en tiempo real</li>
+        <li>💰 Precio de compra y venta</li>
+        <li>📷 Fotos desde la cámara</li>
+        <li>⚠️ Alertas de stock bajo</li>
+        <li>📱 Funciona en el celular como app</li>
+      </ul>
+      <button type="button" class="btn btn-primary btn-lg" id="btn-empezar">Empezar</button>
+      <button type="button" class="btn btn-secondary" id="btn-empezar-ejemplos">Empezar con productos de ejemplo</button>
+    </div>
+  </div>
+
+  <div class="app hidden">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <span class="logo-icon">🏪</span>
+          <div>
+            <h1>Stock Kiosco</h1>
+            <p class="subtitle">Control de mercadería</p>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="sesion-badge" title="Sesión activa">🟢 <span id="sesion-email"></span></span>
+        <button id="btn-cerrar-sesion" class="btn btn-ghost" title="Cerrar sesión">
+          Salir
+        </button>
+        <button id="btn-theme" class="btn btn-ghost" title="Cambiar tema (T)">
+          <span id="theme-icon">☀️</span>
+        </button>
+        <button id="btn-config" class="btn btn-ghost" title="Configuración">
+          ⚙️ Config
+        </button>
+        <button id="btn-export" class="btn btn-ghost" title="Exportar CSV">
+          ⬇️ Exportar
+        </button>
+        <button id="btn-vender" class="btn btn-primary btn-vender" title="Modo venta (V)">
+          🧾 Vender
+        </button>
+        <button id="btn-nuevo" class="btn btn-primary">
+          <span>+</span> Nuevo producto
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <span class="stat-label">Productos</span>
+          <span class="stat-value" id="stat-productos">0</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-info">
+          <span class="stat-label">Unidades</span>
+          <span class="stat-value" id="stat-stock">0</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-info">
+          <span class="stat-label">Costo inventario</span>
+          <span class="stat-value" id="stat-costo">$0</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-info">
+          <span class="stat-label">Valor venta</span>
+          <span class="stat-value" id="stat-venta">$0</span>
+        </div>
+      </div>
+      <div class="stat-card warning clickable" id="stat-bajo-card" title="Click para filtrar stock bajo">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-info">
+          <span class="stat-label">Stock bajo</span>
+          <span class="stat-value" id="stat-bajo">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chip de filtro activo -->
+    <div id="filtro-activo" class="filtro-activo hidden">
+      <span>Mostrando solo stock bajo</span>
+      <button type="button" id="btn-limpiar-filtro" class="btn-chip">✕ Quitar filtro</button>
+    </div>
+
+    <!-- Controles -->
+    <section class="controls">
+      <div class="search-box">
+        <input
+          type="search"
+          id="buscador"
+          placeholder="Buscar producto o categoría...  ( / )"
+          autocomplete="off"
+        />
+        <kbd class="shortcut-hint">/</kbd>
+      </div>
+      <select id="filtro-categoria" class="select">
+        <option value="">Todas las categorías</option>
+      </select>
+      <select id="orden" class="select">
+        <option value="nombre-asc">Nombre A-Z</option>
+        <option value="nombre-desc">Nombre Z-A</option>
+        <option value="stock-asc">Stock ↑</option>
+        <option value="stock-desc">Stock ↓</option>
+        <option value="precioVenta-asc">Precio venta ↑</option>
+        <option value="precioVenta-desc">Precio venta ↓</option>
+      </select>
+    </section>
+
+    <!-- Grilla de productos -->
+    <section class="grid-section">
+      <div id="productos-grid" class="productos-grid"></div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-illustration">📦</div>
+        <h3>No hay productos todavía</h3>
+        <p>Agregá tu primer producto o cargá los de ejemplo.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary" id="btn-empty-nuevo">+ Agregar producto</button>
+          <button class="btn btn-secondary" id="btn-cargar-ejemplos">Cargar ejemplos de kiosco</button>
+        </div>
+      </div>
+
+      <div id="no-results" class="empty-state hidden">
+        <div class="empty-illustration">🔍</div>
+        <h3>Sin resultados</h3>
+        <p>No encontramos productos con ese filtro.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Atajos: <kbd>N</kbd> nuevo · <kbd>V</kbd> vender · <kbd>/</kbd> buscar · <kbd>T</kbd> tema · <kbd>Esc</kbd> cerrar</span>
+    </footer>
+  </div>
+
+  <!-- Modal Producto -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-titulo">Nuevo producto</h2>
+        <button class="btn-icon" id="btn-cerrar-modal" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="form-producto" novalidate>
+        <input type="hidden" id="producto-id" />
+
+        <div class="form-group foto-group">
+          <label>Foto del producto</label>
+          <div class="foto-upload">
+            <div class="foto-preview" id="foto-preview">
+              <span class="foto-placeholder" id="foto-placeholder">📷</span>
+              <img id="foto-img" class="hidden" alt="Vista previa" />
+            </div>
+            <div class="foto-actions">
+              <label class="btn btn-secondary btn-sm" for="foto-input">📁 Galería</label>
+              <input type="file" id="foto-input" accept="image/*" class="hidden" />
+              <label class="btn btn-secondary btn-sm" for="foto-camara">📷 Cámara</label>
+              <input type="file" id="foto-camara" accept="image/*" capture="environment" class="hidden" />
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-quitar-foto">Quitar</button>
+            </div>
+            <p class="hint">Opcional · En el celular podés sacar la foto al momento</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="nombre">Nombre del producto *</label>
+          <input type="text" id="nombre" required maxlength="80" placeholder="Ej: Coca Cola 500ml" autocomplete="off" />
+          <span class="field-error" id="error-nombre"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="categoria">Categoría</label>
+          <select id="categoria" class="select select-full">
+            <option value="">Sin categoría</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="precio-compra">Precio de compra ($)</label>
+            <input type="number" id="precio-compra" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label for="precio-venta">Precio de venta ($)</label>
+            <input type="number" id="precio-venta" min="0" step="0.01" placeholder="0.00" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="stock">Stock actual</label>
+            <input type="number" id="stock" min="0" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="stock-minimo">Stock mínimo (alerta)</label>
+            <input type="number" id="stock-minimo" min="0" step="1" value="5" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Configuración (categorías) -->
+  <div id="modal-config" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Configuración</h2>
+        <button class="btn-icon" id="btn-cerrar-config" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <h3 class="config-section-title">Categorías</h3>
+        <p class="hint" style="margin-bottom: 0.85rem;">
+          Armá las categorías antes de cargar productos. Después las elegís al crear cada artículo.
+        </p>
+
+        <div class="config-add-row">
+          <input type="text" id="nueva-categoria" placeholder="Nueva categoría..." maxlength="40" autocomplete="off" />
+          <button type="button" class="btn btn-primary btn-sm" id="btn-add-categoria">Agregar</button>
+        </div>
+
+        <ul id="lista-categorias-config" class="lista-categorias-config"></ul>
+
+        <div class="config-divider"></div>
+
+        <h3 class="config-section-title">Datos de prueba</h3>
+        <p class="hint" style="margin-bottom: 0.75rem;">
+          Carga productos típicos de kiosco para probar la app.
+        </p>
+        <button type="button" class="btn btn-secondary" id="btn-cargar-ejemplos-config">
+          Cargar productos de ejemplo
+        </button>
+      </div>
+      <div class="modal-actions" style="padding: 0 1.3rem 1.2rem;">
+        <button type="button" class="btn btn-primary" id="btn-cerrar-config-ok">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmación -->
+  <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2 id="confirm-titulo">Confirmar</h2>
+        <button class="btn-icon" id="btn-cerrar-confirm" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-mensaje"></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ajuste de stock -->
+  <div id="modal-stock" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Ajustar stock</h2>
+        <button class="btn-icon" id="btn-cerrar-stock" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="stock-producto-nombre" id="stock-nombre"></p>
+        <div class="stock-adjust">
+          <button type="button" class="btn-stock-big" data-delta="-10">−10</button>
+          <button type="button" class="btn-stock-big" data-delta="-5">−5</button>
+          <button type="button" class="btn-stock-big" data-delta="-1">−1</button>
+          <span class="stock-actual" id="stock-actual">0</span>
+          <button type="button" class="btn-stock-big" data-delta="1">+1</button>
+          <button type="button" class="btn-stock-big" data-delta="5">+5</button>
+          <button type="button" class="btn-stock-big" data-delta="10">+10</button>
+        </div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label for="stock-manual">O ingresá un valor exacto</label>
+          <input type="number" id="stock-manual" min="0" step="1" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-stock-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-stock-ok">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modal Venta (POS) -->
+  <div id="modal-venta" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-venta-content">
+      <div class="modal-header">
+        <h2>🧾 Nueva venta</h2>
+        <button class="btn-icon" id="btn-cerrar-venta" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="venta-body">
+        <div class="venta-productos-col">
+          <div class="search-box">
+            <input type="search" id="venta-buscador" placeholder="Buscar producto..." autocomplete="off" />
+          </div>
+          <div id="venta-productos-lista" class="venta-productos-lista"></div>
+        </div>
+
+        <div class="venta-carrito-col">
+          <h3 class="config-section-title">Carrito</h3>
+          <div id="carrito-items" class="carrito-items">
+            <p class="carrito-vacio" id="carrito-vacio">Tocá un producto para agregarlo</p>
+          </div>
+
+          <div class="venta-medio-pago">
+            <label for="medio-pago">Medio de pago</label>
+            <select id="medio-pago" class="select select-full">
+              <option value="Efectivo">Efectivo</option>
+              <option value="Tarjeta">Tarjeta</option>
+              <option value="Transferencia">Transferencia</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="venta-total-row">
+            <span>Total</span>
+            <span id="carrito-total">$0</span>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-lg btn-cobrar" id="btn-cobrar" disabled>
+            Cobrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
