@@ -427,6 +427,115 @@ function mostrarMensajeAuth(mensaje, tipo = "info") {
   el.classList.remove("hidden");
 }
 
+// ============================================================
+// VENDIFY V2.3 - SELECTOR DE LOGIN
+// ============================================================
+
+function mostrarPanelLogin(tipo) {
+  const tabOwner = document.querySelector("#tab-owner");
+  const tabEmployee = document.querySelector("#tab-employee");
+
+  const ownerPanel = document.querySelector("#auth-owner-panel");
+  const employeePanel = document.querySelector("#auth-employee-panel");
+
+  const registerForm = document.querySelector("#register-form");
+  const forgotForm = document.querySelector("#forgot-form");
+  const authMessage = document.querySelector("#auth-message");
+
+  const esOwner = tipo === "owner";
+
+  // Tabs
+  tabOwner?.classList.toggle("active", esOwner);
+  tabEmployee?.classList.toggle("active", !esOwner);
+
+  // Formularios principales
+  ownerPanel?.classList.toggle("hidden", !esOwner);
+  employeePanel?.classList.toggle("hidden", esOwner);
+
+  // Ocultar pantallas secundarias
+  registerForm?.classList.add("hidden");
+  forgotForm?.classList.add("hidden");
+  authMessage?.classList.add("hidden");
+
+  // Limpiar errores
+  const loginError = document.querySelector("#login-error");
+  const employeeError = document.querySelector("#employee-login-error");
+
+  if (loginError) loginError.textContent = "";
+  if (employeeError) employeeError.textContent = "";
+}
+
+const EMPLOYEE_DOMAIN = "employees.vendify.internal";
+
+function normalizarLoginInterno(valor) {
+  return String(valor || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+}
+
+function emailInternoEmpleado(codigoNegocio, username) {
+  const code = normalizarLoginInterno(codigoNegocio);
+  const user = normalizarLoginInterno(username);
+
+  return `${code}.${user}@${EMPLOYEE_DOMAIN}`;
+}
+
+function generarPasswordTemporal() {
+  const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$";
+
+  const array = new Uint32Array(12);
+
+  crypto.getRandomValues(array);
+
+  return Array.from(
+    array,
+    (n) => chars[n % chars.length]
+  ).join("");
+}
+
+function mostrarPanelLogin(tipo) {
+  const esOwner = tipo === "owner";
+
+  $("#tab-owner")?.classList.toggle(
+    "active",
+    esOwner
+  );
+
+  $("#tab-employee")?.classList.toggle(
+    "active",
+    !esOwner
+  );
+
+  $("#auth-owner-panel")?.classList.toggle(
+    "hidden",
+    !esOwner
+  );
+
+  $("#auth-employee-panel")?.classList.toggle(
+    "hidden",
+    esOwner
+  );
+
+  $("#register-form")?.classList.add("hidden");
+  $("#forgot-form")?.classList.add("hidden");
+  $("#auth-message")?.classList.add("hidden");
+
+  const loginError = $("#login-error");
+
+  const employeeError =
+    $("#employee-login-error");
+
+  if (loginError) {
+    loginError.textContent = "";
+  }
+
+  if (employeeError) {
+    employeeError.textContent = "";
+  }
+}
+
 async function initAuth() {
   const { data } = await supabaseClient.auth.getSession();
   sesionActual = data.session;
