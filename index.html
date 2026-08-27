@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles-v225.css" />
+  <link rel="stylesheet" href="styles-v226.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -178,6 +178,17 @@
           <strong id="context-usuario">Usuario</strong>
           <span id="context-rol">Rol</span>
         </div>
+
+        <div class="branch-switcher-v226" title="Sucursal activa">
+          <span class="branch-switcher-icon-v226">⌂</span>
+          <div class="branch-switcher-copy-v226">
+            <small>Sucursal</small>
+            <select id="branch-selector-v226" aria-label="Sucursal activa">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+        </div>
+
         <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
           <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
         </button>
@@ -325,6 +336,7 @@
     <div class="modal-content modal-product-v29">
       <div class="modal-header">
         <h2 id="modal-titulo">Nuevo producto</h2>
+          <p class="hint" id="producto-branch-hint-v226">Stock de sucursal</p>
         <button class="btn-icon" id="btn-cerrar-modal" aria-label="Cerrar">✕</button>
       </div>
       <form id="form-producto" novalidate>
@@ -409,6 +421,9 @@
           <button type="button" class="config-tab-v224 active" data-config-tab="general">
             <span>⌂</span><span>General</span>
           </button>
+          <button type="button" class="config-tab-v224" data-config-tab="sucursales">
+            <span>⌂</span><span>Sucursales</span>
+          </button>
           <button type="button" class="config-tab-v224" data-config-tab="catalogo">
             <span>▦</span><span>Catálogo</span>
           </button>
@@ -457,6 +472,10 @@
             </div>
 
             <div class="config-quick-grid-v225">
+              <button type="button" class="config-quick-card-v225" data-config-go="sucursales">
+                <span class="config-quick-icon-v225">⌂</span>
+                <span><strong>Sucursales</strong><small>Locales, cajas y transferencias</small></span>
+              </button>
               <button type="button" class="config-quick-card-v225" data-config-go="catalogo">
                 <span class="config-quick-icon-v225">▦</span>
                 <span><strong>Catálogo</strong><small>Categorías y productos iniciales</small></span>
@@ -477,6 +496,37 @@
                 <p>Usuarios, roles y contraseñas se administran desde Equipo.</p>
               </div>
               <button type="button" class="btn btn-secondary btn-sm" id="btn-config-equipo">Abrir Equipo</button>
+            </div>
+          </section>
+
+
+          <!-- Sucursales -->
+          <section class="config-panel-v224" data-config-panel="sucursales" hidden>
+            <div class="config-section-head-v224 sucursales-head-v226">
+              <div>
+                <h3>Sucursales</h3>
+                <p>Administrá locales, cajas y stock independiente por sucursal.</p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nueva-sucursal-v226">
+                ＋ Nueva sucursal
+              </button>
+            </div>
+
+            <div class="branch-info-v226">
+              <span>El stock se administra por sucursal.</span>
+              <strong>La sucursal activa determina qué stock ves y qué stock descuenta una venta.</strong>
+            </div>
+
+            <div id="sucursales-list-v226" class="sucursales-list-v226"></div>
+
+            <div class="settings-card-v224 transfer-card-v226">
+              <div>
+                <h4>Transferencia de stock</h4>
+                <p class="hint">Mové mercadería entre sucursales sin alterar el stock total del negocio.</p>
+              </div>
+              <button type="button" class="btn btn-secondary" id="btn-transferir-stock-v226">
+                ⇄ Transferir stock
+              </button>
             </div>
           </section>
 
@@ -857,6 +907,125 @@
     </div>
   </div>
 
+  
+  <!-- Modal sucursal -->
+  <div id="modal-sucursal-v226" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2 id="sucursal-modal-title-v226">Nueva sucursal</h2>
+          <p class="hint">Cada sucursal tiene stock y cajas independientes.</p>
+        </div>
+        <button class="btn-icon" id="btn-cerrar-sucursal-v226" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="form-sucursal-v226">
+        <input type="hidden" id="sucursal-id-v226" />
+
+        <div class="form-group">
+          <label for="sucursal-nombre-v226">Nombre</label>
+          <input id="sucursal-nombre-v226" required maxlength="60" placeholder="Ej: Bernal Centro" />
+        </div>
+
+        <div class="form-group">
+          <label for="sucursal-direccion-v226">Dirección</label>
+          <input id="sucursal-direccion-v226" maxlength="120" placeholder="Opcional" />
+        </div>
+
+        <div class="form-group">
+          <label for="sucursal-telefono-v226">Teléfono</label>
+          <input id="sucursal-telefono-v226" maxlength="40" placeholder="Opcional" />
+        </div>
+
+        <label class="switch-row-v226" id="sucursal-activa-row-v226">
+          <span>
+            <strong>Sucursal activa</strong>
+            <small>Las sucursales inactivas no aparecen en el selector.</small>
+          </span>
+          <input type="checkbox" id="sucursal-activa-v226" checked />
+        </label>
+
+        <span class="field-error" id="sucursal-error-v226"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-sucursal-v226">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar-sucursal-v226">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal nueva caja -->
+  <div id="modal-caja-v226" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2>Nueva caja</h2>
+          <p class="hint" id="caja-sucursal-label-v226"></p>
+        </div>
+        <button class="btn-icon" id="btn-cerrar-caja-v226" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="form-caja-v226">
+        <input type="hidden" id="caja-sucursal-id-v226" />
+        <div class="form-group">
+          <label for="caja-nombre-v226">Nombre de la caja</label>
+          <input id="caja-nombre-v226" required maxlength="50" placeholder="Ej: Caja 2" />
+        </div>
+        <span class="field-error" id="caja-error-v226"></span>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-caja-v226">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Crear caja</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal transferencia stock -->
+  <div id="modal-transferencia-v226" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2>Transferir stock</h2>
+          <p class="hint">El total del negocio no cambia; solo cambia la ubicación del stock.</p>
+        </div>
+        <button class="btn-icon" id="btn-cerrar-transferencia-v226" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="form-transferencia-v226">
+        <div class="form-group">
+          <label for="transfer-origen-v226">Origen</label>
+          <select id="transfer-origen-v226" class="select select-full" required></select>
+        </div>
+
+        <div class="form-group">
+          <label for="transfer-destino-v226">Destino</label>
+          <select id="transfer-destino-v226" class="select select-full" required></select>
+        </div>
+
+        <div class="form-group">
+          <label for="transfer-producto-v226">Producto</label>
+          <select id="transfer-producto-v226" class="select select-full" required></select>
+          <small class="hint" id="transfer-stock-disponible-v226"></small>
+        </div>
+
+        <div class="form-group">
+          <label for="transfer-cantidad-v226">Cantidad</label>
+          <input type="number" id="transfer-cantidad-v226" min="1" step="1" required />
+        </div>
+
+        <span class="field-error" id="transfer-error-v226"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-transferencia-v226">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Transferir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Modal Historial de ventas (tickets) -->
@@ -944,6 +1113,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app-v225.js"></script>
+  <script src="app-v226.js"></script>
 </body>
 </html>

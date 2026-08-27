@@ -1,0 +1,79 @@
+VENDIFY v2.26 — MULTISUCURSAL REAL
+===================================
+
+ANTES DE SUBIR EL FRONTEND
+--------------------------
+1. Supabase > SQL Editor.
+2. Ejecutar COMPLETO:
+   010_multisucursal_stock.sql
+
+La migración:
+- crea producto_stock_sucursal
+- mueve TODO el stock actual a la sucursal Principal
+- las demás sucursales empiezan en stock 0
+- ventas descuentan stock de la sucursal activa
+- agrega transferencias entre sucursales
+- mantiene productos.stock como TOTAL del negocio por compatibilidad
+
+DESPUÉS
+-------
+Subir a Vercel:
+- index.html
+- app-v226.js
+- styles-v226.css
+- sw.js
+
+FUNCIONES NUEVAS
+----------------
+Header:
+- selector de sucursal activa
+
+Configuración > Sucursales:
+- Nueva sucursal
+- Editar sucursal
+- Activar / desactivar
+- Cada sucursal crea automáticamente Caja 1
+- Crear cajas adicionales
+- Activar / desactivar cajas
+- Ver stock total de cada local
+- Transferir stock entre sucursales
+
+STOCK
+-----
+Ejemplo:
+
+Coca-Cola 500 ml
+
+Principal       20
+Bernal Centro   10
+Quilmes          5
+
+productos.stock = 35 (total para compatibilidad)
+
+Cuando seleccionás "Bernal Centro", Vendify muestra 10.
+Una venta en Bernal descuenta solamente esos 10.
+
+IMPORTANTE
+----------
+Al migrar, el stock que ya existe queda en "Principal".
+Esto evita duplicar inventario.
+
+PRUEBA RECOMENDADA
+------------------
+1. Ejecutar SQL.
+2. Entrar como owner.
+3. Configuración > Sucursales.
+4. Crear "Sucursal Test".
+5. Verificar que tenga "Caja 1".
+6. Cambiar selector del header a Sucursal Test.
+7. Los productos deben aparecer con stock 0.
+8. Transferir 5 unidades de un producto desde Principal a Sucursal Test.
+9. Cambiar a Sucursal Test: debe mostrar 5.
+10. Realizar una venta de 1 unidad.
+11. Debe quedar 4 en Test y Principal NO debe cambiar.
+
+NOTA
+----
+En v2.26 todos los miembros del negocio pueden cambiar entre sucursales activas.
+La asignación de empleados a sucursales específicas se puede agregar como
+siguiente sub-etapa antes de Caja profesional.

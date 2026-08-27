@@ -1,4 +1,4 @@
-/* Vendify v2.25 */
+/* Vendify v2.26 */
 self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
