@@ -24,28 +24,218 @@ const CATEGORIAS_DEFAULT = [
   "Panadería", "Helados", "Limpieza", "Útiles", "Otros",
 ];
 
+// =====================
+// Productos de ejemplo
+// =====================
+
+// 🔴🔴🔴 INICIO DE LA MODIFICACIÓN 🔴🔴🔴
+
+const ICONS_BASE_URL =
+  "https://raw.githubusercontent.com/MatiasEzequielPereyra/Ventas-Kiosco-v1.0/main/icons/";
+
 const PRODUCTOS_EJEMPLO = [
-  { nombre: "Coca Cola 500ml", categoria: "Bebidas", precioCompra: 800, precioVenta: 1200, stock: 24, stockMinimo: 6 },
-  { nombre: "Sprite 500ml", categoria: "Bebidas", precioCompra: 750, precioVenta: 1100, stock: 18, stockMinimo: 6 },
-  { nombre: "Agua Villavicencio 500ml", categoria: "Bebidas", precioCompra: 400, precioVenta: 700, stock: 30, stockMinimo: 8 },
-  { nombre: "Cerveza Quilmes 473ml", categoria: "Bebidas", precioCompra: 900, precioVenta: 1400, stock: 12, stockMinimo: 4 },
-  { nombre: "Alfajor Havanna", categoria: "Golosinas", precioCompra: 600, precioVenta: 1000, stock: 20, stockMinimo: 5 },
-  { nombre: "Chocolate Milka 55g", categoria: "Golosinas", precioCompra: 900, precioVenta: 1400, stock: 15, stockMinimo: 4 },
-  { nombre: "Caramelos Sugus x5", categoria: "Golosinas", precioCompra: 200, precioVenta: 400, stock: 40, stockMinimo: 10 },
-  { nombre: "Chicles Beldent", categoria: "Golosinas", precioCompra: 350, precioVenta: 600, stock: 25, stockMinimo: 8 },
-  { nombre: "Papas Lays Clásicas", categoria: "Snacks", precioCompra: 1100, precioVenta: 1700, stock: 10, stockMinimo: 4 },
-  { nombre: "Maní salado 100g", categoria: "Snacks", precioCompra: 500, precioVenta: 900, stock: 14, stockMinimo: 5 },
-  { nombre: "Palitos salados", categoria: "Snacks", precioCompra: 400, precioVenta: 700, stock: 3, stockMinimo: 5 },
-  { nombre: "Marlboro Box 20", categoria: "Cigarrillos", precioCompra: 2800, precioVenta: 3500, stock: 8, stockMinimo: 3 },
-  { nombre: "Philip Morris 20", categoria: "Cigarrillos", precioCompra: 2500, precioVenta: 3200, stock: 2, stockMinimo: 3 },
-  { nombre: "Yogur La Serenísima", categoria: "Lácteos", precioCompra: 500, precioVenta: 850, stock: 12, stockMinimo: 4 },
-  { nombre: "Leche larga vida 1L", categoria: "Lácteos", precioCompra: 900, precioVenta: 1300, stock: 10, stockMinimo: 4 },
-  { nombre: "Facturas x unitario", categoria: "Panadería", precioCompra: 300, precioVenta: 500, stock: 16, stockMinimo: 6 },
-  { nombre: "Helado Frigor 1L", categoria: "Helados", precioCompra: 2500, precioVenta: 3800, stock: 6, stockMinimo: 2 },
-  { nombre: "Servilletas x50", categoria: "Limpieza", precioCompra: 400, precioVenta: 700, stock: 8, stockMinimo: 3 },
-  { nombre: "Fósforos", categoria: "Útiles", precioCompra: 150, precioVenta: 300, stock: 20, stockMinimo: 5 },
-  { nombre: "Pilas AA x2", categoria: "Útiles", precioCompra: 800, precioVenta: 1300, stock: 1, stockMinimo: 3 },
+  {
+    nombre: "Coca Cola 500ml",
+    categoria: "Bebidas",
+    precioCompra: 800,
+    precioVenta: 1200,
+    stock: 24,
+    stockMinimo: 6
+    // No existe imagen Coca Cola en tu carpeta icons
+  },
+
+  {
+    nombre: "Sprite 500ml",
+    categoria: "Bebidas",
+    precioCompra: 750,
+    precioVenta: 1100,
+    stock: 18,
+    stockMinimo: 6,
+    foto: `${ICONS_BASE_URL}sprite.webp`
+  },
+
+  {
+    nombre: "Agua Villavicencio 500ml",
+    categoria: "Bebidas",
+    precioCompra: 400,
+    precioVenta: 700,
+    stock: 30,
+    stockMinimo: 8,
+    foto: `${ICONS_BASE_URL}villavicencio.jpg`
+  },
+
+  {
+    nombre: "Cerveza Quilmes 473ml",
+    categoria: "Bebidas",
+    precioCompra: 900,
+    precioVenta: 1400,
+    stock: 12,
+    stockMinimo: 4,
+    foto: `${ICONS_BASE_URL}quilmes.webp`
+  },
+
+  {
+    nombre: "Alfajor Havanna",
+    categoria: "Golosinas",
+    precioCompra: 600,
+    precioVenta: 1000,
+    stock: 20,
+    stockMinimo: 5,
+    foto: `${ICONS_BASE_URL}alfajorhabana.jpg`
+  },
+
+  {
+    nombre: "Chocolate Milka 55g",
+    categoria: "Golosinas",
+    precioCompra: 900,
+    precioVenta: 1400,
+    stock: 15,
+    stockMinimo: 4,
+    foto: `${ICONS_BASE_URL}milka.webp`
+  },
+
+  {
+    nombre: "Caramelos Sugus x5",
+    categoria: "Golosinas",
+    precioCompra: 200,
+    precioVenta: 400,
+    stock: 40,
+    stockMinimo: 10,
+    foto: `${ICONS_BASE_URL}sugus.webp`
+  },
+
+  {
+    nombre: "Chicles Beldent",
+    categoria: "Golosinas",
+    precioCompra: 350,
+    precioVenta: 600,
+    stock: 25,
+    stockMinimo: 8,
+    foto: `${ICONS_BASE_URL}beldent.webp`
+  },
+
+  {
+    nombre: "Papas Lays Clásicas",
+    categoria: "Snacks",
+    precioCompra: 1100,
+    precioVenta: 1700,
+    stock: 10,
+    stockMinimo: 4,
+    foto: `${ICONS_BASE_URL} lays.webp`
+  },
+
+  {
+    nombre: "Maní salado 100g",
+    categoria: "Snacks",
+    precioCompra: 500,
+    precioVenta: 900,
+    stock: 14,
+    stockMinimo: 5,
+    foto: `${ICONS_BASE_URL}mani.webp`
+  },
+
+  {
+    nombre: "Palitos salados",
+    categoria: "Snacks",
+    precioCompra: 400,
+    precioVenta: 700,
+    stock: 3,
+    stockMinimo: 5,
+    foto: `${ICONS_BASE_URL}palitos.webp`
+  },
+
+  {
+    nombre: "Marlboro Box 20",
+    categoria: "Cigarrillos",
+    precioCompra: 2800,
+    precioVenta: 3500,
+    stock: 8,
+    stockMinimo: 3,
+    foto: `${ICONS_BASE_URL}CIGARRILLOS%20MARLBORO%20BOX%2020.JPG`
+  },
+
+  {
+    nombre: "Philip Morris 20",
+    categoria: "Cigarrillos",
+    precioCompra: 2500,
+    precioVenta: 3200,
+    stock: 2,
+    stockMinimo: 3,
+    foto: `${ICONS_BASE_URL}philips.png`
+  },
+
+  {
+    nombre: "Yogur La Serenísima",
+    categoria: "Lácteos",
+    precioCompra: 500,
+    precioVenta: 850,
+    stock: 12,
+    stockMinimo: 4,
+    foto: `${ICONS_BASE_URL}yogur.jpg`
+  },
+
+  {
+    nombre: "Leche larga vida 1L",
+    categoria: "Lácteos",
+    precioCompra: 900,
+    precioVenta: 1300,
+    stock: 10,
+    stockMinimo: 4,
+    foto: `${ICONS_BASE_URL}leche.webp`
+  },
+
+  {
+    nombre: "Facturas x unitario",
+    categoria: "Panadería",
+    precioCompra: 300,
+    precioVenta: 500,
+    stock: 16,
+    stockMinimo: 6,
+    foto: `${ICONS_BASE_URL}facturas.webp`
+  },
+
+  {
+    nombre: "Helado Frigor 1L",
+    categoria: "Helados",
+    precioCompra: 2500,
+    precioVenta: 3800,
+    stock: 6,
+    stockMinimo: 2
+    // No existe imagen de helado en tu carpeta icons
+  },
+
+  {
+    nombre: "Servilletas x50",
+    categoria: "Limpieza",
+    precioCompra: 400,
+    precioVenta: 700,
+    stock: 8,
+    stockMinimo: 3,
+    foto: `${ICONS_BASE_URL}servilleta.webp`
+  },
+
+  {
+    nombre: "Fósforos",
+    categoria: "Útiles",
+    precioCompra: 150,
+    precioVenta: 300,
+    stock: 20,
+    stockMinimo: 5,
+    foto: `${ICONS_BASE_URL}Fosforos-400.jpg`
+  },
+
+  {
+    nombre: "Pilas AA x2",
+    categoria: "Útiles",
+    precioCompra: 800,
+    precioVenta: 1300,
+    stock: 1,
+    stockMinimo: 3,
+    foto: `${ICONS_BASE_URL}pilasd.webp`
+  }
 ];
+
+// 🔴🔴🔴 FIN DE LA MODIFICACIÓN 🔴🔴🔴
 
 let productos = [];
 let categorias = [];
@@ -612,6 +802,7 @@ async function cargarEjemplos() {
     precio_venta: p.precioVenta,
     stock: p.stock,
     stock_minimo: p.stockMinimo,
+    foto: p.foto,
   }));
   const { data, error } = await supabaseClient.from("productos").insert(filas).select();
   if (error) {
@@ -1471,3 +1662,4 @@ function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
