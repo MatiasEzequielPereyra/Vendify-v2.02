@@ -247,7 +247,7 @@ const PRODUCTOS_EJEMPLO = [
     precioVenta: 3800,
     stock: 6,
     stockMinimo: 2,
-    foto: `${ICONS_BASE_URL}cocacola.webp`
+    foto: `${ICONS_BASE_URL}frigor.jpg`
   },
 
   {
