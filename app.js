@@ -1,5 +1,5 @@
 /**
- * Vendify v2.19 — Login dual y empleados internos
+ * Vendify v2.20 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -1752,130 +1752,134 @@ function inicializarSelectorVistaProductos() {
 }
 
 
+
 function renderGrid() {
-  const lista = filtrarYOrdenar();
-  const grid = $("#productos-grid");
-  const empty = $("#empty-state");
-  const noResults = $("#no-results");
+  const cont = $("#productos-grid");
+  if (!cont) return;
+
+  aplicarVistaProductos(obtenerVistaProductos());
+
+  const texto = ($("#buscar")?.value || "").trim().toLowerCase();
+  const categoria = $("#filtro-categoria")?.value || "todas";
+  const stockFiltro = $("#filtro-stock")?.value || "todos";
+  const orden = $("#orden-productos")?.value || "nombre-asc";
+
+  let lista = [...productos];
+
+  if (texto) {
+    lista = lista.filter((p) => {
+      const haystack = [
+        p.nombre,
+        p.marca,
+        p.presentacion,
+        p.codigo_barras,
+        p.categoria_nombre,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(texto);
+    });
+  }
+
+  if (categoria !== "todas") {
+    lista = lista.filter((p) => String(p.categoria_id ?? "") === String(categoria));
+  }
+
+  if (stockFiltro === "bajo") {
+    lista = lista.filter((p) => Number(p.stock) <= Number(p.stock_minimo ?? 0));
+  } else if (stockFiltro === "sin-stock") {
+    lista = lista.filter((p) => Number(p.stock) <= 0);
+  } else if (stockFiltro === "con-stock") {
+    lista = lista.filter((p) => Number(p.stock) > 0);
+  }
+
+  lista.sort((a, b) => {
+    if (orden === "nombre-desc") return String(b.nombre || "").localeCompare(String(a.nombre || ""));
+    if (orden === "stock-asc") return Number(a.stock || 0) - Number(b.stock || 0);
+    if (orden === "stock-desc") return Number(b.stock || 0) - Number(a.stock || 0);
+    if (orden === "precio-asc") return Number(a.precio || 0) - Number(b.precio || 0);
+    if (orden === "precio-desc") return Number(b.precio || 0) - Number(a.precio || 0);
+    return String(a.nombre || "").localeCompare(String(b.nombre || ""));
+  });
+
+  if (!lista.length) {
+    cont.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-illustration">📦</div>
+        <h3>No encontramos productos</h3>
+        <p>Probá cambiar la búsqueda o los filtros.</p>
+      </div>
+    `;
+    return;
+  }
 
   const role = appContext.membership?.role || "cashier";
   const puedeGestionar = ["owner", "admin", "manager"].includes(role);
   const puedeAjustarStock = ["owner", "admin", "manager"].includes(role);
   const puedeVerCostos = ["owner", "admin", "manager"].includes(role);
 
-  const totalStock = productos.reduce((a, p) => a + (p.stock || 0), 0);
-  const costoTotal = productos.reduce((a, p) => a + (p.stock || 0) * (p.precioCompra || 0), 0);
-  const ventaTotal = productos.reduce((a, p) => a + (p.stock || 0) * (p.precioVenta || 0), 0);
-  const stockBajo = productos.filter((p) => p.stock <= (p.stockMinimo ?? 5)).length;
-
-  $("#stat-productos").textContent = productos.length;
-  $("#stat-stock").textContent = totalStock;
-  $("#stat-costo").textContent = puedeVerCostos ? formatearPrecio(costoTotal) : "—";
-  $("#stat-venta").textContent = formatearPrecio(ventaTotal);
-  $("#stat-bajo").textContent = stockBajo;
-
-  if (productos.length === 0) {
-    grid.innerHTML = "";
-    if (puedeGestionar) empty.classList.remove("hidden");
-    else empty.classList.add("hidden");
-    noResults.classList.add("hidden");
-    return;
-  }
-
-  empty.classList.add("hidden");
-
-  if (lista.length === 0) {
-    grid.innerHTML = "";
-    noResults.classList.remove("hidden");
-    return;
-  }
-
-  noResults.classList.add("hidden");
-
-  grid.innerHTML = lista
+  cont.innerHTML = lista
     .map((p) => {
-      const stockClass =
-        p.stock === 0
-          ? "cero"
-          : p.stock <= (p.stockMinimo ?? 5)
-            ? "bajo"
-            : "";
-
-      const cardClass =
-        p.stock === 0
-          ? "stock-cero-card"
-          : p.stock <= (p.stockMinimo ?? 5)
-            ? "stock-bajo-card"
-            : "";
-
-      const compra = p.precioCompra || 0;
-      const venta = p.precioVenta || 0;
-      const margen =
-        compra > 0
-          ? Math.round(((venta - compra) / compra) * 100)
-          : null;
-
-      const imgHtml = p.foto
-        ? `<img src="${p.foto}" alt="${escapeHtml(p.nombre)}" loading="lazy" />`
-        : `<div class="card-img-placeholder">📦</div>`;
-
-      const costosHtml = puedeVerCostos
-        ? `
-          <div class="card-precio-row">
-            <span class="card-precio-label">Compra</span>
-            <span class="card-precio-valor">${formatearPrecio(compra)}</span>
-          </div>
-          ${margen !== null
-            ? `<div class="card-margen">Margen ${margen >= 0 ? "+" : ""}${margen}%</div>`
-            : ""}`
-        : "";
-
-      const stockControlsHtml = puedeAjustarStock
-        ? `
-          <div class="card-stock-controls">
-            <button type="button" data-action="restar" title="Restar una unidad">−</button>
-            <span class="card-stock-valor" data-action="ajustar" title="Ajuste manual de stock">${p.stock}</span>
-            <button type="button" data-action="sumar" title="Sumar una unidad">+</button>
-          </div>`
-        : `
-          <div class="card-stock-readonly">
-            Stock: <strong>${p.stock}</strong>
-          </div>`;
-
-      const accionesHtml = puedeGestionar
-        ? `
-          <div class="card-acciones">
-            <button type="button" class="btn-icon" data-action="editar" title="Editar">✏️</button>
-            <button type="button" class="btn-icon danger" data-action="eliminar" title="Eliminar">🗑️</button>
-          </div>`
-        : "";
+      const catObj = categorias.find((c) => String(c.id) === String(p.categoria_id));
+      const cat = catObj?.nombre || p.categoria_nombre || "Sin categoría";
+      const nombre = nombreCompletoProducto(p);
+      const inicial = (nombre || "?").charAt(0).toUpperCase();
+      const stockBajo = Number(p.stock) <= Number(p.stock_minimo ?? 0);
 
       return `
-        <article class="producto-card ${cardClass}" data-id="${p.id}">
-          <div class="card-img-wrap">
-            ${imgHtml}
-            <span class="card-stock-badge ${stockClass}">${p.stock}</span>
+        <article class="producto-card ${stockBajo ? "stock-bajo-card" : ""}" data-id="${p.id}">
+          <div class="producto-row-media">
+            ${
+              p.foto
+                ? `<img src="${p.foto}" alt="" class="producto-row-img" />`
+                : `<div class="producto-row-icon">${escapeHtml(inicial)}</div>`
+            }
           </div>
-          <div class="card-body">
-            <div class="card-nombre">${escapeHtml(nombreCompletoProducto(p))}</div>
-            ${p.categoria ? `<div class="card-categoria">${escapeHtml(p.categoria)}</div>` : ""}
 
-            <div class="card-precios">
-              ${costosHtml}
-              <div class="card-precio-row">
-                <span class="card-precio-label">Venta</span>
-                <span class="card-precio-valor venta">${formatearPrecio(venta)}</span>
-              </div>
-            </div>
+          <div class="producto-row-info">
+            <div class="card-nombre">${escapeHtml(nombre)}</div>
+            <div class="producto-row-meta">${escapeHtml(cat)}</div>
+          </div>
 
-            ${stockControlsHtml}
-            ${accionesHtml}
+          <div class="producto-row-stock">
+            ${
+              puedeAjustarStock
+                ? `<div class="card-stock-controls">
+                    <button class="btn-stock" data-action="restar" data-id="${p.id}" aria-label="Restar stock">−</button>
+                    <span class="card-stock-number">${Number(p.stock || 0)}</span>
+                    <button class="btn-stock" data-action="sumar" data-id="${p.id}" aria-label="Sumar stock">+</button>
+                  </div>`
+                : `<span class="stock-solo">${Number(p.stock || 0)}</span>`
+            }
+          </div>
+
+          <div class="producto-row-price">
+            <strong>${formatearPrecio(Number(p.precio || 0))}</strong>
+            ${
+              puedeVerCostos
+                ? `<small>Costo ${formatearPrecio(Number(p.costo || 0))}</small>`
+                : ""
+            }
+          </div>
+
+          <div class="producto-row-actions">
+            ${
+              puedeGestionar
+                ? `<button class="btn btn-secondary btn-sm" data-action="editar" data-id="${p.id}">Editar</button>
+                   <button class="btn-icon danger" data-action="eliminar" data-id="${p.id}" aria-label="Eliminar">🗑</button>`
+                : ""
+            }
           </div>
         </article>
       `;
     })
     .join("");
+
+  aplicarPermisosV2();
 }
+
 // =====================
 // Modal Producto
 // =====================
