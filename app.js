@@ -1,5 +1,5 @@
 /**
- * Vendify v2.12 — Login dual y empleados internos
+ * Vendify v2.15 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -2797,8 +2797,33 @@ async function guardarProducto(e) {
   const {data,error}=await q.select().single();btn.disabled=false;
   if(error){mostrarToast(error.code==="23505"?"Ese código de barras ya está cargado":"No se pudo guardar el producto","error");return;}
   const mapped=mapearProductoDB(data);
-  if(productoEditandoId){const i=productos.findIndex(p=>p.id===productoEditandoId);if(i>=0)productos[i]=mapped;}else productos.push(mapped);
-  actualizarFiltroCategorias();renderGrid();cerrarModal();mostrarToast(productoEditandoId?"Producto actualizado":"Producto agregado");
+  const eraEdicion = Boolean(productoEditandoId);
+
+  if(productoEditandoId){
+    const i=productos.findIndex(p=>p.id===productoEditandoId);
+    if(i>=0)productos[i]=mapped;
+  } else {
+    productos.push(mapped);
+  }
+
+  actualizarFiltroCategorias();
+  renderGrid();
+  cerrarModal();
+
+  if (!eraEdicion && pendingReturnToSaleV214 && pendingAddAfterCreateV214) {
+    pendingReturnToSaleV214 = false;
+    pendingAddAfterCreateV214 = false;
+    pendingScannedCodeV214 = null;
+
+    $("#modal-venta")?.classList.remove("hidden");
+    agregarAlCarrito(mapped.id);
+    renderVentaProductos();
+
+    mostrarToast(`${mapped.nombre} registrado y agregado a la venta`, "success");
+    return;
+  }
+
+  mostrarToast(eraEdicion ? "Producto actualizado" : "Producto agregado");
 }
 
 function mapearCategoriaOFFV29(categories="") {
@@ -2828,6 +2853,64 @@ async function asegurarCategoriaV29(nombre) {
   if(!nombre||categorias.includes(nombre))return; const {data,error}=await supabaseClient.from("categorias").insert({user_id:sesionActual.user.id,nombre}).select().single(); if(!error&&data){categorias.push(data.nombre);categorias.sort((a,b)=>a.localeCompare(b,"es"));actualizarFiltroCategorias();}
 }
 
+
+function mostrarCodigoNoRegistradoV214(code) {
+  pendingScannedCodeV214 = String(code || "").trim();
+
+  const panel = $("#scanner-not-found-actions-v214");
+  const text = $("#scanner-not-found-text-v214");
+  const status = $("#scanner-status-v29");
+
+  if (status) status.textContent = `Código ${pendingScannedCodeV214} no registrado`;
+
+  if (text) {
+    text.textContent =
+      `El código ${pendingScannedCodeV214} no existe en tu catálogo. Podés registrarlo ahora y volver automáticamente a esta venta.`;
+  }
+
+  panel?.classList.remove("hidden");
+}
+
+function ocultarCodigoNoRegistradoV214() {
+  $("#scanner-not-found-actions-v214")?.classList.add("hidden");
+  const text = $("#scanner-not-found-text-v214");
+  if (text) text.textContent = "";
+}
+
+async function registrarProductoDesdeScannerV214() {
+  if (!pendingScannedCodeV214) return;
+
+  const code = pendingScannedCodeV214;
+  const volverAVenta = scannerModeV29 === "venta";
+
+  pendingReturnToSaleV214 = volverAVenta;
+  pendingAddAfterCreateV214 = volverAVenta;
+
+  cerrarScannerV29();
+
+  abrirModal();
+
+  const codigoInput = $("#codigo-barras");
+  if (codigoInput) codigoInput.value = code;
+
+  try {
+    await buscarDatosBarcodeV29(code);
+  } catch (error) {
+    console.warn("[V2.14] Búsqueda externa:", error);
+  }
+
+  mostrarToast("Completá los datos y guardá el producto", "info");
+}
+
+function cancelarRegistroDesdeScannerV214() {
+  pendingScannedCodeV214 = null;
+  ocultarCodigoNoRegistradoV214();
+
+  const status = $("#scanner-status-v29");
+  if (status) status.textContent = "Cámara activa · acercá el código al centro";
+}
+
+
 async function procesarCodigoV29(code) {
   code=String(code||"").replace(/\D/g,"").trim(); if(!code)return;
   const now=Date.now(); if(code===scannerLastCodeV29 && now-scannerLastAtV29<900)return; scannerLastCodeV29=code;scannerLastAtV29=now;
@@ -2848,7 +2931,9 @@ async function procesarCodigoV29(code) {
         cerrarScannerV29();
       }, 220);
     }
-    else{const s=$("#scanner-status-v29");if(s)s.textContent=`No registrado: ${code}`;mostrarToast("Producto no registrado","error");}
+    else {
+      mostrarCodigoNoRegistradoV214(code);
+    }
     return;
   }
   if(scannerModeV29==="producto"){
@@ -2864,6 +2949,8 @@ async function abrirScannerV29(mode) {
   scannerLastCodeV29="";
   scannerLastAtV29=0;
   scannerClosingV29=false;
+  pendingScannedCodeV214=null;
+  ocultarCodigoNoRegistradoV214();
 
   document.body.classList.add("scanner-v29-open");
 
@@ -2971,6 +3058,8 @@ function setupV29() {
   $("#btn-buscar-barcode")?.addEventListener("click",()=>buscarDatosBarcodeV29($("#codigo-barras").value));
   $("#btn-close-scanner-v29")?.addEventListener("click",cerrarScannerV29); $("#modal-scanner-v29 .modal-backdrop")?.addEventListener("click",cerrarScannerV29);
   $("#btn-use-manual-code-v29")?.addEventListener("click",()=>procesarCodigoV29($("#scanner-manual-code-v29").value));
+  $("#btn-register-scanned-v214")?.addEventListener("click", registrarProductoDesdeScannerV214);
+  $("#btn-cancel-register-scanned-v214")?.addEventListener("click", cancelarRegistroDesdeScannerV214);
   $("#scanner-manual-code-v29")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();procesarCodigoV29(e.target.value);}});
   $("#btn-close-catalogo-v29")?.addEventListener("click",cerrarCatalogoV29);$("#btn-cancel-catalogo-v29")?.addEventListener("click",cerrarCatalogoV29);$("#modal-catalogo-v29 .modal-backdrop")?.addEventListener("click",cerrarCatalogoV29);
   $("#catalog-search-v29")?.addEventListener("input",renderCatalogoV29);

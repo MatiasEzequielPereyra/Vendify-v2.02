@@ -2363,3 +2363,366 @@ body.scanner-v29-open #modal-scanner-v29 {
     overflow-y: auto;
   }
 }
+
+
+/* ============================================================
+   Vendify v2.13 · Productos — listado profesional
+   ============================================================ */
+
+.productos-list-header {
+  display: grid;
+  grid-template-columns:
+    minmax(320px, 2fr)
+    minmax(130px, .85fr)
+    minmax(130px, .8fr)
+    minmax(140px, .85fr)
+    minmax(150px, auto);
+  align-items: center;
+  gap: 1rem;
+  padding: .65rem .9rem;
+  margin-bottom: .45rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
+
+.productos-list-col.stock-col,
+.productos-list-col.precio-col {
+  text-align: left;
+}
+
+.productos-list-col.acciones-col {
+  text-align: right;
+}
+
+.productos-grid.vista-lista {
+  gap: .38rem !important;
+}
+
+.productos-grid.vista-lista .producto-card {
+  display: grid !important;
+  grid-template-columns:
+    minmax(320px, 2fr)
+    minmax(130px, .85fr)
+    minmax(130px, .8fr)
+    minmax(140px, .85fr)
+    minmax(150px, auto);
+  align-items: center;
+  gap: 1rem;
+  min-height: 72px;
+  padding: .72rem .9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: none;
+  transition:
+    border-color .15s ease,
+    background .15s ease,
+    transform .15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .productos-grid.vista-lista .producto-card:hover {
+    border-color: var(--primary);
+    background: var(--surface-2);
+    transform: translateY(-1px);
+  }
+}
+
+.productos-grid.vista-lista .card-img-wrap {
+  display: none !important;
+}
+
+.productos-grid.vista-lista .card-body {
+  display: contents !important;
+}
+
+.productos-grid.vista-lista .producto-cell {
+  min-width: 0;
+}
+
+.productos-grid.vista-lista .producto-identidad {
+  min-width: 0;
+}
+
+.productos-grid.vista-lista .card-nombre {
+  font-size: .92rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.producto-sublinea {
+  display: flex;
+  gap: .45rem;
+  flex-wrap: wrap;
+  margin-top: .22rem;
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.producto-sublinea span + span::before {
+  content: "·";
+  margin-right: .45rem;
+  color: var(--text-dim);
+}
+
+.categoria-cell {
+  min-width: 0;
+}
+
+.categoria-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: .28rem .55rem;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productos-grid.vista-lista .card-stock-controls {
+  margin: 0 !important;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.productos-grid.vista-lista .card-stock-controls .btn-icon,
+.productos-grid.vista-lista .card-stock-controls button {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.productos-grid.vista-lista .stock-valor,
+.productos-grid.vista-lista .card-stock-number {
+  min-width: 34px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.productos-grid.vista-lista .card-precios {
+  margin: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: .12rem;
+}
+
+.productos-grid.vista-lista .card-precio-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: .35rem;
+}
+
+.productos-grid.vista-lista .card-precio-row .label {
+  display: none;
+}
+
+.productos-grid.vista-lista .card-precio-row:first-child {
+  display: none;
+}
+
+.productos-grid.vista-lista .card-precio-row:last-child,
+.productos-grid.vista-lista .card-precio {
+  font-size: .95rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.productos-grid.vista-lista .card-margen {
+  display: none;
+}
+
+.productos-grid.vista-lista .card-acciones {
+  margin: 0 !important;
+  justify-self: end;
+  min-width: 0 !important;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: .35rem;
+}
+
+.productos-grid.vista-lista .card-acciones .btn {
+  padding: .42rem .58rem;
+  min-height: 34px;
+  font-size: .74rem;
+  border-radius: 8px;
+}
+
+.productos-grid.vista-lista .card-stock-badge {
+  display: none !important;
+}
+
+/* Cuadrícula conserva tarjetas y oculta header */
+.productos-grid.vista-grid + * {
+  /* intentionally empty: keeps cascade predictable */
+}
+
+.productos-list-header.hidden {
+  display: none !important;
+}
+
+/* Tablet */
+@media (max-width: 980px) {
+  .productos-list-header,
+  .productos-grid.vista-lista .producto-card {
+    grid-template-columns:
+      minmax(240px, 1.8fr)
+      minmax(110px, .8fr)
+      minmax(115px, .75fr)
+      minmax(120px, .8fr)
+      auto;
+    gap: .7rem;
+  }
+}
+
+/* Móvil: lista profesional tipo app, sin encabezado de tabla */
+@media (max-width: 700px) {
+  .productos-list-header {
+    display: none !important;
+  }
+
+  .productos-grid.vista-lista {
+    gap: .45rem !important;
+  }
+
+  .productos-grid.vista-lista .producto-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .45rem .75rem;
+    padding: .72rem .78rem;
+    min-height: 78px;
+  }
+
+  .productos-grid.vista-lista .producto-cell {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .productos-grid.vista-lista .categoria-cell {
+    display: none;
+  }
+
+  .productos-grid.vista-lista .card-precios {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    text-align: right;
+  }
+
+  .productos-grid.vista-lista .card-precio-row:last-child,
+  .productos-grid.vista-lista .card-precio {
+    font-size: .92rem;
+    white-space: nowrap;
+  }
+
+  .productos-grid.vista-lista .card-stock-controls {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .productos-grid.vista-lista .card-acciones {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .productos-grid.vista-lista .card-nombre {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .producto-sublinea {
+    font-size: .68rem;
+  }
+
+  .productos-grid.vista-lista .card-acciones .btn {
+    padding: .38rem .48rem;
+  }
+}
+
+
+/* ============================================================
+   Vendify v2.14 · Producto no registrado durante una venta
+   ============================================================ */
+
+.scanner-not-found-actions-v214 {
+  margin-top: .9rem;
+  padding: .85rem;
+  border: 1px solid var(--warning);
+  border-radius: 10px;
+  background: var(--warning-soft);
+}
+
+.scanner-not-found-actions-v214 .hint {
+  margin-bottom: .7rem;
+}
+
+.scanner-not-found-buttons-v214 {
+  display: flex;
+  gap: .55rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .scanner-not-found-buttons-v214 {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .scanner-not-found-buttons-v214 .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* Vendify v2.15 — productos limpios */
+#productos-list-header,.productos-list-header{display:none!important}
+.productos-grid.vista-lista{display:flex!important;flex-direction:column!important;gap:.5rem!important}
+.productos-grid.vista-lista .producto-card{
+ display:grid!important;grid-template-columns:minmax(0,1fr) minmax(105px,140px) auto minmax(90px,auto) auto!important;
+ align-items:center!important;gap:1rem!important;min-height:68px!important;padding:.72rem .9rem!important;
+ border:1px solid var(--border)!important;border-radius:12px!important;background:var(--surface)!important;box-shadow:none!important}
+.productos-grid.vista-lista .card-body{display:contents!important}
+.productos-grid.vista-lista .card-img-wrap{display:none!important}
+.productos-grid.vista-lista .producto-cell{min-width:0!important}
+.productos-grid.vista-lista .card-nombre{font-size:.94rem!important;line-height:1.25!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.productos-grid.vista-lista .producto-sublinea{display:flex!important;flex-wrap:wrap!important;gap:.35rem!important;margin-top:.22rem!important;font-size:.7rem!important;color:var(--text-muted)!important}
+.productos-grid.vista-lista .categoria-cell{min-width:0!important}
+.productos-grid.vista-lista .categoria-pill{max-width:135px!important;padding:.27rem .52rem!important;font-size:.68rem!important}
+.productos-grid.vista-lista .card-stock-controls{margin:0!important;white-space:nowrap!important}
+.productos-grid.vista-lista .card-precios{min-width:90px!important;margin:0!important}
+.productos-grid.vista-lista .card-acciones{min-width:0!important;margin:0!important;display:flex!important;justify-content:flex-end!important;gap:.3rem!important}
+.productos-grid.vista-lista .card-acciones .btn{min-height:34px!important;padding:.4rem .55rem!important;font-size:.72rem!important}
+@media (hover:hover) and (pointer:fine){.productos-grid.vista-lista .producto-card:hover{border-color:var(--primary)!important;background:var(--surface-2)!important}}
+@media(max-width:700px){
+ .productos-grid.vista-lista .producto-card{grid-template-columns:minmax(0,1fr) auto!important;gap:.5rem .65rem!important;min-height:76px!important;padding:.7rem .75rem!important}
+ .productos-grid.vista-lista .producto-cell{grid-column:1!important;grid-row:1!important}
+ .productos-grid.vista-lista .categoria-cell{display:none!important}
+ .productos-grid.vista-lista .card-precios{grid-column:2!important;grid-row:1!important;min-width:auto!important;align-self:start!important;text-align:right!important}
+ .productos-grid.vista-lista .card-stock-controls{grid-column:1!important;grid-row:2!important;justify-self:start!important}
+ .productos-grid.vista-lista .card-acciones{grid-column:2!important;grid-row:2!important;justify-self:end!important}
+ .productos-grid.vista-lista .card-nombre{white-space:normal!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important}
+}
+.productos-grid.vista-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))!important;gap:.85rem!important}
+@media(max-width:640px){.productos-grid.vista-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.55rem!important}}
