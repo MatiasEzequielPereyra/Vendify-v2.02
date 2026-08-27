@@ -1249,35 +1249,112 @@ function comprimirImagen(file) {
 }
 
 
-function leerArchivoImagen(file) {
-  return new Promise((resolve, reject) => {
+async function leerArchivoImagen(file) {
+  if (!file) throw new Error("No se recibió ninguna imagen");
+
+  // createImageBitmap suele manejar mejor fotos grandes de cámara móvil
+  // y respeta orientación EXIF en navegadores modernos.
+  if ("createImageBitmap" in window) {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+
+      // Normalizamos a canvas para evitar diferencias entre navegadores.
+      const maxSide = 2200;
+      let width = bitmap.width;
+      let height = bitmap.height;
+
+      if (Math.max(width, height) > maxSide) {
+        const ratio = maxSide / Math.max(width, height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close?.();
+
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error("No se pudo preparar la foto"));
+        img.src = canvas.toDataURL("image/jpeg", 0.9);
+      });
+
+      return img;
+    } catch (error) {
+      console.warn("[Foto] createImageBitmap falló, usando fallback:", error);
+    }
+  }
+
+  // Fallback compatible.
+  return await new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = () => {
       const img = new Image();
+
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("No se pudo cargar la imagen"));
+      img.onerror = () =>
+        reject(new Error("Formato de imagen no compatible con este navegador"));
+
       img.src = reader.result;
     };
-    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+
+    reader.onerror = () =>
+      reject(new Error("No se pudo leer la imagen"));
+
     reader.readAsDataURL(file);
   });
 }
 
 function abrirEditorRecorte(img) {
-  cropImage = img;
+  if (!img || !img.width || !img.height) {
+    throw new Error("La imagen no pudo cargarse correctamente");
+  }
 
   const canvas = $("#crop-canvas");
+  const modal = $("#modal-crop-foto");
+  const zoom = $("#crop-zoom");
+
+  if (!canvas || !modal || !zoom) {
+    throw new Error("El editor de recorte no está disponible");
+  }
+
+  cropImage = img;
+
   const size = canvas.width;
 
-  // Escala mínima para cubrir completamente el cuadrado.
-  cropBaseScale = Math.max(size / img.width, size / img.height);
+  cropBaseScale = Math.max(
+    size / img.width,
+    size / img.height
+  );
+
   cropScale = 1;
   cropOffsetX = 0;
   cropOffsetY = 0;
 
-  $("#crop-zoom").value = "1";
-  $("#modal-crop-foto").classList.remove("hidden");
+  zoom.value = "1";
+  modal.classList.remove("hidden");
 
+  requestAnimationFrame(() => {
+    renderCropCanvas();
+  });
+}
+
+
+function resetearCrop() {
+  if (!cropImage) return;
+  cropScale = 1;
+  cropOffsetX = 0;
+  cropOffsetY = 0;
+  const zoom = $("#crop-zoom");
+  if (zoom) zoom.value = "1";
   renderCropCanvas();
 }
 
@@ -2393,9 +2470,13 @@ function inicializarEventos() {
     try {
       const img = await leerArchivoImagen(file);
       abrirEditorRecorte(img);
+      e.target.value = "";
     } catch (error) {
-      console.error(error);
-      mostrarToast("No se pudo procesar la imagen", "error");
+      console.error("[Foto] Error procesando imagen:", error);
+      mostrarToast(
+        error?.message || "No se pudo procesar la imagen",
+        "error"
+      );
     }
   }
   $("#foto-input").addEventListener("change", manejarFoto);
@@ -2415,6 +2496,7 @@ function inicializarEventos() {
   cropCanvas?.addEventListener("touchmove", moverDragCrop, { passive: false });
   window.addEventListener("touchend", terminarDragCrop);
 
+  $("#btn-crop-reset")?.addEventListener("click", resetearCrop);
   $("#btn-aplicar-crop")?.addEventListener("click", aplicarRecorteFoto);
   $("#btn-cancelar-crop")?.addEventListener("click", cerrarEditorRecorte);
   $("#btn-cerrar-crop")?.addEventListener("click", cerrarEditorRecorte);

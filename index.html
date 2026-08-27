@@ -409,10 +409,47 @@
       </div>
     </div>
   </div>
+
+  <!-- Editor de foto / recorte -->
+  <div id="modal-crop-foto" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-crop-content">
+      <div class="modal-header">
+        <div>
+          <h2>Recortar foto</h2>
+          <p class="hint">Mové la imagen y ajustá el zoom para dejar solo el producto.</p>
+        </div>
+        <button class="btn-icon" id="btn-cerrar-crop" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="crop-stage" id="crop-stage">
+          <canvas id="crop-canvas" width="800" height="800"></canvas>
+          <div class="crop-guide" aria-hidden="true"></div>
+        </div>
+
+        <div class="crop-controls">
+          <div class="crop-control-row">
+            <label for="crop-zoom">Zoom</label>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-crop-reset">Restablecer</button>
+          </div>
+          <input type="range" id="crop-zoom" min="1" max="4" step="0.01" value="1" />
+        </div>
+
+        <p class="hint crop-help">Arrastrá con un dedo. La imagen final se guardará cuadrada y optimizada.</p>
+      </div>
+
+      <div class="modal-actions crop-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancelar-crop">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-aplicar-crop">Usar esta foto</button>
+      </div>
+    </div>
+  </div>
+
 <!-- Modal Confirmación -->
   <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
-    <div class="modal-content modal-sm">
+    <div class="modal-content modal-sm modal-confirm-content">
       <div class="modal-header">
         <h2 id="confirm-titulo">Confirmar</h2>
         <button class="btn-icon" id="btn-cerrar-confirm" aria-label="Cerrar">✕</button>
@@ -420,7 +457,7 @@
       <div class="modal-body">
         <p id="confirm-mensaje"></p>
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions modal-confirm-actions">
         <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancelar</button>
         <button type="button" class="btn btn-danger" id="btn-confirm-ok">Eliminar</button>
       </div>
