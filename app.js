@@ -1,5 +1,5 @@
 /**
- * Vendify v2.3 — Login dual y empleados internos
+ * Vendify v2.4 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -86,8 +86,8 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 800,
     precioVenta: 1200,
     stock: 24,
-    stockMinimo: 6,
-    foto: `${ICONS_BASE_URL}cocacola.webp`
+    stockMinimo: 6
+    // No existe imagen Coca Cola en tu carpeta icons
   },
 
   {
@@ -167,7 +167,7 @@ const PRODUCTOS_EJEMPLO = [
     precioVenta: 1700,
     stock: 10,
     stockMinimo: 4,
-    foto: `${ICONS_BASE_URL}lays.webp`
+    foto: `${ICONS_BASE_URL} lays.webp`
   },
 
   {
@@ -246,8 +246,8 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 2500,
     precioVenta: 3800,
     stock: 6,
-    stockMinimo: 2,
-    foto: `${ICONS_BASE_URL}frigor.jpg`
+    stockMinimo: 2
+    // No existe imagen de helado en tu carpeta icons
   },
 
   {
@@ -306,6 +306,7 @@ window.appContext = {
   branch: null,
   cashRegister: null,
   permissions: {},
+  employee: null,
   ready: false,
 };
 
@@ -324,8 +325,17 @@ async function cargarContextoApp() {
     branch: data?.branch || null,
     cashRegister: data?.cashRegister || null,
     permissions: data?.permissions || {},
+    employee: null,
     ready: true,
   };
+
+  // Si es un usuario interno, recuperamos nombre y username reales.
+  const { data: employeeProfile, error: employeeProfileError } =
+    await supabaseClient.rpc("obtener_perfil_empleado_actual");
+
+  if (!employeeProfileError && employeeProfile) {
+    appContext.employee = employeeProfile;
+  }
 
   actualizarContextoUI();
   aplicarPermisosV2();
@@ -342,6 +352,7 @@ function limpiarContextoApp() {
     branch: null,
     cashRegister: null,
     permissions: {},
+    employee: null,
     ready: false,
   };
   document.body.removeAttribute("data-role");
@@ -359,13 +370,34 @@ function exigirPermisoV2(permiso, mensaje = "No tenés permiso para realizar est
 }
 
 function actualizarContextoUI() {
-  const negocio = $("#context-negocio");
-  const rol = $("#context-rol");
-  const sucursal = $("#context-sucursal");
+  const usuarioEl = $("#context-usuario");
+  const rolEl = $("#context-rol");
+  const sesionEl = $("#sesion-email");
 
-  if (negocio) negocio.textContent = appContext.business?.nombre || "Mi negocio";
-  if (rol) rol.textContent = nombreRolV2(appContext.membership?.role);
-  if (sucursal) sucursal.textContent = appContext.branch?.nombre || "Principal";
+  const perfilEmpleado = appContext.employee;
+  const emailSesion = sesionActual?.user?.email || "";
+
+  let nombreVisible;
+
+  if (perfilEmpleado?.nombre) {
+    nombreVisible = perfilEmpleado.nombre;
+  } else {
+    // Para propietarios/admins con email mostramos la parte anterior al @.
+    nombreVisible =
+      emailSesion && !emailSesion.endsWith("@employees.vendify.internal")
+        ? emailSesion.split("@")[0]
+        : appContext.business?.nombre || "Usuario";
+  }
+
+  if (usuarioEl) usuarioEl.textContent = nombreVisible;
+  if (rolEl) rolEl.textContent = nombreRolV2(appContext.membership?.role);
+
+  // Evitamos mostrar el email técnico de empleados.
+  if (sesionEl) {
+    sesionEl.textContent = perfilEmpleado?.username
+      ? `@${perfilEmpleado.username}`
+      : emailSesion;
+  }
 }
 
 function nombreRolV2(rol) {
@@ -531,9 +563,6 @@ function mostrarLogin() {
 async function mostrarApp() {
   $("#auth-screen")?.classList.add("hidden");
   $(".app")?.classList.remove("hidden");
-  const email = sesionActual?.user?.email;
-  if (email && $("#sesion-email")) $("#sesion-email").textContent = email;
-
   try {
     await cargarContextoApp();
   } catch (error) {
@@ -768,7 +797,22 @@ async function renderEquipo() {
         </select>`;
 
     const acciones = (!esOwner && !esYo)
-      ? `<button class="btn ${item.activo ? "btn-ghost" : "btn-secondary"} btn-sm"
+      ? `
+         <button class="btn btn-ghost btn-sm"
+                 data-equipo-action="edit-member"
+                 data-id="${item.membership_id}"
+                 data-nombre="${escapeHtml(item.nombre || "")}"
+                 data-username="${escapeHtml(item.username || "")}"
+                 data-rol="${item.rol}">
+           Editar
+         </button>
+         <button class="btn btn-ghost btn-sm"
+                 data-equipo-action="reset-password"
+                 data-id="${item.membership_id}"
+                 data-nombre="${escapeHtml(item.nombre || item.username || "Empleado")}">
+           Reiniciar clave
+         </button>
+         <button class="btn ${item.activo ? "btn-ghost" : "btn-secondary"} btn-sm"
                  data-equipo-action="toggle-member"
                  data-id="${item.membership_id}"
                  data-activo="${item.activo ? "0" : "1"}">
@@ -891,6 +935,98 @@ async function cambiarPasswordEmpleadoV3(e) {
   $("#modal-password-empleado").classList.add("hidden");
   mostrarToast("Contraseña actualizada", "success");
 }
+
+
+function abrirEditarEmpleadoDesdeBoton(btn) {
+  $("#editar-membership-id").value = btn.dataset.id || "";
+  $("#editar-empleado-nombre").value = btn.dataset.nombre || "";
+  $("#editar-empleado-username").value = btn.dataset.username || "";
+  $("#editar-empleado-rol").value = btn.dataset.rol || "cashier";
+  $("#editar-empleado-error").textContent = "";
+  $("#modal-editar-empleado").classList.remove("hidden");
+}
+
+function cerrarEditarEmpleado() {
+  $("#modal-editar-empleado")?.classList.add("hidden");
+}
+
+async function guardarEdicionEmpleado(e) {
+  e.preventDefault();
+
+  const membershipId = $("#editar-membership-id").value;
+  const nombre = $("#editar-empleado-nombre").value.trim();
+  const username = normalizarLoginInterno($("#editar-empleado-username").value);
+  const rol = $("#editar-empleado-rol").value;
+  const errorEl = $("#editar-empleado-error");
+  const btn = $("#btn-guardar-editar-empleado");
+
+  errorEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Guardando...";
+
+  const { data, error } = await supabaseClient.functions.invoke("gestionar-empleado", {
+    body: {
+      action: "update",
+      membership_id: membershipId,
+      nombre,
+      username,
+      rol,
+    },
+  });
+
+  btn.disabled = false;
+  btn.textContent = "Guardar cambios";
+
+  if (error || data?.error) {
+    errorEl.textContent = data?.error || error?.message || "No se pudo actualizar";
+    return;
+  }
+
+  cerrarEditarEmpleado();
+  mostrarToast("Empleado actualizado", "success");
+  await renderEquipo();
+}
+
+function abrirResetEmpleadoDesdeBoton(btn) {
+  $("#reset-membership-id").value = btn.dataset.id || "";
+  $("#reset-empleado-info").textContent =
+    `Nueva contraseña temporal para ${btn.dataset.nombre || "el empleado"}.`;
+  $("#reset-empleado-password").value = generarPasswordTemporal();
+  $("#reset-empleado-error").textContent = "";
+  $("#modal-reset-empleado").classList.remove("hidden");
+}
+
+function cerrarResetEmpleado() {
+  $("#modal-reset-empleado")?.classList.add("hidden");
+}
+
+async function reiniciarPasswordEmpleado(e) {
+  e.preventDefault();
+
+  const membershipId = $("#reset-membership-id").value;
+  const password = $("#reset-empleado-password").value;
+  const errorEl = $("#reset-empleado-error");
+
+  errorEl.textContent = "";
+
+  const { data, error } = await supabaseClient.functions.invoke("gestionar-empleado", {
+    body: {
+      action: "reset_password",
+      membership_id: membershipId,
+      password,
+    },
+  });
+
+  if (error || data?.error) {
+    errorEl.textContent = data?.error || error?.message || "No se pudo reiniciar la contraseña";
+    return;
+  }
+
+  cerrarResetEmpleado();
+  mostrarToast("Contraseña reiniciada. El empleado deberá cambiarla al ingresar.", "success");
+  await renderEquipo();
+}
+
 
 // =====================
 // Realtime: los cambios se reflejan al instante en todos los dispositivos
@@ -1312,6 +1448,10 @@ function renderGrid() {
   const empty = $("#empty-state");
   const noResults = $("#no-results");
 
+  const puedeGestionar = tienePermisoV2("manageProducts");
+  const puedeAjustarStock = tienePermisoV2("adjustStock");
+  const puedeVerCostos = tienePermisoV2("viewCosts");
+
   const totalStock = productos.reduce((a, p) => a + (p.stock || 0), 0);
   const costoTotal = productos.reduce((a, p) => a + (p.stock || 0) * (p.precioCompra || 0), 0);
   const ventaTotal = productos.reduce((a, p) => a + (p.stock || 0) * (p.precioVenta || 0), 0);
@@ -1319,16 +1459,18 @@ function renderGrid() {
 
   $("#stat-productos").textContent = productos.length;
   $("#stat-stock").textContent = totalStock;
-  $("#stat-costo").textContent = formatearPrecio(costoTotal);
+  $("#stat-costo").textContent = puedeVerCostos ? formatearPrecio(costoTotal) : "—";
   $("#stat-venta").textContent = formatearPrecio(ventaTotal);
   $("#stat-bajo").textContent = stockBajo;
 
   if (productos.length === 0) {
     grid.innerHTML = "";
-    empty.classList.remove("hidden");
+    if (puedeGestionar) empty.classList.remove("hidden");
+    else empty.classList.add("hidden");
     noResults.classList.add("hidden");
     return;
   }
+
   empty.classList.add("hidden");
 
   if (lista.length === 0) {
@@ -1336,18 +1478,66 @@ function renderGrid() {
     noResults.classList.remove("hidden");
     return;
   }
+
   noResults.classList.add("hidden");
 
   grid.innerHTML = lista
     .map((p) => {
-      const stockClass = p.stock === 0 ? "cero" : p.stock <= (p.stockMinimo ?? 5) ? "bajo" : "";
-      const cardClass = p.stock === 0 ? "stock-cero-card" : p.stock <= (p.stockMinimo ?? 5) ? "stock-bajo-card" : "";
+      const stockClass =
+        p.stock === 0
+          ? "cero"
+          : p.stock <= (p.stockMinimo ?? 5)
+            ? "bajo"
+            : "";
+
+      const cardClass =
+        p.stock === 0
+          ? "stock-cero-card"
+          : p.stock <= (p.stockMinimo ?? 5)
+            ? "stock-bajo-card"
+            : "";
+
       const compra = p.precioCompra || 0;
       const venta = p.precioVenta || 0;
-      const margen = compra > 0 ? Math.round(((venta - compra) / compra) * 100) : null;
+      const margen =
+        compra > 0
+          ? Math.round(((venta - compra) / compra) * 100)
+          : null;
+
       const imgHtml = p.foto
         ? `<img src="${p.foto}" alt="${escapeHtml(p.nombre)}" loading="lazy" />`
         : `<div class="card-img-placeholder">📦</div>`;
+
+      const costosHtml = puedeVerCostos
+        ? `
+          <div class="card-precio-row">
+            <span class="card-precio-label">Compra</span>
+            <span class="card-precio-valor">${formatearPrecio(compra)}</span>
+          </div>
+          ${margen !== null
+            ? `<div class="card-margen">Margen ${margen >= 0 ? "+" : ""}${margen}%</div>`
+            : ""}`
+        : "";
+
+      const stockControlsHtml = puedeAjustarStock
+        ? `
+          <div class="card-stock-controls">
+            <button type="button" data-action="restar" title="Restar una unidad">−</button>
+            <span class="card-stock-valor" data-action="ajustar" title="Ajuste manual de stock">${p.stock}</span>
+            <button type="button" data-action="sumar" title="Sumar una unidad">+</button>
+          </div>`
+        : `
+          <div class="card-stock-readonly">
+            Stock: <strong>${p.stock}</strong>
+          </div>`;
+
+      const accionesHtml = puedeGestionar
+        ? `
+          <div class="card-acciones">
+            <button type="button" class="btn-icon" data-action="editar" title="Editar">✏️</button>
+            <button type="button" class="btn-icon danger" data-action="eliminar" title="Eliminar">🗑️</button>
+          </div>`
+        : "";
 
       return `
         <article class="producto-card ${cardClass}" data-id="${p.id}">
@@ -1358,37 +1548,28 @@ function renderGrid() {
           <div class="card-body">
             <div class="card-nombre">${escapeHtml(p.nombre)}</div>
             ${p.categoria ? `<div class="card-categoria">${escapeHtml(p.categoria)}</div>` : ""}
+
             <div class="card-precios">
-              <div class="card-precio-row">
-                <span class="card-precio-label">Compra</span>
-                <span class="card-precio-valor">${formatearPrecio(compra)}</span>
-              </div>
+              ${costosHtml}
               <div class="card-precio-row">
                 <span class="card-precio-label">Venta</span>
                 <span class="card-precio-valor venta">${formatearPrecio(venta)}</span>
               </div>
-              ${margen !== null ? `<div class="card-margen">Margen ${margen >= 0 ? "+" : ""}${margen}%</div>` : ""}
             </div>
-            <div class="card-stock-controls">
-              <button type="button" data-action="restar" title="Vender 1 (resta stock)">−</button>
-              <span class="card-stock-valor" data-action="ajustar" title="Ajuste manual de stock">${p.stock}</span>
-              <button type="button" data-action="sumar" title="Reponer 1 (suma stock)">+</button>
-            </div>
-            <div class="card-acciones">
-              <button type="button" class="btn-icon" data-action="editar" title="Editar">✏️</button>
-              <button type="button" class="btn-icon danger" data-action="eliminar" title="Eliminar">🗑️</button>
-            </div>
+
+            ${stockControlsHtml}
+            ${accionesHtml}
           </div>
         </article>
       `;
     })
     .join("");
 }
-
 // =====================
 // Modal Producto
 // =====================
 function abrirModal(producto = null) {
+  if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
   productoEditandoId = producto ? producto.id : null;
   fotoActualBase64 = producto?.foto || null;
 
@@ -1947,13 +2128,35 @@ function inicializarEventos() {
     }
   });
   $("#form-password-empleado")?.addEventListener("submit", cambiarPasswordEmpleadoV3);
+
+  $("#form-editar-empleado")?.addEventListener("submit", guardarEdicionEmpleado);
+  $("#btn-cerrar-editar-empleado")?.addEventListener("click", cerrarEditarEmpleado);
+  $("#btn-cancelar-editar-empleado")?.addEventListener("click", cerrarEditarEmpleado);
+  $("#modal-editar-empleado .modal-backdrop")?.addEventListener("click", cerrarEditarEmpleado);
+
+  $("#form-reset-empleado")?.addEventListener("submit", reiniciarPasswordEmpleado);
+  $("#btn-cerrar-reset-empleado")?.addEventListener("click", cerrarResetEmpleado);
+  $("#btn-cancelar-reset-empleado")?.addEventListener("click", cerrarResetEmpleado);
+  $("#modal-reset-empleado .modal-backdrop")?.addEventListener("click", cerrarResetEmpleado);
+  $("#btn-generar-reset-password")?.addEventListener("click", () => {
+    $("#reset-empleado-password").value = generarPasswordTemporal();
+  });
+
   $("#equipo-lista")?.addEventListener("change", (e) => {
     const select=e.target.closest(".equipo-role-select"); if(!select)return;
     cambiarRolEquipo(select.dataset.membershipId,select.value,select);
   });
   $("#equipo-lista")?.addEventListener("click", (e) => {
-    const btn=e.target.closest("[data-equipo-action]"); if(!btn)return;
-    if(btn.dataset.equipoAction==="toggle-member") cambiarEstadoEquipo(btn.dataset.id,btn.dataset.activo==="1");
+    const btn = e.target.closest("[data-equipo-action]");
+    if (!btn) return;
+
+    if (btn.dataset.equipoAction === "toggle-member") {
+      cambiarEstadoEquipo(btn.dataset.id, btn.dataset.activo === "1");
+    } else if (btn.dataset.equipoAction === "edit-member") {
+      abrirEditarEmpleadoDesdeBoton(btn);
+    } else if (btn.dataset.equipoAction === "reset-password") {
+      abrirResetEmpleadoDesdeBoton(btn);
+    }
   });
 
   $("#btn-historial")?.addEventListener("click", abrirHistorial);
@@ -2055,15 +2258,25 @@ function inicializarEventos() {
     if (!id) return;
     const action = btn.dataset.action;
     switch (action) {
-      case "sumar": cambiarStock(id, 1); break;
-      case "restar": cambiarStock(id, -1); break;
-      case "ajustar": abrirModalStock(id); break;
+      case "sumar":
+        if (exigirPermisoV2("adjustStock", "No tenés permiso para modificar stock")) cambiarStock(id, 1);
+        break;
+      case "restar":
+        if (exigirPermisoV2("adjustStock", "No tenés permiso para modificar stock")) cambiarStock(id, -1);
+        break;
+      case "ajustar":
+        if (exigirPermisoV2("adjustStock", "No tenés permiso para modificar stock")) abrirModalStock(id);
+        break;
       case "editar": {
+        if (!exigirPermisoV2("manageProducts", "No tenés permiso para editar productos")) return;
         const p = productos.find((x) => x.id === id);
         if (p) abrirModal(p);
         break;
       }
-      case "eliminar": eliminarProducto(id); break;
+      case "eliminar":
+        if (!exigirPermisoV2("manageProducts", "No tenés permiso para eliminar productos")) return;
+        eliminarProducto(id);
+        break;
     }
   });
 
@@ -2076,6 +2289,8 @@ function inicializarEventos() {
       else if (!$("#modal-venta").classList.contains("hidden")) cerrarVenta();
       else if (!$("#modal-historial").classList.contains("hidden")) cerrarHistorial();
       else if (!$("#modal-equipo").classList.contains("hidden")) cerrarEquipo();
+      else if (!$("#modal-editar-empleado").classList.contains("hidden")) cerrarEditarEmpleado();
+      else if (!$("#modal-reset-empleado").classList.contains("hidden")) cerrarResetEmpleado();
       else if (!$("#modal-config").classList.contains("hidden")) cerrarConfig();
       else if (!$("#modal-confirm").classList.contains("hidden")) {
         cerrarConfirm();

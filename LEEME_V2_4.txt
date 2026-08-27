@@ -1,0 +1,45 @@
+VENDIFY v2.4 — IDENTIDAD + EDICIÓN + RESET DE EMPLEADOS
+==========================================================
+
+CAMBIOS
+- Encabezado: muestra nombre del usuario y debajo su rol.
+- Los empleados ya no muestran el nombre de la sucursal en ese bloque.
+- El email técnico no se muestra; aparece @username.
+- Equipo permite editar nombre, username y rol.
+- Equipo permite reiniciar la contraseña del empleado.
+- La contraseña reiniciada es temporal y obliga al empleado a cambiarla.
+
+IMPORTANTE: NUEVA EDGE FUNCTION
+
+Crear en Supabase > Edge Functions una función llamada exactamente:
+
+gestionar-empleado
+
+Copiar el contenido de:
+supabase/functions/gestionar-empleado/index.ts
+
+y hacer Deploy.
+
+La función crear-empleado existente se mantiene.
+
+Luego subir a Vercel:
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+Hacer Ctrl + Shift + R.
+
+PRUEBAS
+1. Entrar como owner.
+2. Equipo > Editar un empleado.
+3. Cambiar nombre y guardar.
+4. Cerrar sesión y entrar como empleado.
+5. Arriba debe aparecer:
+   Pedro Gómez
+   Cajero
+
+6. Owner > Equipo > Reiniciar clave.
+7. Copiar la contraseña temporal.
+8. El empleado entra con ella.
+9. Vendify obliga a crear una contraseña nueva.

@@ -1613,3 +1613,41 @@ body[data-role="cashier"] #btn-historial{display:none!important}
   .auth-screen { align-items:flex-start; overflow:auto; }
   .auth-card-v23 { margin-top:1rem; padding:1.35rem 1rem; }
 }
+
+
+/* ===== Vendify v2.4 · identidad y gestión de empleados ===== */
+.contexto-negocio {
+  min-width: 120px;
+}
+
+.contexto-negocio strong {
+  display: block;
+  line-height: 1.15;
+}
+
+.contexto-negocio > span {
+  display: block;
+  margin-top: .12rem;
+  font-size: .72rem;
+  color: var(--text-muted);
+}
+
+.equipo-actions {
+  min-width: 225px;
+}
+
+
+/* ===== Vendify v2.5 · permisos de stock ===== */
+.card-stock-readonly {
+  margin-top: .45rem;
+  padding: .38rem .55rem;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+.card-stock-readonly strong {
+  color: var(--text);
+}

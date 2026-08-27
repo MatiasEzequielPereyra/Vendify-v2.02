@@ -1,0 +1,57 @@
+VENDIFY v2.5 — PERMISOS + FORECAST DE STOCK
+==============================================
+
+1) Ejecutar:
+   006_permisos_stock_forecast.sql
+
+2) Subir a Vercel:
+   app.js
+   styles.css
+   sw.js
+
+3) Ctrl + Shift + R.
+
+PERMISOS
+Owner/Admin:
+- productos
+- editar/eliminar
+- ajustar stock
+
+Manager / Encargado:
+- productos
+- editar/eliminar
+- ajustar stock
+
+Cashier / Cajero:
+- ver productos
+- vender
+- NO editar
+- NO eliminar
+- NO ajustar stock
+- NO ver costo/margen
+
+El SQL refuerza esto con RLS. Aunque un cajero use DevTools,
+Supabase debe rechazar INSERT/UPDATE/DELETE de productos.
+
+FORECAST
+La función:
+  obtener_alertas_stock_v1()
+
+devuelve por producto:
+- vendidos 7 días
+- vendidos 30 días
+- promedio diario
+- días de stock estimados
+- nivel: sin_stock / critico / bajo / proximo / ok
+
+Ejemplo:
+select * from public.obtener_alertas_stock_v1();
+
+WHATSAPP
+La migración agrega en negocios:
+- whatsapp_alertas
+- alertas_stock_whatsapp
+- dias_alerta_stock
+
+Todavía NO guarda tokens ni credenciales de WhatsApp.
+Eso debe hacerse con Supabase Secrets + Edge Function.
