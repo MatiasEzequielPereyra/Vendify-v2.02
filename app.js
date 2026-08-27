@@ -40,7 +40,7 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 800,
     precioVenta: 1200,
     stock: 24,
-    stockMinimo: 6
+    stockMinimo: 6,
     foto: `${ICONS_BASE_URL}cocacola.webp`
   },
 
@@ -200,7 +200,7 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 2500,
     precioVenta: 3800,
     stock: 6,
-    stockMinimo: 2
+    stockMinimo: 2,
     foto: `${ICONS_BASE_URL}frigor.jpg`
   },
 
