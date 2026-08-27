@@ -1,5 +1,6 @@
+console.log("[Vendify] v2.21 loaded");
 /**
- * Vendify v2.20 — Login dual y empleados internos
+ * Vendify v2.21 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)

@@ -3779,3 +3779,106 @@ body.scanner-v29-open #modal-scanner-v29 {
     font-size: .63rem !important;
   }
 }
+
+
+/* ============================================================
+   Vendify v2.21 — Product row FINAL (loaded after legacy CSS)
+   ============================================================ */
+#productos-grid.vista-lista > article.producto-card {
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) 120px 110px 118px !important;
+  grid-template-areas: "media info stock price actions" !important;
+  align-items: center !important;
+  gap: .8rem !important;
+  padding: .65rem .75rem !important;
+  min-height: 72px !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-media {
+  grid-area: media !important;
+  width: 54px !important;
+  height: 54px !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-info {
+  grid-area: info !important;
+  min-width: 0 !important;
+  display: block !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-info .card-nombre {
+  margin: 0 !important;
+  font-size: .95rem !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-info .producto-row-meta {
+  margin-top: .18rem !important;
+  font-size: .68rem !important;
+  color: var(--text-muted) !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-stock {
+  grid-area: stock !important;
+  justify-self: center !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-price {
+  grid-area: price !important;
+  justify-self: start !important;
+}
+
+#productos-grid.vista-lista > article.producto-card > .producto-row-actions {
+  grid-area: actions !important;
+  justify-self: end !important;
+  display: flex !important;
+  gap: .3rem !important;
+}
+
+@media (max-width: 700px) {
+  #productos-grid.vista-lista > article.producto-card {
+    grid-template-columns: 48px minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "media info price"
+      "media stock actions" !important;
+    gap: .32rem .55rem !important;
+    padding: .52rem .58rem !important;
+    min-height: 66px !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-media {
+    width: 48px !important;
+    height: 48px !important;
+    align-self: center !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-info .card-nombre {
+    font-size: .86rem !important;
+    white-space: normal !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-price {
+    justify-self: end !important;
+    text-align: right !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-price small {
+    display: none !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-stock {
+    justify-self: start !important;
+  }
+
+  #productos-grid.vista-lista > article.producto-card > .producto-row-actions {
+    justify-self: end !important;
+  }
+}
