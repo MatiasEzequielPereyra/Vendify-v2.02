@@ -3317,3 +3317,271 @@ body.scanner-v29-open #modal-scanner-v29 {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
   gap: .8rem !important;
 }
+
+
+/* ============================================================
+   Vendify v2.19 · Layout definitivo de productos
+   Foto/icono a la izquierda, nombre SIEMPRE a la derecha
+   ============================================================ */
+
+/* Neutralizar estilos legacy de todas las versiones anteriores */
+.productos-grid.vista-lista .producto-card {
+  display: grid !important;
+  grid-template-columns: 52px minmax(0, 1fr) 120px 110px auto !important;
+  grid-template-areas: "media info stock price actions" !important;
+  align-items: center !important;
+  gap: .75rem !important;
+  padding: .65rem .75rem !important;
+  min-height: 70px !important;
+}
+
+.productos-grid.vista-lista .card-body {
+  display: contents !important;
+}
+
+/* NUEVA estructura */
+.producto-row-media {
+  grid-area: media !important;
+  width: 52px !important;
+  height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.producto-row-img,
+.producto-row-icon {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 9px !important;
+}
+
+.producto-row-img {
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.producto-row-icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--primary-soft) !important;
+  color: var(--primary) !important;
+  font-weight: 800 !important;
+  font-size: 1rem !important;
+}
+
+.producto-row-info {
+  grid-area: info !important;
+  min-width: 0 !important;
+  display: block !important;
+}
+
+.producto-row-info .card-nombre {
+  font-size: .92rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.producto-row-meta {
+  margin-top: .2rem !important;
+  font-size: .68rem !important;
+  color: var(--text-muted) !important;
+}
+
+.producto-row-stock {
+  grid-area: stock !important;
+  justify-self: center !important;
+}
+
+.producto-row-price {
+  grid-area: price !important;
+  justify-self: start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  line-height: 1.15 !important;
+}
+
+.producto-row-price strong {
+  font-size: .92rem !important;
+}
+
+.producto-row-price small {
+  margin-top: .2rem !important;
+  font-size: .65rem !important;
+  color: var(--text-muted) !important;
+}
+
+.producto-row-actions {
+  grid-area: actions !important;
+  justify-self: end !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: .3rem !important;
+}
+
+/* Compatibilidad con markup viejo: también lo forzamos al mismo orden */
+.productos-grid.vista-lista .card-img-wrap {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: 52px !important;
+  height: 52px !important;
+  display: block !important;
+  margin: 0 !important;
+}
+
+.productos-grid.vista-lista .producto-cell,
+.productos-grid.vista-lista .card-main-info {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  min-width: 0 !important;
+  align-self: center !important;
+}
+
+.productos-grid.vista-lista .categoria-cell {
+  display: none !important;
+}
+
+.productos-grid.vista-lista .card-stock-controls {
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  margin: 0 !important;
+}
+
+.productos-grid.vista-lista .card-precios {
+  grid-column: 4 !important;
+  grid-row: 1 !important;
+  margin: 0 !important;
+}
+
+.productos-grid.vista-lista .card-acciones {
+  grid-column: 5 !important;
+  grid-row: 1 !important;
+  margin: 0 !important;
+}
+
+/* MOBILE: foto izquierda ocupando dos filas; nombre SIEMPRE a la derecha */
+@media (max-width: 700px) {
+  .productos-grid.vista-lista .producto-card {
+    grid-template-columns: 46px minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "media info price"
+      "media stock actions" !important;
+    gap: .3rem .5rem !important;
+    min-height: 64px !important;
+    padding: .5rem .55rem !important;
+  }
+
+  .producto-row-media {
+    grid-area: media !important;
+    width: 46px !important;
+    height: 46px !important;
+    align-self: center !important;
+  }
+
+  .producto-row-img,
+  .producto-row-icon {
+    width: 46px !important;
+    height: 46px !important;
+  }
+
+  .producto-row-info {
+    grid-area: info !important;
+    align-self: center !important;
+  }
+
+  .producto-row-info .card-nombre {
+    font-size: .84rem !important;
+    white-space: normal !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .producto-row-meta {
+    font-size: .61rem !important;
+    margin-top: .12rem !important;
+  }
+
+  .producto-row-price {
+    grid-area: price !important;
+    justify-self: end !important;
+    align-self: start !important;
+    text-align: right !important;
+  }
+
+  .producto-row-price strong {
+    font-size: .82rem !important;
+    white-space: nowrap !important;
+  }
+
+  .producto-row-price small {
+    display: none !important;
+  }
+
+  .producto-row-stock {
+    grid-area: stock !important;
+    justify-self: start !important;
+    align-self: center !important;
+  }
+
+  .producto-row-actions {
+    grid-area: actions !important;
+    justify-self: end !important;
+    align-self: center !important;
+  }
+
+  /* markup viejo */
+  .productos-grid.vista-lista .card-img-wrap {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    width: 46px !important;
+    height: 46px !important;
+    align-self: center !important;
+  }
+
+  .productos-grid.vista-lista .producto-cell,
+  .productos-grid.vista-lista .card-main-info {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  .productos-grid.vista-lista .card-precios {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
+  }
+
+  .productos-grid.vista-lista .card-stock-controls {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    justify-self: start !important;
+  }
+
+  .productos-grid.vista-lista .card-acciones {
+    grid-column: 3 !important;
+    grid-row: 2 !important;
+    justify-self: end !important;
+  }
+}
+
+/* Muy angosto */
+@media (max-width: 390px) {
+  .productos-grid.vista-lista .producto-card {
+    grid-template-columns: 42px minmax(0, 1fr) auto !important;
+  }
+
+  .producto-row-media,
+  .producto-row-img,
+  .producto-row-icon,
+  .productos-grid.vista-lista .card-img-wrap {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
