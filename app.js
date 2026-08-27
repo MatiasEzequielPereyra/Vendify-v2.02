@@ -414,23 +414,57 @@ function aplicarPermisosV2() {
   if (!appContext.ready) return;
 
   const role = appContext.membership?.role || "cashier";
+
+  const esOwner = role === "owner";
+  const esAdmin = role === "admin";
+  const esManager = role === "manager";
+  const esCashier = role === "cashier";
+
+  const puedeGestionarProductos = esOwner || esAdmin || esManager;
+  const puedeAjustarStock = esOwner || esAdmin || esManager;
+  const puedeConfigurar = esOwner || esAdmin || esManager;
+  const puedeExportar = esOwner || esAdmin || esManager;
+  const puedeVerHistorial = esOwner || esAdmin || esManager;
+
+  // Equipo queda solamente para propietario y administrador.
+  const puedeGestionarEquipo = esOwner || esAdmin;
+
   document.body.dataset.role = role;
-  document.body.classList.toggle("rol-cashier", role === "cashier");
+  document.body.classList.toggle("rol-cashier", esCashier);
 
   const setHidden = (selector, hidden) => {
-    document.querySelectorAll(selector).forEach((el) => { el.hidden = hidden; });
+    document.querySelectorAll(selector).forEach((el) => {
+      el.hidden = hidden;
+      el.classList.toggle("permiso-hidden", hidden);
+    });
   };
 
-  setHidden("#btn-nuevo, #btn-empty-nuevo, #btn-cargar-ejemplos, #btn-cargar-ejemplos-config", !tienePermisoV2("manageProducts"));
-  setHidden("#btn-config", !tienePermisoV2("manageBusiness"));
-  setHidden("#btn-equipo", !tienePermisoV2("manageEmployees"));
-  setHidden("#btn-historial", !tienePermisoV2("viewReports"));
-  setHidden("#btn-export", !tienePermisoV2("viewReports"));
-  setHidden(".card-acciones", !tienePermisoV2("manageProducts"));
-  setHidden(".card-stock-controls", !tienePermisoV2("adjustStock"));
+  setHidden(
+    "#btn-nuevo, #btn-empty-nuevo, #btn-cargar-ejemplos, #btn-cargar-ejemplos-config",
+    !puedeGestionarProductos
+  );
+
+  setHidden("#btn-config", !puedeConfigurar);
+  setHidden("#btn-equipo", !puedeGestionarEquipo);
+  setHidden("#btn-export", !puedeExportar);
+  setHidden("#btn-historial", !puedeVerHistorial);
+
+  setHidden(".card-acciones", !puedeGestionarProductos);
+  setHidden(".card-stock-controls", !puedeAjustarStock);
 
   // Los costos son información sensible para cajeros.
-  document.body.classList.toggle("ocultar-costos", !tienePermisoV2("viewCosts"));
+  document.body.classList.toggle("ocultar-costos", esCashier);
+
+  // Si por cualquier motivo un cajero quedó con permissions antiguas
+  // en memoria, el rol real sigue teniendo prioridad en la UI.
+  if (esCashier) {
+    document.querySelectorAll(
+      '[data-action="editar"], [data-action="eliminar"], [data-action="sumar"], [data-action="restar"], [data-action="ajustar"]'
+    ).forEach((el) => {
+      el.hidden = true;
+      el.classList.add("permiso-hidden");
+    });
+  }
 }
 
 async function listarSucursalesV2() {
@@ -1448,9 +1482,10 @@ function renderGrid() {
   const empty = $("#empty-state");
   const noResults = $("#no-results");
 
-  const puedeGestionar = tienePermisoV2("manageProducts");
-  const puedeAjustarStock = tienePermisoV2("adjustStock");
-  const puedeVerCostos = tienePermisoV2("viewCosts");
+  const role = appContext.membership?.role || "cashier";
+  const puedeGestionar = ["owner", "admin", "manager"].includes(role);
+  const puedeAjustarStock = ["owner", "admin", "manager"].includes(role);
+  const puedeVerCostos = ["owner", "admin", "manager"].includes(role);
 
   const totalStock = productos.reduce((a, p) => a + (p.stock || 0), 0);
   const costoTotal = productos.reduce((a, p) => a + (p.stock || 0) * (p.precioCompra || 0), 0);
@@ -1734,6 +1769,11 @@ async function guardarProducto(e) {
 }
 
 async function eliminarProducto(id) {
+  const role = appContext.membership?.role;
+  if (!["owner", "admin", "manager"].includes(role)) {
+    mostrarToast("Tu rol no permite eliminar productos", "error");
+    return;
+  }
   if (!exigirPermisoV2("manageProducts", "No tenés permiso para eliminar productos")) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
@@ -1756,6 +1796,11 @@ async function eliminarProducto(id) {
 
 // "sumar" = reposición de mercadería (ingreso) · "restar" = venta
 async function cambiarStock(id, delta) {
+  const role = appContext.membership?.role;
+  if (!["owner", "admin", "manager"].includes(role)) {
+    mostrarToast("Tu rol no permite modificar stock", "error");
+    return;
+  }
   if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;

@@ -1651,3 +1651,24 @@ body[data-role="cashier"] #btn-historial{display:none!important}
 .card-stock-readonly strong {
   color: var(--text);
 }
+
+
+/* ===== Vendify v2.6 · permisos estrictos UI ===== */
+[hidden],
+.permiso-hidden {
+  display: none !important;
+}
+
+/* Defensa visual adicional: un cajero nunca ve gestión. */
+body[data-role="cashier"] #btn-nuevo,
+body[data-role="cashier"] #btn-empty-nuevo,
+body[data-role="cashier"] #btn-cargar-ejemplos,
+body[data-role="cashier"] #btn-cargar-ejemplos-config,
+body[data-role="cashier"] #btn-config,
+body[data-role="cashier"] #btn-equipo,
+body[data-role="cashier"] #btn-export,
+body[data-role="cashier"] #btn-historial,
+body[data-role="cashier"] .card-acciones,
+body[data-role="cashier"] .card-stock-controls {
+  display: none !important;
+}
