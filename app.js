@@ -1,5 +1,5 @@
 /**
- * Vendify v2.9 — Login dual y empleados internos
+ * Vendify v2.10 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -2133,6 +2133,11 @@ function calcularTotalCarrito() {
 
 function renderCarrito() {
   const cont = $("#carrito-items");
+  const countEl = $("#carrito-count-v210");
+  const unidadesCarrito = carrito.reduce((sum, item) => sum + Number(item.cantidad || 0), 0);
+  if (countEl) {
+    countEl.textContent = `${unidadesCarrito} ${unidadesCarrito === 1 ? "artículo" : "artículos"}`;
+  }
   const btnCobrar = $("#btn-cobrar");
 
   if (carrito.length === 0) {
@@ -2790,7 +2795,13 @@ async function procesarCodigoV29(code) {
   const now=Date.now(); if(code===scannerLastCodeV29 && now-scannerLastAtV29<900)return; scannerLastCodeV29=code;scannerLastAtV29=now;
   if(scannerModeV29==="venta"){
     const p=productos.find(x=>x.codigoBarras===code);
-    if(p){agregarAlCarrito(p.id);const s=$("#scanner-status-v29");if(s)s.textContent=`✓ ${p.nombre} agregado`;navigator.vibrate?.(60);}
+    if(p){
+      agregarAlCarrito(p.id);
+      renderVentaProductos();
+      const s=$("#scanner-status-v29");
+      if(s)s.textContent=`✓ ${p.nombre} agregado`;
+      navigator.vibrate?.(60);
+    }
     else{const s=$("#scanner-status-v29");if(s)s.textContent=`No registrado: ${code}`;mostrarToast("Producto no registrado","error");}
     return;
   }
@@ -2803,20 +2814,53 @@ async function procesarCodigoV29(code) {
 }
 
 async function abrirScannerV29(mode) {
-  scannerModeV29=mode; scannerLastCodeV29=""; scannerLastAtV29=0;
+  scannerModeV29=mode;
+  scannerLastCodeV29="";
+  scannerLastAtV29=0;
+
+  document.body.classList.add("scanner-v29-open");
   $("#modal-scanner-v29")?.classList.remove("hidden"); $("#scanner-mode-label-v29").textContent=mode==="venta"?"Escaneá productos: se agregan directamente al carrito.":"Apuntá la cámara al código del producto.";
   $("#scanner-status-v29").textContent="Solicitando cámara...";
   try{
     if(!window.ZXingBrowser?.BrowserMultiFormatReader)throw new Error("El lector de códigos no cargó");
-    scannerReaderV29=new ZXingBrowser.BrowserMultiFormatReader();
-    scannerControlsV29=await scannerReaderV29.decodeFromVideoDevice(undefined,$("#scanner-video-v29"),(result,error)=>{if(result)procesarCodigoV29(result.getText());});
-    $("#scanner-status-v29").textContent="Cámara activa · acercá el código al centro";
+    scannerReaderV29 = new ZXingBrowser.BrowserMultiFormatReader();
+
+    const videoEl = $("#scanner-video-v29");
+    let selectedDeviceId;
+
+    try {
+      const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+      const backCamera =
+        devices.find(d => /back|rear|environment|trasera/i.test(d.label || "")) ||
+        devices[devices.length - 1];
+
+      selectedDeviceId = backCamera?.deviceId;
+    } catch (deviceError) {
+      console.warn("[Scanner] No se pudo enumerar cámaras:", deviceError);
+    }
+
+    scannerControlsV29 = await scannerReaderV29.decodeFromVideoDevice(
+      selectedDeviceId,
+      videoEl,
+      (result, error) => {
+        if (result) procesarCodigoV29(result.getText());
+      }
+    );
+
+    $("#scanner-status-v29").textContent =
+      "Cámara activa · acercá el código al centro";
   }catch(err){console.error("Scanner",err);$("#scanner-status-v29").textContent="No se pudo abrir la cámara. Revisá permisos o ingresá el código manualmente.";}
 }
 
 function cerrarScannerV29() {
   try{scannerControlsV29?.stop?.();}catch{} scannerControlsV29=null;scannerReaderV29=null; scannerModeV29=null;
-  const v=$("#scanner-video-v29"); if(v?.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;} $("#modal-scanner-v29")?.classList.add("hidden");
+  const v=$("#scanner-video-v29");
+  if(v?.srcObject){
+    v.srcObject.getTracks().forEach(t=>t.stop());
+    v.srcObject=null;
+  }
+  $("#modal-scanner-v29")?.classList.add("hidden");
+  document.body.classList.remove("scanner-v29-open");
 }
 
 function renderVentaProductos() {

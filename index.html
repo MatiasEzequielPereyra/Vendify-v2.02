@@ -726,13 +726,19 @@
             <div class="search-box">
               <input type="search" id="venta-buscador" placeholder="Buscar nombre o código..." autocomplete="off" />
             </div>
-            <button type="button" class="btn btn-primary" id="btn-scan-venta">📷 Escanear</button>
+            <button type="button" class="btn btn-primary btn-scan-venta-v210" id="btn-scan-venta">
+              <span aria-hidden="true">▣</span>
+              <span>Escanear</span>
+            </button>
           </div>
           <div id="venta-productos-lista" class="venta-productos-lista"></div>
         </div>
 
         <div class="venta-carrito-col">
-          <h3 class="config-section-title">Carrito</h3>
+          <div class="venta-carrito-header-v210">
+            <h3 class="config-section-title">Carrito</h3>
+            <span id="carrito-count-v210" class="carrito-count-v210">0 artículos</span>
+          </div>
           <div id="carrito-items" class="carrito-items">
             <p class="carrito-vacio" id="carrito-vacio">Tocá un producto para agregarlo</p>
           </div>
