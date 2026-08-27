@@ -1,0 +1,21 @@
+VENDIFY v2.1
+===========
+
+Cambios principales:
+- Rebranding completo a Vendify.
+- Login normal con email + contraseña.
+- Registro público de nuevos negocios.
+- Confirmación de email solo en el alta (según configuración de Supabase).
+- Recuperación de contraseña por email.
+- Creación automática de negocio + owner + sucursal Principal + Caja 1.
+- Mantiene arquitectura multiempresa y RPC v2.
+- Nueva caché PWA para evitar cargar la versión anterior.
+
+ANTES DE PROBAR UN REGISTRO NUEVO:
+1. Tener ejecutadas las migraciones 001 y 002.
+2. Ejecutar 003_auth_password_onboarding.sql en Supabase SQL Editor.
+3. En Supabase > Authentication > Providers > Email, verificar que Email esté habilitado.
+4. Recomendado: mantener Confirm email activado para producción. El usuario confirma una sola vez; después entra con contraseña.
+5. Configurar Site URL / Redirect URLs con la URL real de Vendify para recuperación y confirmación.
+
+Archivos web: index.html, app.js, styles.css, supabase-config.js, sw.js, manifest.json.

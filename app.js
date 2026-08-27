@@ -1,7 +1,7 @@
 /**
- * Ventas Kiosco v2.0 — Core SaaS multiempresa
+ * Vendify v2.1 — Core SaaS multiempresa
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
- * - Login por email (magic link) vía Supabase Auth
+ * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
  * - Realtime: los cambios se ven al instante en todos los dispositivos
  * - Venta / reposición atómica (sin pisar stock entre dispositivos)
@@ -407,17 +407,44 @@ async function ajustarStockV2(productoId, delta, tipo = "ajuste") {
 }
 
 // =====================
-// Autenticación (Supabase Auth — magic link por email)
+// Autenticación Vendify — email + contraseña
 // =====================
+let flujoRecuperacionActivo = false;
+
+function mostrarPanelAuth(panel) {
+  const ids = ["auth-login-panel", "auth-register-panel", "auth-reset-panel", "auth-new-password-panel"];
+  ids.forEach((id) => $("#" + id)?.classList.toggle("hidden", id !== panel));
+  $("#auth-message")?.classList.add("hidden");
+  ["#auth-error", "#register-error", "#reset-error", "#new-password-error"].forEach((sel) => {
+    const el = $(sel); if (el) el.textContent = "";
+  });
+}
+
+function mostrarMensajeAuth(mensaje, tipo = "info") {
+  const el = $("#auth-message");
+  if (!el) return;
+  el.className = `auth-message ${tipo}`;
+  el.textContent = mensaje;
+  el.classList.remove("hidden");
+}
+
 async function initAuth() {
   const { data } = await supabaseClient.auth.getSession();
   sesionActual = data.session;
 
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
     sesionActual = session;
-    if (session) {
-      mostrarApp();
-    } else {
+
+    if (event === "PASSWORD_RECOVERY") {
+      flujoRecuperacionActivo = true;
+      mostrarLogin();
+      mostrarPanelAuth("auth-new-password-panel");
+      return;
+    }
+
+    if (session && !flujoRecuperacionActivo) {
+      await mostrarApp();
+    } else if (!session) {
       mostrarLogin();
       if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
@@ -426,16 +453,14 @@ async function initAuth() {
     }
   });
 
-  if (sesionActual) {
-    await mostrarApp();
-  } else {
-    mostrarLogin();
-  }
+  if (sesionActual && !flujoRecuperacionActivo) await mostrarApp();
+  else mostrarLogin();
 }
 
 function mostrarLogin() {
   $("#auth-screen")?.classList.remove("hidden");
   $(".app")?.classList.add("hidden");
+  if (!flujoRecuperacionActivo) mostrarPanelAuth("auth-login-panel");
 }
 
 async function mostrarApp() {
@@ -460,10 +485,98 @@ async function mostrarApp() {
   aplicarPermisosV2();
   suscribirRealtime();
 
-  // Compatibilidad temporal con el PIN antiguo solo para owner/admin.
   if (localStorage.getItem(MODO_EMPLEADO_KEY) === "1" && ["owner", "admin"].includes(appContext.membership?.role)) {
     activarModoEmpleado(false);
   }
+}
+
+async function iniciarSesionPassword(e) {
+  e.preventDefault();
+  const email = $("#auth-email").value.trim();
+  const password = $("#auth-password").value;
+  const btn = $("#btn-auth-login");
+  const err = $("#auth-error");
+  err.textContent = "";
+  btn.disabled = true; btn.textContent = "Ingresando...";
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = "Iniciar sesión";
+  if (error) err.textContent = error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message;
+}
+
+async function registrarCuenta(e) {
+  e.preventDefault();
+  const businessName = $("#register-business").value.trim();
+  const email = $("#register-email").value.trim();
+  const password = $("#register-password").value;
+  const confirm = $("#register-password-confirm").value;
+  const err = $("#register-error");
+  const btn = $("#btn-register");
+  err.textContent = "";
+  if (password.length < 8) { err.textContent = "La contraseña debe tener al menos 8 caracteres."; return; }
+  if (password !== confirm) { err.textContent = "Las contraseñas no coinciden."; return; }
+  btn.disabled = true; btn.textContent = "Creando cuenta...";
+  const { data, error } = await supabaseClient.auth.signUp({
+    email, password,
+    options: {
+      emailRedirectTo: window.location.origin + window.location.pathname,
+      data: { business_name: businessName }
+    }
+  });
+  btn.disabled = false; btn.textContent = "Crear cuenta";
+  if (error) { err.textContent = error.message; return; }
+  if (!data.session) {
+    mostrarPanelAuth("auth-login-panel");
+    mostrarMensajeAuth("Cuenta creada. Revisá tu email una sola vez para confirmar la cuenta y después ingresá siempre con tu contraseña.", "success");
+  }
+}
+
+async function solicitarResetPassword(e) {
+  e.preventDefault();
+  const email = $("#reset-email").value.trim();
+  const btn = $("#btn-reset-send");
+  const err = $("#reset-error");
+  err.textContent = "";
+  btn.disabled = true; btn.textContent = "Enviando...";
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  });
+  btn.disabled = false; btn.textContent = "Enviar enlace de recuperación";
+  if (error) { err.textContent = error.message; return; }
+  mostrarPanelAuth("auth-login-panel");
+  mostrarMensajeAuth("Te enviamos un enlace de recuperación. El email solo se usa cuando necesitás cambiar la contraseña.", "success");
+}
+
+async function guardarNuevaPassword(e) {
+  e.preventDefault();
+  const password = $("#new-password").value;
+  const confirm = $("#new-password-confirm").value;
+  const err = $("#new-password-error");
+  const btn = $("#btn-new-password");
+  err.textContent = "";
+  if (password.length < 8) { err.textContent = "La contraseña debe tener al menos 8 caracteres."; return; }
+  if (password !== confirm) { err.textContent = "Las contraseñas no coinciden."; return; }
+  btn.disabled = true; btn.textContent = "Guardando...";
+  const { error } = await supabaseClient.auth.updateUser({ password });
+  btn.disabled = false; btn.textContent = "Guardar contraseña";
+  if (error) { err.textContent = error.message; return; }
+  flujoRecuperacionActivo = false;
+  mostrarToast("Contraseña actualizada", "success");
+  await mostrarApp();
+}
+
+function togglePassword(inputId, button) {
+  const input = $("#" + inputId);
+  if (!input) return;
+  const mostrar = input.type === "password";
+  input.type = mostrar ? "text" : "password";
+  button.textContent = mostrar ? "🙈" : "👁";
+  button.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
+}
+
+async function cerrarSesion() {
+  flujoRecuperacionActivo = false;
+  limpiarContextoApp();
+  await supabaseClient.auth.signOut();
 }
 
 // =====================
@@ -574,34 +687,6 @@ function toggleModoEmpleado() {
   } else {
     activarModoEmpleado(true);
   }
-}
-
-async function enviarMagicLink(e) {
-  e.preventDefault();
-  const email = $("#auth-email").value.trim();
-  if (!email) return;
-  const btn = $("#btn-auth-enviar");
-  btn.disabled = true;
-  btn.textContent = "Enviando...";
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.href },
-  });
-  btn.disabled = false;
-  btn.textContent = "Enviar link de acceso";
-  if (error) {
-    $("#auth-error").textContent = "No se pudo enviar el link: " + error.message;
-  } else {
-    $("#auth-error").textContent = "";
-    $("#auth-form").classList.add("hidden");
-    $("#auth-check-email").classList.remove("hidden");
-    $("#auth-check-email-addr").textContent = email;
-  }
-}
-
-async function cerrarSesion() {
-  limpiarContextoApp();
-  await supabaseClient.auth.signOut();
 }
 
 // =====================
@@ -1492,7 +1577,7 @@ function exportarCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `stock-kiosco-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `vendify-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   mostrarToast("CSV exportado");
@@ -1617,7 +1702,20 @@ async function renderHistorial() {
 // Eventos
 // =====================
 function inicializarEventos() {
-  $("#auth-form")?.addEventListener("submit", enviarMagicLink);
+  $("#auth-form")?.addEventListener("submit", iniciarSesionPassword);
+  $("#register-form")?.addEventListener("submit", registrarCuenta);
+  $("#reset-request-form")?.addEventListener("submit", solicitarResetPassword);
+  $("#new-password-form")?.addEventListener("submit", guardarNuevaPassword);
+  $("#btn-ir-registro")?.addEventListener("click", () => mostrarPanelAuth("auth-register-panel"));
+  $("#btn-ir-login")?.addEventListener("click", () => mostrarPanelAuth("auth-login-panel"));
+  $("#btn-olvide-password")?.addEventListener("click", () => {
+    $("#reset-email").value = $("#auth-email").value.trim();
+    mostrarPanelAuth("auth-reset-panel");
+  });
+  $("#btn-reset-volver")?.addEventListener("click", () => mostrarPanelAuth("auth-login-panel"));
+  document.querySelectorAll("[data-toggle-password]").forEach((btn) => {
+    btn.addEventListener("click", () => togglePassword(btn.dataset.togglePassword, btn));
+  });
   $("#btn-cerrar-sesion")?.addEventListener("click", cerrarSesion);
 
   $("#btn-nuevo").addEventListener("click", () => abrirModal());

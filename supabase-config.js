@@ -1,5 +1,5 @@
 /**
- * Stock Kiosco — Configuración de Supabase
+ * Vendify — Configuración de Supabase
  *
  * 1. Entrá a https://supabase.com → creá un proyecto (gratis).
  * 2. Andá a Project Settings → API.

@@ -1,5 +1,5 @@
-/* Ventas Kiosco v2 — Service Worker (offline básico) */
-const CACHE = "ventas-kiosco-v2-20260827";
+/* Vendify v2.1 — Service Worker (offline básico) */
+const CACHE = "vendify-v2-1-20260827";
 const ASSETS = [
   "./",
   "./index.html",
