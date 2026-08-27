@@ -459,11 +459,29 @@ async function ajustarStockV2(productoId, delta, tipo = "ajuste") {
 let flujoRecuperacionActivo = false;
 
 function mostrarPanelAuth(panel) {
-  const ids = ["auth-login-panel", "auth-register-panel", "auth-reset-panel", "auth-new-password-panel"];
-  ids.forEach((id) => $("#" + id)?.classList.toggle("hidden", id !== panel));
+  const map = {
+    "auth-login-panel": "owner",
+    "auth-register-panel": "register",
+    "auth-reset-panel": "forgot",
+    "auth-new-password-panel": "new-password",
+  };
+
+  const target = map[panel] || panel;
+
+  $("#auth-owner-panel")?.classList.toggle("hidden", target !== "owner");
+  $("#auth-employee-panel")?.classList.toggle("hidden", target !== "employee");
+  $("#register-form")?.classList.toggle("hidden", target !== "register");
+  $("#forgot-form")?.classList.toggle("hidden", target !== "forgot");
+  $("#new-password-form")?.classList.toggle("hidden", target !== "new-password");
+
+  $("#tab-owner")?.classList.toggle("active", target === "owner");
+  $("#tab-employee")?.classList.toggle("active", target === "employee");
+  $("#auth-tabs-wrap")?.classList.toggle("hidden", !["owner", "employee"].includes(target));
   $("#auth-message")?.classList.add("hidden");
-  ["#auth-error", "#register-error", "#reset-error", "#new-password-error"].forEach((sel) => {
-    const el = $(sel); if (el) el.textContent = "";
+
+  ["#login-error", "#employee-login-error", "#register-error", "#forgot-error", "#new-password-error"].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.textContent = "";
   });
 }
 
@@ -507,7 +525,7 @@ async function initAuth() {
 function mostrarLogin() {
   $("#auth-screen")?.classList.remove("hidden");
   $(".app")?.classList.add("hidden");
-  if (!flujoRecuperacionActivo) mostrarPanelAuth("auth-login-panel");
+  if (!flujoRecuperacionActivo) mostrarPanelAuth("owner");
 }
 
 async function mostrarApp() {
@@ -534,15 +552,26 @@ async function mostrarApp() {
 
 async function iniciarSesionPassword(e) {
   e.preventDefault();
-  const email = $("#auth-email").value.trim();
-  const password = $("#auth-password").value;
-  const btn = $("#btn-auth-login");
-  const err = $("#auth-error");
+  const email = $("#login-email")?.value.trim();
+  const password = $("#login-password")?.value || "";
+  const btn = $("#btn-login");
+  const err = $("#login-error");
+  if (!btn || !err) return;
+
   err.textContent = "";
-  btn.disabled = true; btn.textContent = "Ingresando...";
+  btn.disabled = true;
+  btn.textContent = "Ingresando...";
+
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  btn.disabled = false; btn.textContent = "Iniciar sesión";
-  if (error) err.textContent = error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message;
+
+  btn.disabled = false;
+  btn.textContent = "Iniciar sesión";
+
+  if (error) {
+    err.textContent = error.message === "Invalid login credentials"
+      ? "Email o contraseña incorrectos."
+      : error.message;
+  }
 }
 
 
@@ -577,60 +606,83 @@ async function loginEmpleado(e) {
 
 async function registrarCuenta(e) {
   e.preventDefault();
-  const businessName = $("#register-business").value.trim();
-  const email = $("#register-email").value.trim();
-  const password = $("#register-password").value;
-  const confirm = $("#register-password-confirm").value;
+  const businessName = $("#register-business")?.value.trim();
+  const email = $("#register-email")?.value.trim();
+  const password = $("#register-password")?.value || "";
   const err = $("#register-error");
   const btn = $("#btn-register");
+  if (!err || !btn) return;
+
   err.textContent = "";
+  if (!businessName) { err.textContent = "Ingresá el nombre del negocio."; return; }
   if (password.length < 8) { err.textContent = "La contraseña debe tener al menos 8 caracteres."; return; }
-  if (password !== confirm) { err.textContent = "Las contraseñas no coinciden."; return; }
-  btn.disabled = true; btn.textContent = "Creando cuenta...";
+
+  btn.disabled = true;
+  btn.textContent = "Creando cuenta...";
+
   const { data, error } = await supabaseClient.auth.signUp({
-    email, password,
+    email,
+    password,
     options: {
       emailRedirectTo: window.location.origin + window.location.pathname,
-      data: { business_name: businessName }
-    }
+      data: { business_name: businessName },
+    },
   });
-  btn.disabled = false; btn.textContent = "Crear cuenta";
+
+  btn.disabled = false;
+  btn.textContent = "Crear cuenta";
+
   if (error) { err.textContent = error.message; return; }
+
   if (!data.session) {
-    mostrarPanelAuth("auth-login-panel");
-    mostrarMensajeAuth("Cuenta creada. Revisá tu email una sola vez para confirmar la cuenta y después ingresá siempre con tu contraseña.", "success");
+    mostrarPanelAuth("owner");
+    mostrarMensajeAuth("Cuenta creada. Revisá tu email una sola vez para confirmarla y después ingresá con tu contraseña.", "success");
   }
 }
 
 async function solicitarResetPassword(e) {
   e.preventDefault();
-  const email = $("#reset-email").value.trim();
-  const btn = $("#btn-reset-send");
-  const err = $("#reset-error");
+  const email = $("#forgot-email")?.value.trim();
+  const btn = $("#btn-forgot-send");
+  const err = $("#forgot-error");
+  if (!btn || !err) return;
+
   err.textContent = "";
-  btn.disabled = true; btn.textContent = "Enviando...";
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+
   const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin + window.location.pathname,
   });
-  btn.disabled = false; btn.textContent = "Enviar enlace de recuperación";
+
+  btn.disabled = false;
+  btn.textContent = "Enviar recuperación";
+
   if (error) { err.textContent = error.message; return; }
-  mostrarPanelAuth("auth-login-panel");
-  mostrarMensajeAuth("Te enviamos un enlace de recuperación. El email solo se usa cuando necesitás cambiar la contraseña.", "success");
+  mostrarPanelAuth("owner");
+  mostrarMensajeAuth("Te enviamos un enlace para cambiar tu contraseña.", "success");
 }
 
 async function guardarNuevaPassword(e) {
   e.preventDefault();
-  const password = $("#new-password").value;
-  const confirm = $("#new-password-confirm").value;
+  const password = $("#new-password")?.value || "";
+  const confirm = $("#new-password-confirm")?.value || "";
   const err = $("#new-password-error");
   const btn = $("#btn-new-password");
+  if (!err || !btn) return;
+
   err.textContent = "";
   if (password.length < 8) { err.textContent = "La contraseña debe tener al menos 8 caracteres."; return; }
   if (password !== confirm) { err.textContent = "Las contraseñas no coinciden."; return; }
-  btn.disabled = true; btn.textContent = "Guardando...";
+
+  btn.disabled = true;
+  btn.textContent = "Guardando...";
   const { error } = await supabaseClient.auth.updateUser({ password });
-  btn.disabled = false; btn.textContent = "Guardar contraseña";
+  btn.disabled = false;
+  btn.textContent = "Guardar contraseña";
+
   if (error) { err.textContent = error.message; return; }
+
   flujoRecuperacionActivo = false;
   mostrarToast("Contraseña actualizada", "success");
   await mostrarApp();
@@ -1849,20 +1901,27 @@ async function renderHistorial() {
 // Eventos
 // =====================
 function inicializarEventos() {
-  $("#auth-form")?.addEventListener("submit", iniciarSesionPassword);
+  $("#login-form")?.addEventListener("submit", iniciarSesionPassword);
+  $("#employee-login-form")?.addEventListener("submit", loginEmpleado);
   $("#register-form")?.addEventListener("submit", registrarCuenta);
-  $("#reset-request-form")?.addEventListener("submit", solicitarResetPassword);
+  $("#forgot-form")?.addEventListener("submit", solicitarResetPassword);
   $("#new-password-form")?.addEventListener("submit", guardarNuevaPassword);
-  $("#btn-ir-registro")?.addEventListener("click", () => mostrarPanelAuth("auth-register-panel"));
-  $("#btn-ir-login")?.addEventListener("click", () => mostrarPanelAuth("auth-login-panel"));
-  $("#btn-olvide-password")?.addEventListener("click", () => {
-    $("#reset-email").value = $("#auth-email").value.trim();
-    mostrarPanelAuth("auth-reset-panel");
+
+  $("#tab-owner")?.addEventListener("click", () => mostrarPanelAuth("owner"));
+  $("#tab-employee")?.addEventListener("click", () => mostrarPanelAuth("employee"));
+  $("#btn-show-register")?.addEventListener("click", () => mostrarPanelAuth("register"));
+  $("#btn-back-login")?.addEventListener("click", () => mostrarPanelAuth("owner"));
+  $("#btn-forgot")?.addEventListener("click", () => {
+    const email = $("#login-email")?.value.trim();
+    if ($("#forgot-email") && email) $("#forgot-email").value = email;
+    mostrarPanelAuth("forgot");
   });
-  $("#btn-reset-volver")?.addEventListener("click", () => mostrarPanelAuth("auth-login-panel"));
+  $("#btn-forgot-back")?.addEventListener("click", () => mostrarPanelAuth("owner"));
+
   document.querySelectorAll("[data-toggle-password]").forEach((btn) => {
     btn.addEventListener("click", () => togglePassword(btn.dataset.togglePassword, btn));
   });
+
   $("#btn-cerrar-sesion")?.addEventListener("click", cerrarSesion);
 
   $("#btn-nuevo").addEventListener("click", () => abrirModal());
@@ -1895,7 +1954,6 @@ function inicializarEventos() {
   $("#equipo-lista")?.addEventListener("click", (e) => {
     const btn=e.target.closest("[data-equipo-action]"); if(!btn)return;
     if(btn.dataset.equipoAction==="toggle-member") cambiarEstadoEquipo(btn.dataset.id,btn.dataset.activo==="1");
-    else if(btn.dataset.equipoAction==="cancel-invite") cancelarInvitacionEquipo(btn.dataset.id);
   });
 
   $("#btn-historial")?.addEventListener("click", abrirHistorial);
@@ -2084,7 +2142,6 @@ function setupOnboarding() {
 function init() {
   registrarServiceWorker();
   cargarTema();
-  mostrarPanelLogin("owner");
   inicializarEventos();
   setupInstallPrompt();
   setupOnboarding();

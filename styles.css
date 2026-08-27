@@ -1581,3 +1581,35 @@ body[data-role="cashier"] #btn-historial{display:none!important}
   .equipo-create-form #btn-crear-empleado,
   .equipo-create-form #equipo-error { grid-column:auto; }
 }
+
+
+/* ===== Vendify v2.3.2 · Auth UI fix ===== */
+.auth-card-v23 { max-width: 440px; text-align: left; }
+.auth-card-v23 > .onboarding-logo,
+.auth-card-v23 > h1,
+.auth-card-v23 > .onboarding-lead { text-align:center; }
+.auth-card-v23 .auth-form { margin-top: 1rem; gap: .7rem; }
+.auth-card-v23 input[type="email"],
+.auth-card-v23 input[type="password"],
+.auth-card-v23 input[type="text"] {
+  width:100%;
+  padding:.72rem .85rem;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  font-size:.9rem;
+  outline:none;
+}
+.auth-card-v23 input:focus { border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+.auth-link-btn {
+  border:0; background:transparent; color:var(--primary); cursor:pointer;
+  font:inherit; font-size:.84rem; padding:.35rem 0; text-align:center;
+}
+.auth-link-btn:hover { text-decoration:underline; }
+.auth-card-v23 h2 { font-size:1.15rem; margin-bottom:.25rem; }
+.auth-card-v23 .field-error:empty { min-height:0; margin-top:0; }
+@media (max-width: 520px) {
+  .auth-screen { align-items:flex-start; overflow:auto; }
+  .auth-card-v23 { margin-top:1rem; padding:1.35rem 1rem; }
+}

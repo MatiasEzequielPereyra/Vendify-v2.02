@@ -26,7 +26,7 @@
       <h1>Vendify</h1>
       <p class="onboarding-lead">Tu negocio, bajo control.</p>
 
-      <div class="auth-tabs">
+      <div class="auth-tabs" id="auth-tabs-wrap">
         <button type="button" class="auth-tab active" id="tab-owner">Dueño / Admin</button>
         <button type="button" class="auth-tab" id="tab-employee">Empleado</button>
       </div>
@@ -107,6 +107,25 @@
         <span class="field-error" id="forgot-error"></span>
         <button type="submit" class="btn btn-primary btn-lg" id="btn-forgot-send">Enviar recuperación</button>
         <button type="button" class="auth-link-btn" id="btn-forgot-back">Volver</button>
+      </form>
+
+
+      <form id="new-password-form" class="auth-form hidden">
+        <h2>Nueva contraseña</h2>
+        <p class="hint" style="margin-bottom:.9rem;">Elegí una nueva contraseña para tu cuenta de propietario o administrador.</p>
+        <div class="form-group">
+          <label for="new-password">Nueva contraseña</label>
+          <div class="password-wrap">
+            <input type="password" id="new-password" required minlength="8" autocomplete="new-password" />
+            <button type="button" class="password-toggle" data-toggle-password="new-password">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="new-password-confirm">Repetir contraseña</label>
+          <input type="password" id="new-password-confirm" required minlength="8" autocomplete="new-password" />
+        </div>
+        <span class="field-error" id="new-password-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-new-password">Guardar contraseña</button>
       </form>
 
       <div id="auth-message" class="auth-check-email hidden"></div>
