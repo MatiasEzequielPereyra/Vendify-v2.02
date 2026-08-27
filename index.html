@@ -21,99 +21,95 @@
 <body>
   <!-- Autenticación Vendify -->
   <div id="auth-screen" class="auth-screen hidden">
-    <div class="auth-card auth-card-vendify">
-      <div class="vendify-brand">
-        <div class="vendify-logo">V</div>
-        <div><h1>Vendify</h1><p>Tu negocio, bajo control.</p></div>
+    <div class="auth-card auth-card-v23">
+      <div class="onboarding-logo">V</div>
+      <h1>Vendify</h1>
+      <p class="onboarding-lead">Tu negocio, bajo control.</p>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-owner">Dueño / Admin</button>
+        <button type="button" class="auth-tab" id="tab-employee">Empleado</button>
       </div>
 
-      <div id="auth-login-panel">
-        <h2>Iniciar sesión</h2>
-        <p class="auth-subtitle">Ventas, stock y gestión desde cualquier dispositivo.</p>
-        <form id="auth-form" class="auth-form">
+      <div id="auth-owner-panel">
+        <form id="login-form" class="auth-form">
           <div class="form-group">
-            <label for="auth-email">Email</label>
-            <input type="email" id="auth-email" required placeholder="negocio@email.com" autocomplete="email" />
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" required placeholder="tu@email.com" autocomplete="email" />
           </div>
           <div class="form-group">
-            <label for="auth-password">Contraseña</label>
+            <label for="login-password">Contraseña</label>
             <div class="password-wrap">
-              <input type="password" id="auth-password" required minlength="8" placeholder="Tu contraseña" autocomplete="current-password" />
-              <button type="button" class="password-toggle" data-toggle-password="auth-password" aria-label="Mostrar contraseña">👁</button>
+              <input type="password" id="login-password" required minlength="6" placeholder="Tu contraseña" autocomplete="current-password" />
+              <button type="button" class="password-toggle" data-toggle-password="login-password">👁</button>
             </div>
           </div>
-          <span class="field-error" id="auth-error"></span>
-          <button type="submit" class="btn btn-primary btn-lg" id="btn-auth-login">Iniciar sesión</button>
+          <span class="field-error" id="login-error"></span>
+          <button type="submit" class="btn btn-primary btn-lg" id="btn-login">Iniciar sesión</button>
+          <button type="button" class="auth-link-btn" id="btn-forgot">¿Olvidaste tu contraseña?</button>
         </form>
-        <button type="button" class="auth-link" id="btn-olvide-password">¿Olvidaste tu contraseña?</button>
+
         <div class="auth-divider"><span>o</span></div>
-        <p class="auth-switch">¿Es tu primera vez? <button type="button" class="auth-link inline" id="btn-ir-registro">Crear mi negocio</button></p>
+        <button type="button" class="btn btn-secondary btn-lg" id="btn-show-register">Crear mi negocio</button>
       </div>
 
-      <div id="auth-register-panel" class="hidden">
-        <h2>Crear tu negocio</h2>
-        <p class="auth-subtitle">Creá tu cuenta de Vendify. Tu negocio se configura automáticamente.</p>
-        <form id="register-form" class="auth-form">
+      <div id="auth-employee-panel" class="hidden">
+        <form id="employee-login-form" class="auth-form">
           <div class="form-group">
-            <label for="register-business">Nombre del negocio</label>
-            <input type="text" id="register-business" required maxlength="80" placeholder="Ej: Kiosco Central" autocomplete="organization" />
+            <label for="employee-business-code">Código del negocio</label>
+            <input type="text" id="employee-business-code" required maxlength="30" placeholder="Ej: CENTRAL01" autocomplete="organization" />
           </div>
           <div class="form-group">
-            <label for="register-email">Email</label>
-            <input type="email" id="register-email" required placeholder="negocio@email.com" autocomplete="email" />
+            <label for="employee-username">Usuario</label>
+            <input type="text" id="employee-username" required maxlength="30" placeholder="Ej: pedro" autocomplete="username" />
           </div>
           <div class="form-group">
-            <label for="register-password">Contraseña</label>
+            <label for="employee-password">Contraseña</label>
             <div class="password-wrap">
-              <input type="password" id="register-password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
-              <button type="button" class="password-toggle" data-toggle-password="register-password" aria-label="Mostrar contraseña">👁</button>
+              <input type="password" id="employee-password" required minlength="8" placeholder="Tu contraseña" autocomplete="current-password" />
+              <button type="button" class="password-toggle" data-toggle-password="employee-password">👁</button>
             </div>
           </div>
-          <div class="form-group">
-            <label for="register-password-confirm">Repetir contraseña</label>
-            <input type="password" id="register-password-confirm" required minlength="8" placeholder="Repetí la contraseña" autocomplete="new-password" />
-          </div>
-          <span class="field-error" id="register-error"></span>
-          <button type="submit" class="btn btn-primary btn-lg" id="btn-register">Crear cuenta</button>
+          <span class="field-error" id="employee-login-error"></span>
+          <button type="submit" class="btn btn-primary btn-lg" id="btn-employee-login">Entrar a Vendify</button>
         </form>
-        <p class="auth-switch">¿Ya tenés cuenta? <button type="button" class="auth-link inline" id="btn-ir-login">Iniciar sesión</button></p>
       </div>
 
-      <div id="auth-reset-panel" class="hidden">
+      <form id="register-form" class="auth-form hidden">
+        <h2>Crear mi negocio</h2>
+        <div class="form-group">
+          <label for="register-business">Nombre del negocio</label>
+          <input type="text" id="register-business" required maxlength="80" placeholder="Ej: Kiosco Central" autocomplete="organization" />
+        </div>
+        <div class="form-group">
+          <label for="register-email">Email del propietario</label>
+          <input type="email" id="register-email" required placeholder="tu@email.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="register-password">Contraseña</label>
+          <div class="password-wrap">
+            <input type="password" id="register-password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+            <button type="button" class="password-toggle" data-toggle-password="register-password">👁</button>
+          </div>
+        </div>
+        <span class="field-error" id="register-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-register">Crear cuenta</button>
+        <button type="button" class="auth-link-btn" id="btn-back-login">Volver al login</button>
+      </form>
+
+      <form id="forgot-form" class="auth-form hidden">
         <h2>Recuperar contraseña</h2>
-        <p class="auth-subtitle">Te enviaremos un enlace seguro para crear una contraseña nueva.</p>
-        <form id="reset-request-form" class="auth-form">
-          <div class="form-group">
-            <label for="reset-email">Email</label>
-            <input type="email" id="reset-email" required placeholder="negocio@email.com" autocomplete="email" />
-          </div>
-          <span class="field-error" id="reset-error"></span>
-          <button type="submit" class="btn btn-primary btn-lg" id="btn-reset-send">Enviar enlace de recuperación</button>
-        </form>
-        <p class="auth-switch"><button type="button" class="auth-link inline" id="btn-reset-volver">← Volver al login</button></p>
-      </div>
+        <p class="hint" style="margin-bottom:.9rem;">Disponible para propietarios y administradores con email.</p>
+        <div class="form-group">
+          <label for="forgot-email">Email</label>
+          <input type="email" id="forgot-email" required placeholder="tu@email.com" autocomplete="email" />
+        </div>
+        <span class="field-error" id="forgot-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-forgot-send">Enviar recuperación</button>
+        <button type="button" class="auth-link-btn" id="btn-forgot-back">Volver</button>
+      </form>
 
-      <div id="auth-new-password-panel" class="hidden">
-        <h2>Nueva contraseña</h2>
-        <p class="auth-subtitle">Elegí una contraseña nueva para tu cuenta.</p>
-        <form id="new-password-form" class="auth-form">
-          <div class="form-group">
-            <label for="new-password">Nueva contraseña</label>
-            <div class="password-wrap">
-              <input type="password" id="new-password" required minlength="8" autocomplete="new-password" />
-              <button type="button" class="password-toggle" data-toggle-password="new-password" aria-label="Mostrar contraseña">👁</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="new-password-confirm">Repetir contraseña</label>
-            <input type="password" id="new-password-confirm" required minlength="8" autocomplete="new-password" />
-          </div>
-          <span class="field-error" id="new-password-error"></span>
-          <button type="submit" class="btn btn-primary btn-lg" id="btn-new-password">Guardar contraseña</button>
-        </form>
-      </div>
-
-      <div id="auth-message" class="auth-message hidden"></div>
+      <div id="auth-message" class="auth-check-email hidden"></div>
     </div>
   </div>
 
@@ -185,18 +181,12 @@
         <button id="btn-nuevo" class="btn btn-primary">
           <span>+</span> Nuevo producto
         </button>
-        <button id="btn-modo-empleado" class="btn btn-secondary" title="Bloquear edición para empleados">
-          🔒 Modo empleado
+        <button id="btn-equipo" class="btn btn-secondary" title="Administrar equipo y permisos">
+          👥 Equipo
         </button>
       </div>
     </header>
-
-    <!-- Aviso visible solo cuando la app está en modo empleado -->
-    <div id="empleado-bar" class="empleado-bar hidden">
-      <span>🔒 Modo empleado activo — solo se puede vender, el resto está bloqueado</span>
-    </div>
-
-    <!-- Stats -->
+<!-- Stats -->
     <section class="stats">
       <div class="stat-card">
         <div class="stat-icon">📦</div>
@@ -384,18 +374,6 @@
 
         <ul id="lista-categorias-config" class="lista-categorias-config"></ul>
 
-        <div class="config-divider"></div>
-
-        <h3 class="config-section-title">Modo empleado (compatibilidad)</h3>
-        <p class="hint" style="margin-bottom: 0.85rem;">
-          Función temporal heredada de la v1. En la arquitectura v2 los permisos reales
-          se controlan por usuario y rol desde Supabase.
-        </p>
-        <div class="config-add-row">
-          <input type="text" id="pin-empleado" placeholder="PIN (4 a 6 dígitos)" maxlength="6" inputmode="numeric" autocomplete="off" />
-          <button type="button" class="btn btn-primary btn-sm" id="btn-guardar-pin">Guardar PIN</button>
-        </div>
-        <p class="hint" id="pin-empleado-estado"></p>
 
         <div class="config-divider"></div>
 
@@ -412,29 +390,7 @@
       </div>
     </div>
   </div>
-
-  <!-- Modal Ingresar PIN (salir de modo empleado) -->
-  <div id="modal-pin" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content modal-sm">
-      <div class="modal-header">
-        <h2>Ingresá el PIN</h2>
-        <button class="btn-icon" id="btn-cerrar-pin" aria-label="Cerrar">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <input type="password" id="pin-input" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off" style="text-align:center; font-size:1.4rem; letter-spacing:0.3rem;" />
-        </div>
-        <span class="field-error" id="pin-error"></span>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="btn-pin-cancelar">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="btn-pin-confirmar">Ingresar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Confirmación -->
+<!-- Modal Confirmación -->
   <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
     <div class="modal-content modal-sm">
@@ -482,6 +438,98 @@
       </div>
     </div>
   </div>
+
+
+  <!-- Modal Equipo -->
+  <div id="modal-equipo" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-equipo-content">
+      <div class="modal-header">
+        <div>
+          <h2>👥 Equipo</h2>
+          <p class="hint">Creá usuarios internos. Los empleados no necesitan email.</p>
+        </div>
+        <button class="btn-icon" id="btn-cerrar-equipo" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="business-code-card">
+          <div>
+            <span class="hint">Código del negocio</span>
+            <strong id="equipo-business-code">—</strong>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-business-code">Copiar</button>
+        </div>
+
+        <section class="equipo-invitar-card">
+          <h3 class="config-section-title">Crear empleado</h3>
+          <form id="form-crear-empleado" class="equipo-create-form">
+            <div class="form-group">
+              <label for="equipo-nombre">Nombre</label>
+              <input type="text" id="equipo-nombre" required maxlength="60" placeholder="Ej: Pedro Gómez" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="equipo-username">Usuario</label>
+              <input type="text" id="equipo-username" required maxlength="30" placeholder="Ej: pedro" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="equipo-rol">Rol</label>
+              <select id="equipo-rol" class="select select-full">
+                <option value="cashier">Cajero</option>
+                <option value="manager">Encargado</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="equipo-password">Contraseña temporal</label>
+              <div class="password-wrap">
+                <input type="text" id="equipo-password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="off" />
+                <button type="button" class="password-toggle" id="btn-generar-password" title="Generar contraseña">🎲</button>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-crear-empleado">Crear empleado</button>
+            <span class="field-error" id="equipo-error"></span>
+          </form>
+        </section>
+
+        <div class="config-divider"></div>
+
+        <div class="equipo-list-header">
+          <div>
+            <h3 class="config-section-title">Personas</h3>
+            <p class="hint">Cada venta queda asociada al usuario que la realizó.</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-refrescar-equipo">↻ Actualizar</button>
+        </div>
+
+        <div id="equipo-lista" class="equipo-lista"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal cambio obligatorio de contraseña -->
+  <div id="modal-password-empleado" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Creá tu contraseña</h2>
+      </div>
+      <form id="form-password-empleado">
+        <p class="hint" style="margin-bottom:1rem;">Por seguridad, cambiá la contraseña temporal antes de continuar.</p>
+        <div class="form-group">
+          <label for="employee-new-password">Nueva contraseña</label>
+          <input type="password" id="employee-new-password" required minlength="8" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label for="employee-new-password-repeat">Repetir contraseña</label>
+          <input type="password" id="employee-new-password-repeat" required minlength="8" autocomplete="new-password" />
+        </div>
+        <span class="field-error" id="employee-password-error"></span>
+        <button type="submit" class="btn btn-primary btn-lg">Guardar contraseña</button>
+      </form>
+    </div>
+  </div>
+
+
 
   <div id="toast-container" class="toast-container"></div>
 

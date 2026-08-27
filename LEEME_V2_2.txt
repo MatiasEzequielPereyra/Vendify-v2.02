@@ -1,0 +1,21 @@
+VENDIFY v2.2 — EQUIPO REAL
+
+1. Ejecutá en Supabase: 004_equipo_roles_invitaciones.sql
+2. Después reemplazá los archivos de frontend en Vercel.
+3. Hacé Ctrl + Shift + R.
+
+Prueba:
+- Entrá como owner.
+- Abrí “Equipo”.
+- Invitá un email nuevo como Cajero.
+- En ventana privada, registrá ese email en Vendify. El nombre del negocio puede quedar vacío.
+- Confirmá el email si Supabase lo exige.
+- Iniciá sesión con el empleado.
+
+Permisos:
+owner: todo.
+admin: gestión completa del negocio y equipo, excepto modificar owner.
+manager: ventas, productos, stock, reportes; sin Equipo.
+cashier: venta + consulta de productos; sin edición, stock manual, reportes, Config ni Equipo.
+
+El PIN de empleado fue retirado del frontend.

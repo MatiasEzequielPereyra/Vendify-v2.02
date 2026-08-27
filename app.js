@@ -1,5 +1,5 @@
 /**
- * Vendify v2.1 — Core SaaS multiempresa
+ * Vendify v2.3 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -11,14 +11,11 @@
 const THEME_KEY = "kiosco_theme";
 const ONBOARDING_KEY = "kiosco_onboarding_done";
 const INSTALL_DISMISS_KEY = "kiosco_install_dismiss";
-const MODO_EMPLEADO_KEY = "kiosco_modo_empleado";
 const MAX_IMG_SIZE = 400;
 
 let deferredInstallPrompt = null;
 let sesionActual = null;
 let realtimeChannel = null;
-let pinEmpleado = null;
-let pinResolverActual = null;
 
 const CATEGORIAS_DEFAULT = [
   "Bebidas", "Golosinas", "Snacks", "Cigarrillos", "Lácteos",
@@ -346,6 +343,8 @@ function aplicarPermisosV2() {
 
   setHidden("#btn-nuevo, #btn-empty-nuevo, #btn-cargar-ejemplos, #btn-cargar-ejemplos-config", !tienePermisoV2("manageProducts"));
   setHidden("#btn-config", !tienePermisoV2("manageBusiness"));
+  setHidden("#btn-equipo", !tienePermisoV2("manageEmployees"));
+  setHidden("#btn-historial", !tienePermisoV2("viewReports"));
   setHidden("#btn-export", !tienePermisoV2("viewReports"));
   setHidden(".card-acciones", !tienePermisoV2("manageProducts"));
   setHidden(".card-stock-controls", !tienePermisoV2("adjustStock"));
@@ -479,15 +478,10 @@ async function mostrarApp() {
 
   await cargarCategorias();
   await cargarProductos();
-  await cargarConfiguracion();
   actualizarFiltroCategorias();
   renderGrid();
   aplicarPermisosV2();
   suscribirRealtime();
-
-  if (localStorage.getItem(MODO_EMPLEADO_KEY) === "1" && ["owner", "admin"].includes(appContext.membership?.role)) {
-    activarModoEmpleado(false);
-  }
 }
 
 async function iniciarSesionPassword(e) {
@@ -501,6 +495,36 @@ async function iniciarSesionPassword(e) {
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = "Iniciar sesión";
   if (error) err.textContent = error.message === "Invalid login credentials" ? "Email o contraseña incorrectos." : error.message;
+}
+
+
+async function loginEmpleado(e) {
+  e.preventDefault();
+
+  const code = $("#employee-business-code").value.trim();
+  const username = $("#employee-username").value.trim();
+  const password = $("#employee-password").value;
+  const errorEl = $("#employee-login-error");
+  const btn = $("#btn-employee-login");
+
+  errorEl.textContent = "";
+
+  const email = emailInternoEmpleado(code, username);
+
+  btn.disabled = true;
+  btn.textContent = "Ingresando...";
+
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  btn.disabled = false;
+  btn.textContent = "Entrar a Vendify";
+
+  if (error) {
+    errorEl.textContent = "Código, usuario o contraseña incorrectos.";
+  }
 }
 
 async function registrarCuenta(e) {
@@ -579,114 +603,193 @@ async function cerrarSesion() {
   await supabaseClient.auth.signOut();
 }
 
-// =====================
-// Modo empleado (PIN — sin usar el mail del dueño)
-// =====================
-async function cargarConfiguracion() {
-  const { data, error } = await supabaseClient
-    .from("configuracion")
-    .select("pin_empleado")
-    .eq("user_id", sesionActual.user.id)
-    .maybeSingle();
-  pinEmpleado = error ? null : data?.pin_empleado || null;
-  actualizarEstadoPinUI();
+
+
+// ============================================================
+// V2.3 — EQUIPO / USUARIOS INTERNOS
+// ============================================================
+
+async function obtenerNegocioAdminV3() {
+  const { data, error } = await supabaseClient.rpc("obtener_negocio_admin_actual");
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-function actualizarEstadoPinUI() {
-  const el = $("#pin-empleado-estado");
-  if (!el) return;
-  el.textContent = pinEmpleado
-    ? "✅ PIN configurado. El botón \"Modo empleado\" ya se puede usar."
-    : "Todavía no configuraste un PIN.";
+async function listarEquipoV3() {
+  const { data, error } = await supabaseClient.rpc("listar_equipo_v3");
+  if (error) throw new Error(error.message || "No se pudo cargar el equipo");
+  return data || [];
 }
 
-async function guardarPinEmpleado() {
-  const input = $("#pin-empleado");
-  const valor = input.value.trim();
-  if (!/^\d{4,6}$/.test(valor)) {
-    mostrarToast("El PIN debe tener entre 4 y 6 números", "error");
+async function abrirEquipo() {
+  if (!exigirPermisoV2("manageEmployees", "No tenés permiso para administrar el equipo")) return;
+  $("#modal-equipo")?.classList.remove("hidden");
+  try {
+    const negocio = await obtenerNegocioAdminV3();
+    $("#equipo-business-code").textContent = negocio.codigo_acceso || "—";
+  } catch (e) {
+    mostrarToast(e.message, "error");
+  }
+  await renderEquipo();
+}
+
+function cerrarEquipo() {
+  $("#modal-equipo")?.classList.add("hidden");
+}
+
+async function renderEquipo() {
+  const lista = $("#equipo-lista");
+  if (!lista) return;
+  lista.innerHTML = `<p class="hint" style="text-align:center;padding:1rem;">Cargando equipo...</p>`;
+
+  let personas;
+  try {
+    personas = await listarEquipoV3();
+  } catch (error) {
+    lista.innerHTML = "";
+    mostrarToast(error.message, "error");
     return;
   }
-  const { error } = await supabaseClient
-    .from("configuracion")
-    .upsert({ user_id: sesionActual.user.id, pin_empleado: valor, actualizado: new Date().toISOString() });
-  if (error) {
-    mostrarToast("No se pudo guardar el PIN", "error");
-    return;
-  }
-  pinEmpleado = valor;
-  input.value = "";
-  actualizarEstadoPinUI();
-  mostrarToast("PIN guardado");
+
+  lista.innerHTML = personas.map((item) => {
+    const esOwner = item.rol === "owner";
+    const esYo = item.user_id === appContext.user?.id;
+    const username = item.username
+      ? `<span class="employee-username-badge">@${escapeHtml(item.username)}</span>`
+      : `<span class="employee-username-badge">Email</span>`;
+
+    const rolControl = esOwner
+      ? `<span class="equipo-role-owner">Propietario</span>`
+      : `
+        <select class="select equipo-role-select" data-membership-id="${item.membership_id}" ${esYo ? "disabled" : ""}>
+          <option value="cashier" ${item.rol === "cashier" ? "selected" : ""}>Cajero</option>
+          <option value="manager" ${item.rol === "manager" ? "selected" : ""}>Encargado</option>
+          <option value="admin" ${item.rol === "admin" ? "selected" : ""}>Administrador</option>
+        </select>`;
+
+    const acciones = (!esOwner && !esYo)
+      ? `<button class="btn ${item.activo ? "btn-ghost" : "btn-secondary"} btn-sm"
+                 data-equipo-action="toggle-member"
+                 data-id="${item.membership_id}"
+                 data-activo="${item.activo ? "0" : "1"}">
+            ${item.activo ? "Desactivar" : "Activar"}
+         </button>`
+      : "";
+
+    return `
+      <div class="equipo-item">
+        <div class="equipo-persona">
+          <div class="equipo-email">${escapeHtml(item.nombre || item.email || "Usuario")}${esYo ? " · Vos" : ""}</div>
+          <div class="equipo-meta">
+            ${username}
+            <span class="equipo-status ${item.activo ? "active" : "inactive"}">${item.activo ? "Activo" : "Inactivo"}</span>
+            ${item.debe_cambiar_password ? `<span class="equipo-status pending">Clave temporal</span>` : ""}
+          </div>
+        </div>
+        <div>${rolControl}</div>
+        <div class="equipo-actions">${acciones}</div>
+      </div>`;
+  }).join("");
 }
 
-function pedirPin(titulo) {
-  return new Promise((resolve) => {
-    $("#pin-input").value = "";
-    $("#pin-error").textContent = "";
-    $("#modal-pin").querySelector("h2").textContent = titulo || "Ingresá el PIN";
-    $("#modal-pin").classList.remove("hidden");
-    pinResolverActual = resolve;
-    setTimeout(() => $("#pin-input").focus(), 50);
+async function crearEmpleadoV3(e) {
+  e.preventDefault();
+
+  if (!exigirPermisoV2("manageEmployees", "No tenés permiso para crear empleados")) return;
+
+  const nombre = $("#equipo-nombre").value.trim();
+  const username = normalizarLoginInterno($("#equipo-username").value);
+  const rol = $("#equipo-rol").value;
+  const password = $("#equipo-password").value;
+  const errorEl = $("#equipo-error");
+  const btn = $("#btn-crear-empleado");
+
+  errorEl.textContent = "";
+
+  btn.disabled = true;
+  btn.textContent = "Creando...";
+
+  const { data, error } = await supabaseClient.functions.invoke("crear-empleado", {
+    body: { nombre, username, rol, password },
   });
-}
 
-function cerrarModalPin(resultado) {
-  $("#modal-pin").classList.add("hidden");
-  if (pinResolverActual) {
-    pinResolverActual(resultado);
-    pinResolverActual = null;
-  }
-}
+  btn.disabled = false;
+  btn.textContent = "Crear empleado";
 
-function activarModoEmpleado(mostrarAviso = true) {
-  if (!pinEmpleado) {
-    mostrarToast("Primero configurá un PIN en Configuración", "error");
+  if (error || data?.error) {
+    errorEl.textContent = data?.error || error?.message || "No se pudo crear el empleado";
     return;
   }
-  document.body.classList.add("modo-empleado");
-  localStorage.setItem(MODO_EMPLEADO_KEY, "1");
-  $("#empleado-bar")?.classList.remove("hidden");
-  actualizarBotonModoEmpleado();
-  if (mostrarAviso) mostrarToast("Modo empleado activado: solo se puede vender");
+
+  $("#equipo-nombre").value = "";
+  $("#equipo-username").value = "";
+  $("#equipo-password").value = "";
+
+  mostrarToast(`Empleado @${username} creado`, "success");
+  await renderEquipo();
 }
 
-async function intentarSalirModoEmpleado() {
-  const pin = await pedirPin("Ingresá el PIN de administrador para salir");
-  if (pin === null) return;
-  if (pin !== pinEmpleado) {
-    mostrarToast("PIN incorrecto", "error");
+async function cambiarRolEquipo(membershipId, rol, selectEl) {
+  selectEl.disabled = true;
+  const { error } = await supabaseClient.rpc("actualizar_rol_miembro_v2", {
+    p_membership_id: membershipId,
+    p_rol: rol,
+  });
+  selectEl.disabled = false;
+
+  if (error) {
+    mostrarToast(error.message, "error");
+    await renderEquipo();
     return;
   }
-  document.body.classList.remove("modo-empleado");
-  localStorage.removeItem(MODO_EMPLEADO_KEY);
-  $("#empleado-bar")?.classList.add("hidden");
-  actualizarBotonModoEmpleado();
-  mostrarToast("Modo administrador activado");
+  mostrarToast(`Rol actualizado a ${nombreRolV2(rol)}`, "success");
 }
 
-function actualizarBotonModoEmpleado() {
-  const btn = $("#btn-modo-empleado");
-  if (!btn) return;
-  const activo = document.body.classList.contains("modo-empleado");
-  btn.textContent = activo ? "🔓 Salir modo empleado" : "🔒 Modo empleado";
-  btn.title = activo ? "Salir con el PIN de administrador" : "Bloquear edición para empleados";
-}
-
-function bloqueadoEnModoEmpleado() {
-  if (document.body.classList.contains("modo-empleado")) {
-    mostrarToast("Acción bloqueada en modo empleado", "error");
-    return true;
+async function cambiarEstadoEquipo(membershipId, activo) {
+  const { error } = await supabaseClient.rpc("cambiar_estado_miembro_v3", {
+    p_membership_id: membershipId,
+    p_activo: activo,
+  });
+  if (error) {
+    mostrarToast(error.message, "error");
+    return;
   }
-  return false;
+  mostrarToast(activo ? "Usuario activado" : "Usuario desactivado", "success");
+  await renderEquipo();
 }
 
-function toggleModoEmpleado() {
-  if (document.body.classList.contains("modo-empleado")) {
-    intentarSalirModoEmpleado();
-  } else {
-    activarModoEmpleado(true);
+async function cambiarPasswordEmpleadoV3(e) {
+  e.preventDefault();
+
+  const p1 = $("#employee-new-password").value;
+  const p2 = $("#employee-new-password-repeat").value;
+  const errorEl = $("#employee-password-error");
+  errorEl.textContent = "";
+
+  if (p1.length < 8) {
+    errorEl.textContent = "La contraseña debe tener al menos 8 caracteres.";
+    return;
   }
+  if (p1 !== p2) {
+    errorEl.textContent = "Las contraseñas no coinciden.";
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.updateUser({ password: p1 });
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  const { error: rpcError } = await supabaseClient.rpc("marcar_password_empleado_cambiada");
+  if (rpcError) {
+    errorEl.textContent = rpcError.message;
+    return;
+  }
+
+  if (appContext.employee) appContext.employee.debe_cambiar_password = false;
+  $("#modal-password-empleado").classList.add("hidden");
+  mostrarToast("Contraseña actualizada", "success");
 }
 
 // =====================
@@ -944,7 +1047,7 @@ function renderListaCategoriasConfig() {
 }
 
 async function agregarCategoria() {
-  if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("manageProducts", "No tenés permiso para administrar categorías")) return;
   const input = $("#nueva-categoria");
   const nombre = input.value.trim();
   if (!nombre) {
@@ -972,7 +1075,7 @@ async function agregarCategoria() {
 }
 
 async function eliminarCategoria(index) {
-  if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("manageProducts", "No tenés permiso para administrar categorías")) return;
   const nombre = categorias[index];
   if (!nombre) return;
   const enUso = productos.some((p) => p.categoria === nombre);
@@ -1256,7 +1359,6 @@ function aplicarDeltaStock(delta) {
 }
 
 async function confirmarAjusteStock() {
-  if (bloqueadoEnModoEmpleado()) return;
   if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   if (!stockAjusteId) return;
   const p = productos.find((x) => x.id === stockAjusteId);
@@ -1290,7 +1392,6 @@ async function confirmarAjusteStock() {
 // =====================
 async function guardarProducto(e) {
   e.preventDefault();
-  if (bloqueadoEnModoEmpleado()) return;
   if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
   const nombre = $("#nombre").value.trim();
 
@@ -1352,7 +1453,7 @@ async function guardarProducto(e) {
 }
 
 async function eliminarProducto(id) {
-  if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("manageProducts", "No tenés permiso para eliminar productos")) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
   const ok = await confirmar(
@@ -1374,7 +1475,6 @@ async function eliminarProducto(id) {
 
 // "sumar" = reposición de mercadería (ingreso) · "restar" = venta
 async function cambiarStock(id, delta) {
-  if (bloqueadoEnModoEmpleado()) return;
   if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
@@ -1560,7 +1660,6 @@ async function confirmarVenta() {
 // Export CSV
 // =====================
 function exportarCSV() {
-  if (bloqueadoEnModoEmpleado()) return;
   if (!exigirPermisoV2("viewReports", "No tenés permiso para exportar información")) return;
   if (productos.length === 0) {
     mostrarToast("No hay productos para exportar", "error");
@@ -1724,22 +1823,37 @@ function inicializarEventos() {
   $("#btn-cerrar-venta").addEventListener("click", cerrarVenta);
   $("#modal-venta .modal-backdrop").addEventListener("click", cerrarVenta);
 
-  $("#btn-modo-empleado")?.addEventListener("click", toggleModoEmpleado);
+
+  $("#btn-equipo")?.addEventListener("click", abrirEquipo);
+  $("#btn-cerrar-equipo")?.addEventListener("click", cerrarEquipo);
+  $("#modal-equipo .modal-backdrop")?.addEventListener("click", cerrarEquipo);
+  $("#form-crear-empleado")?.addEventListener("submit", crearEmpleadoV3);
+  $("#btn-refrescar-equipo")?.addEventListener("click", renderEquipo);
+  $("#btn-generar-password")?.addEventListener("click", () => {
+    $("#equipo-password").value = generarPasswordTemporal();
+  });
+  $("#btn-copy-business-code")?.addEventListener("click", async () => {
+    const code = $("#equipo-business-code")?.textContent?.trim();
+    if (code && code !== "—") {
+      await navigator.clipboard.writeText(code);
+      mostrarToast("Código copiado", "success");
+    }
+  });
+  $("#form-password-empleado")?.addEventListener("submit", cambiarPasswordEmpleadoV3);
+  $("#equipo-lista")?.addEventListener("change", (e) => {
+    const select=e.target.closest(".equipo-role-select"); if(!select)return;
+    cambiarRolEquipo(select.dataset.membershipId,select.value,select);
+  });
+  $("#equipo-lista")?.addEventListener("click", (e) => {
+    const btn=e.target.closest("[data-equipo-action]"); if(!btn)return;
+    if(btn.dataset.equipoAction==="toggle-member") cambiarEstadoEquipo(btn.dataset.id,btn.dataset.activo==="1");
+    else if(btn.dataset.equipoAction==="cancel-invite") cancelarInvitacionEquipo(btn.dataset.id);
+  });
+
   $("#btn-historial")?.addEventListener("click", abrirHistorial);
   $("#btn-cerrar-historial")?.addEventListener("click", cerrarHistorial);
   $("#modal-historial .modal-backdrop")?.addEventListener("click", cerrarHistorial);
   $("#historial-rango")?.addEventListener("change", renderHistorial);
-  $("#btn-guardar-pin")?.addEventListener("click", guardarPinEmpleado);
-  $("#pin-empleado")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); guardarPinEmpleado(); }
-  });
-  $("#btn-cerrar-pin")?.addEventListener("click", () => cerrarModalPin(null));
-  $("#btn-pin-cancelar")?.addEventListener("click", () => cerrarModalPin(null));
-  $("#btn-pin-confirmar")?.addEventListener("click", () => cerrarModalPin($("#pin-input").value.trim()));
-  $("#pin-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); cerrarModalPin($("#pin-input").value.trim()); }
-  });
-  $("#modal-pin .modal-backdrop")?.addEventListener("click", () => cerrarModalPin(null));
   $("#venta-buscador").addEventListener("input", renderVentaProductos);
   $("#venta-productos-lista").addEventListener("click", (e) => {
     const item = e.target.closest(".venta-producto-item");
@@ -1830,7 +1944,6 @@ function inicializarEventos() {
   $("#productos-grid").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
-    if (document.body.classList.contains("modo-empleado")) return;
     const card = btn.closest(".producto-card");
     const id = card?.dataset.id;
     if (!id) return;
@@ -1853,10 +1966,10 @@ function inicializarEventos() {
     const escribiendo = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 
     if (e.key === "Escape") {
-      if (!$("#modal-pin").classList.contains("hidden")) cerrarModalPin(null);
-      else if (!$("#modal").classList.contains("hidden")) cerrarModal();
+      if (!$("#modal").classList.contains("hidden")) cerrarModal();
       else if (!$("#modal-venta").classList.contains("hidden")) cerrarVenta();
       else if (!$("#modal-historial").classList.contains("hidden")) cerrarHistorial();
+      else if (!$("#modal-equipo").classList.contains("hidden")) cerrarEquipo();
       else if (!$("#modal-config").classList.contains("hidden")) cerrarConfig();
       else if (!$("#modal-confirm").classList.contains("hidden")) {
         cerrarConfirm();
@@ -1866,12 +1979,10 @@ function inicializarEventos() {
     }
     if (escribiendo) return;
 
-    const bloqueadoPorEmpleado = document.body.classList.contains("modo-empleado");
     if (e.key === "v" || e.key === "V") { e.preventDefault(); abrirVenta(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTema(); }
     else if (e.key === "/") { e.preventDefault(); $("#buscador").focus(); }
-    else if (bloqueadoPorEmpleado) return;
-    else if (e.key === "n" || e.key === "N") { e.preventDefault(); abrirModal(); }
+    else if ((e.key === "n" || e.key === "N") && tienePermisoV2("manageProducts")) { e.preventDefault(); abrirModal(); }
   });
 }
 
@@ -1925,6 +2036,7 @@ function setupOnboarding() {
 function init() {
   registrarServiceWorker();
   cargarTema();
+  mostrarPanelLogin("owner");
   inicializarEventos();
   setupInstallPrompt();
   setupOnboarding();

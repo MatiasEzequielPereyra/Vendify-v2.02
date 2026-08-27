@@ -1,7 +1,7 @@
 {
   "name": "Vendify",
   "short_name": "Vendify",
-  "description": "Ventas, stock y gestión comercial para tu negocio.",
+  "description": "Ventas, stock y gestión de tu negocio.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b1120",

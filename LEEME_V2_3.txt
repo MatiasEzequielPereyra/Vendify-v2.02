@@ -1,0 +1,72 @@
+VENDIFY v2.3 — LOGIN DUAL + EMPLEADOS SIN EMAIL
+=================================================
+
+NUEVO MODELO
+
+Dueño/Admin:
+- email + contraseña
+- recuperación por email
+
+Empleado:
+- código del negocio
+- usuario
+- contraseña
+- NO necesita Gmail ni email personal
+
+INSTALACIÓN
+
+1. Ejecutar en Supabase SQL Editor:
+   005_empleados_username_password.sql
+
+2. Crear y desplegar Edge Function:
+   supabase/functions/crear-empleado/index.ts
+
+   Con Supabase CLI:
+   supabase functions deploy crear-empleado
+
+   La Edge Function utiliza automáticamente:
+   SUPABASE_URL
+   SUPABASE_ANON_KEY
+   SUPABASE_SERVICE_ROLE_KEY
+
+   IMPORTANTE:
+   SUPABASE_SERVICE_ROLE_KEY nunca debe ir en app.js ni supabase-config.js.
+
+3. Reemplazar frontend en Vercel:
+   index.html
+   app.js
+   styles.css
+   sw.js
+   manifest.json
+   supabase-config.js
+
+4. Ctrl + Shift + R.
+
+PRUEBA
+
+1) Owner -> Equipo.
+2) Ver código del negocio, por ejemplo A1B2C3D4.
+3) Crear:
+   Nombre: Pedro
+   Usuario: pedro
+   Rol: Cajero
+   Contraseña temporal: Vendify123!
+4) Cerrar sesión.
+5) Login -> Empleado:
+   Código: A1B2C3D4
+   Usuario: pedro
+   Contraseña: Vendify123!
+6) Vendify debe obligarlo a cambiar la contraseña.
+7) Como cajero:
+   puede vender
+   no puede modificar productos/stock/config/equipo.
+
+IDENTIDAD INTERNA
+
+El empleado ve:
+Código + usuario
+
+Supabase internamente usa algo como:
+a1b2c3d4.pedro@employees.vendify.internal
+
+Ese email es técnico y nunca se muestra al empleado.
