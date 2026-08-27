@@ -1,5 +1,6 @@
 /**
- * Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
+ * Ventas Kiosco v2.0 — Core SaaS multiempresa
+ * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email (magic link) vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
  * - Realtime: los cambios se ven al instante en todos los dispositivos
@@ -40,8 +41,8 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 800,
     precioVenta: 1200,
     stock: 24,
-    stockMinimo: 6,
-    foto: `${ICONS_BASE_URL}cocacola.webp`
+    stockMinimo: 6
+    // No existe imagen Coca Cola en tu carpeta icons
   },
 
   {
@@ -121,7 +122,7 @@ const PRODUCTOS_EJEMPLO = [
     precioVenta: 1700,
     stock: 10,
     stockMinimo: 4,
-    foto: `${ICONS_BASE_URL}lays.jpg`
+    foto: `${ICONS_BASE_URL} lays.webp`
   },
 
   {
@@ -200,8 +201,8 @@ const PRODUCTOS_EJEMPLO = [
     precioCompra: 2500,
     precioVenta: 3800,
     stock: 6,
-    stockMinimo: 2,
-    foto: `${ICONS_BASE_URL}frigor.jpg`
+    stockMinimo: 2
+    // No existe imagen de helado en tu carpeta icons
   },
 
   {
@@ -250,6 +251,161 @@ let carrito = []; // [{id, nombre, precioVenta, stock, cantidad}]
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
+// ============================================================
+// V2 — CONTEXTO SAAS / MULTIEMPRESA
+// ============================================================
+window.appContext = {
+  user: null,
+  business: null,
+  membership: null,
+  branch: null,
+  cashRegister: null,
+  permissions: {},
+  ready: false,
+};
+
+async function cargarContextoApp() {
+  const { data, error } = await supabaseClient.rpc("obtener_contexto_app");
+
+  if (error) {
+    console.error("[V2] Error cargando contexto:", error);
+    throw new Error(error.message || "No se pudo cargar el contexto del negocio");
+  }
+
+  window.appContext = {
+    user: data?.user || null,
+    business: data?.business || null,
+    membership: data?.membership || null,
+    branch: data?.branch || null,
+    cashRegister: data?.cashRegister || null,
+    permissions: data?.permissions || {},
+    ready: true,
+  };
+
+  actualizarContextoUI();
+  aplicarPermisosV2();
+
+  console.info("[V2] Contexto cargado", window.appContext);
+  return window.appContext;
+}
+
+function limpiarContextoApp() {
+  window.appContext = {
+    user: null,
+    business: null,
+    membership: null,
+    branch: null,
+    cashRegister: null,
+    permissions: {},
+    ready: false,
+  };
+  document.body.removeAttribute("data-role");
+  document.body.classList.remove("rol-cashier");
+}
+
+function tienePermisoV2(permiso) {
+  return window.appContext?.permissions?.[permiso] === true;
+}
+
+function exigirPermisoV2(permiso, mensaje = "No tenés permiso para realizar esta acción") {
+  if (tienePermisoV2(permiso)) return true;
+  mostrarToast(mensaje, "error");
+  return false;
+}
+
+function actualizarContextoUI() {
+  const negocio = $("#context-negocio");
+  const rol = $("#context-rol");
+  const sucursal = $("#context-sucursal");
+
+  if (negocio) negocio.textContent = appContext.business?.nombre || "Mi negocio";
+  if (rol) rol.textContent = nombreRolV2(appContext.membership?.role);
+  if (sucursal) sucursal.textContent = appContext.branch?.nombre || "Principal";
+}
+
+function nombreRolV2(rol) {
+  const nombres = {
+    owner: "Propietario",
+    admin: "Administrador",
+    manager: "Encargado",
+    cashier: "Cajero",
+  };
+  return nombres[rol] || rol || "Usuario";
+}
+
+function aplicarPermisosV2() {
+  if (!appContext.ready) return;
+
+  const role = appContext.membership?.role || "cashier";
+  document.body.dataset.role = role;
+  document.body.classList.toggle("rol-cashier", role === "cashier");
+
+  const setHidden = (selector, hidden) => {
+    document.querySelectorAll(selector).forEach((el) => { el.hidden = hidden; });
+  };
+
+  setHidden("#btn-nuevo, #btn-empty-nuevo, #btn-cargar-ejemplos, #btn-cargar-ejemplos-config", !tienePermisoV2("manageProducts"));
+  setHidden("#btn-config", !tienePermisoV2("manageBusiness"));
+  setHidden("#btn-export", !tienePermisoV2("viewReports"));
+  setHidden(".card-acciones", !tienePermisoV2("manageProducts"));
+  setHidden(".card-stock-controls", !tienePermisoV2("adjustStock"));
+
+  // Los costos son información sensible para cajeros.
+  document.body.classList.toggle("ocultar-costos", !tienePermisoV2("viewCosts"));
+}
+
+async function listarSucursalesV2() {
+  const { data, error } = await supabaseClient.rpc("listar_sucursales_app");
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function cambiarSucursalV2(sucursalId) {
+  const { data, error } = await supabaseClient.rpc("obtener_contexto_sucursal", {
+    p_sucursal_id: sucursalId,
+  });
+  if (error) throw new Error(error.message);
+
+  appContext.branch = data.branch;
+  appContext.cashRegister = data.cashRegister;
+  actualizarContextoUI();
+  suscribirRealtime();
+  return data;
+}
+
+async function registrarVentaV2(items, medioPago) {
+  if (!exigirPermisoV2("sell", "Tu usuario no tiene permiso para registrar ventas")) return null;
+  if (!appContext.ready) throw new Error("El contexto del negocio todavía no está cargado");
+
+  const payload = (items || []).map((item) => ({
+    producto_id: item.id || item.producto_id,
+    cantidad: Number(item.cantidad),
+  }));
+
+  const { data, error } = await supabaseClient.rpc("registrar_venta_v2", {
+    p_items: payload,
+    p_medio_pago: medioPago || null,
+    p_sucursal_id: appContext.branch.id,
+    p_caja_id: appContext.cashRegister.id,
+  });
+
+  if (error) throw new Error(error.message || "No se pudo registrar la venta");
+  return data;
+}
+
+async function ajustarStockV2(productoId, delta, tipo = "ajuste") {
+  if (!exigirPermisoV2("adjustStock", "Tu usuario no tiene permiso para modificar stock")) return null;
+
+  const { data, error } = await supabaseClient.rpc("ajustar_stock_v2", {
+    p_producto_id: productoId,
+    p_delta: Number(delta),
+    p_tipo: tipo,
+  });
+
+  if (error) throw new Error(error.message || "No se pudo ajustar el stock");
+  return data;
+}
+
 // =====================
 // Autenticación (Supabase Auth — magic link por email)
 // =====================
@@ -288,14 +444,24 @@ async function mostrarApp() {
   const email = sesionActual?.user?.email;
   if (email && $("#sesion-email")) $("#sesion-email").textContent = email;
 
+  try {
+    await cargarContextoApp();
+  } catch (error) {
+    console.error(error);
+    mostrarToast("No se pudo cargar el negocio: " + error.message, "error");
+    return;
+  }
+
   await cargarCategorias();
   await cargarProductos();
   await cargarConfiguracion();
   actualizarFiltroCategorias();
   renderGrid();
+  aplicarPermisosV2();
   suscribirRealtime();
 
-  if (localStorage.getItem(MODO_EMPLEADO_KEY) === "1") {
+  // Compatibilidad temporal con el PIN antiguo solo para owner/admin.
+  if (localStorage.getItem(MODO_EMPLEADO_KEY) === "1" && ["owner", "admin"].includes(appContext.membership?.role)) {
     activarModoEmpleado(false);
   }
 }
@@ -434,6 +600,7 @@ async function enviarMagicLink(e) {
 }
 
 async function cerrarSesion() {
+  limpiarContextoApp();
   await supabaseClient.auth.signOut();
 }
 
@@ -442,18 +609,20 @@ async function cerrarSesion() {
 // =====================
 function suscribirRealtime() {
   if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
-  const uid = sesionActual.user.id;
+  if (!appContext?.business?.id) return;
+
+  const businessId = appContext.business.id;
 
   realtimeChannel = supabaseClient
-    .channel("productos-live")
+    .channel(`productos-${businessId}`)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "productos", filter: `user_id=eq.${uid}` },
+      { event: "*", schema: "public", table: "productos", filter: `negocio_id=eq.${businessId}` },
       (payload) => {
         aplicarCambioRemoto(payload);
       }
     )
-    .subscribe();
+    .subscribe((status) => console.info("[V2] Realtime:", status));
 }
 
 function aplicarCambioRemoto(payload) {
@@ -470,6 +639,7 @@ function aplicarCambioRemoto(payload) {
   }
   actualizarFiltroCategorias();
   renderGrid();
+  aplicarPermisosV2();
   if (!$("#modal-venta").classList.contains("hidden")) renderVentaProductos();
 }
 
@@ -1002,6 +1172,7 @@ function aplicarDeltaStock(delta) {
 
 async function confirmarAjusteStock() {
   if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   if (!stockAjusteId) return;
   const p = productos.find((x) => x.id === stockAjusteId);
   if (!p) return;
@@ -1014,14 +1185,12 @@ async function confirmarAjusteStock() {
     return;
   }
 
-  const { data, error } = await supabaseClient.rpc("ajustar_stock", {
-    p_producto_id: p.id,
-    p_delta: delta,
-    p_tipo: "ajuste",
-  });
-
-  if (error) {
-    mostrarToast("No se pudo ajustar el stock", "error");
+  let data;
+  try {
+    data = await ajustarStockV2(p.id, delta, "ajuste");
+    if (!data) return;
+  } catch (error) {
+    mostrarToast(error.message || "No se pudo ajustar el stock", "error");
     return;
   }
 
@@ -1037,6 +1206,7 @@ async function confirmarAjusteStock() {
 async function guardarProducto(e) {
   e.preventDefault();
   if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
   const nombre = $("#nombre").value.trim();
 
   if (!nombre) {
@@ -1120,19 +1290,18 @@ async function eliminarProducto(id) {
 // "sumar" = reposición de mercadería (ingreso) · "restar" = venta
 async function cambiarStock(id, delta) {
   if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   const p = productos.find((x) => x.id === id);
   if (!p) return;
   if (delta < 0 && p.stock === 0) return;
 
-  const tipo = delta > 0 ? "ingreso" : "venta";
-  const { data, error } = await supabaseClient.rpc("ajustar_stock", {
-    p_producto_id: id,
-    p_delta: delta,
-    p_tipo: tipo,
-  });
-
-  if (error) {
-    mostrarToast("No se pudo actualizar el stock (revisá tu conexión)", "error");
+  const tipo = delta > 0 ? "ingreso" : "ajuste";
+  let data;
+  try {
+    data = await ajustarStockV2(id, delta, tipo);
+    if (!data) return;
+  } catch (error) {
+    mostrarToast(error.message || "No se pudo actualizar el stock", "error");
     return;
   }
 
@@ -1272,18 +1441,20 @@ async function confirmarVenta() {
   btn.disabled = true;
   btn.textContent = "Cobrando...";
 
-  const items = carrito.map((c) => ({ producto_id: c.id, cantidad: c.cantidad }));
   const medioPago = $("#medio-pago").value;
 
-  const { data, error } = await supabaseClient.rpc("registrar_venta", {
-    p_items: items,
-    p_medio_pago: medioPago,
-  });
+  let data;
+  try {
+    data = await registrarVentaV2(carrito, medioPago);
+  } catch (error) {
+    btn.textContent = "Cobrar";
+    btn.disabled = false;
+    mostrarToast(error.message || "No se pudo registrar la venta", "error");
+    return;
+  }
 
   btn.textContent = "Cobrar";
-
-  if (error) {
-    mostrarToast(error.message || "No se pudo registrar la venta", "error");
+  if (!data) {
     btn.disabled = false;
     return;
   }
@@ -1305,6 +1476,7 @@ async function confirmarVenta() {
 // =====================
 function exportarCSV() {
   if (bloqueadoEnModoEmpleado()) return;
+  if (!exigirPermisoV2("viewReports", "No tenés permiso para exportar información")) return;
   if (productos.length === 0) {
     mostrarToast("No hay productos para exportar", "error");
     return;

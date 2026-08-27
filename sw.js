@@ -1,5 +1,5 @@
-/* Stock Kiosco — Service Worker (offline básico) */
-const CACHE = "stock-kiosco-v6";
+/* Ventas Kiosco v2 — Service Worker (offline básico) */
+const CACHE = "ventas-kiosco-v2-20260827";
 const ASSETS = [
   "./",
   "./index.html",

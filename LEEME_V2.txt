@@ -1,0 +1,19 @@
+VENTAS KIOSCO v2.0 — PAQUETE DE ACTUALIZACIÓN
+
+1. Antes de publicar, ejecutá en Supabase el archivo 002_contexto_app_permisos.sql (una sola vez).
+2. Reemplazá app.js, index.html, styles.css, supabase-config.js y sw.js por los incluidos.
+3. Mantené tus carpetas icons/, manifest.json y demás archivos existentes.
+4. Recargá con Ctrl+F5 o borrá la PWA/caché si el navegador conserva la versión anterior.
+5. Abrí la consola y verificá que aparezca: [V2] Contexto cargado.
+6. Hacé una venta de prueba y comprobá negocio_id, sucursal_id, caja_id y costo_unitario en Supabase.
+
+Cambios incluidos:
+- appContext multiempresa.
+- permisos owner/admin/manager/cashier.
+- Realtime filtrado por negocio_id.
+- registrar_venta_v2.
+- ajustar_stock_v2.
+- contexto visible de negocio/rol/sucursal.
+- ocultación de costos y controles según permisos.
+- cache de Service Worker versionada para forzar actualización.
+- modo PIN se mantiene solo como compatibilidad temporal.

@@ -1479,3 +1479,25 @@ body.modo-empleado .producto-card .card-body {
   padding: 0.2rem 0;
   color: var(--text-muted);
 }
+
+
+/* ===== Ventas Kiosco v2: contexto SaaS y permisos ===== */
+.contexto-negocio {
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  line-height: 1.2;
+}
+.contexto-negocio strong { font-size: 0.78rem; color: var(--text); }
+.contexto-negocio span { font-size: 0.68rem; color: var(--text-muted); }
+body.ocultar-costos #stat-costo,
+body.ocultar-costos .card-precio-row:first-child,
+body.ocultar-costos .card-margen { display: none !important; }
+[hidden] { display: none !important; }
+@media (max-width: 640px) {
+  .contexto-negocio { order: -1; width: 100%; }
+}

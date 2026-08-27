@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#3b82f6" />
-  <meta name="description" content="Control de stock y mercadería para kioscos. Instalable en el celular." />
+  <meta name="description" content="Ventas, stock y gestión comercial para kioscos. Multiusuario y en tiempo real." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Stock Kiosco" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
-  <title>Stock Kiosco · Control de inventario</title>
+  <title>Ventas Kiosco · Gestión comercial</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -85,6 +85,10 @@
         </div>
       </div>
       <div class="header-actions">
+        <div class="contexto-negocio" title="Contexto activo">
+          <strong id="context-negocio">Mi negocio</strong>
+          <span><span id="context-rol">Usuario</span> · <span id="context-sucursal">Principal</span></span>
+        </div>
         <span class="sesion-badge" title="Sesión activa">🟢 <span id="sesion-email"></span></span>
         <button id="btn-cerrar-sesion" class="btn btn-ghost" title="Cerrar sesión">
           Salir
@@ -308,10 +312,10 @@
 
         <div class="config-divider"></div>
 
-        <h3 class="config-section-title">Modo empleado</h3>
+        <h3 class="config-section-title">Modo empleado (compatibilidad)</h3>
         <p class="hint" style="margin-bottom: 0.85rem;">
-          Definí un PIN para que los empleados puedan usar solo la pantalla de venta,
-          sin acceso a productos ni configuración, y sin necesitar tu mail.
+          Función temporal heredada de la v1. En la arquitectura v2 los permisos reales
+          se controlan por usuario y rol desde Supabase.
         </p>
         <div class="config-add-row">
           <input type="text" id="pin-empleado" placeholder="PIN (4 a 6 dígitos)" maxlength="6" inputmode="numeric" autocomplete="off" />
