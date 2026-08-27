@@ -1,5 +1,5 @@
 /**
- * Vendify v2.16 — Login dual y empleados internos
+ * Vendify v2.18 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -1196,6 +1196,28 @@ function formatearPrecio(valor) {
   }).format(valor || 0);
 }
 
+
+function nombreCompletoProducto(p) {
+  const nombre = String(p?.nombre || "").trim();
+  const presentacion = String(p?.presentacion || "").trim();
+
+  if (!presentacion) return nombre;
+
+  const normalizar = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(",", ".")
+      .trim();
+
+  // Si el nombre ya contiene la presentación/gramaje, no la repetimos.
+  if (normalizar(nombre).includes(normalizar(presentacion))) {
+    return nombre;
+  }
+
+  return `${nombre} ${presentacion}`.trim();
+}
+
 function escapeHtml(texto) {
   const div = document.createElement("div");
   div.textContent = texto ?? "";
@@ -1835,7 +1857,7 @@ function renderGrid() {
             <span class="card-stock-badge ${stockClass}">${p.stock}</span>
           </div>
           <div class="card-body">
-            <div class="card-nombre">${escapeHtml(p.nombre)}</div>
+            <div class="card-nombre">${escapeHtml(nombreCompletoProducto(p))}</div>
             ${p.categoria ? `<div class="card-categoria">${escapeHtml(p.categoria)}</div>` : ""}
 
             <div class="card-precios">
