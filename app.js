@@ -1,5 +1,5 @@
 /**
- * Vendify v2.10 — Login dual y empleados internos
+ * Vendify v2.11 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -1692,6 +1692,44 @@ function filtrarYOrdenar() {
   return lista;
 }
 
+
+const PRODUCT_VIEW_KEY = "vendify_product_view";
+
+function obtenerVistaProductos() {
+  return localStorage.getItem(PRODUCT_VIEW_KEY) || "list";
+}
+
+function aplicarVistaProductos(vista) {
+  const cont = $("#productos-grid");
+  const btnLista = $("#btn-vista-lista");
+  const btnGrid = $("#btn-vista-grid");
+
+  if (!cont) return;
+
+  const modo = vista === "grid" ? "grid" : "list";
+
+  cont.classList.toggle("vista-lista", modo === "list");
+  cont.classList.toggle("vista-grid", modo === "grid");
+
+  btnLista?.classList.toggle("active", modo === "list");
+  btnGrid?.classList.toggle("active", modo === "grid");
+
+  localStorage.setItem(PRODUCT_VIEW_KEY, modo);
+}
+
+function inicializarSelectorVistaProductos() {
+  aplicarVistaProductos(obtenerVistaProductos());
+
+  $("#btn-vista-lista")?.addEventListener("click", () => {
+    aplicarVistaProductos("list");
+  });
+
+  $("#btn-vista-grid")?.addEventListener("click", () => {
+    aplicarVistaProductos("grid");
+  });
+}
+
+
 function renderGrid() {
   const lista = filtrarYOrdenar();
   const grid = $("#productos-grid");
@@ -2918,6 +2956,7 @@ function setupV29() {
 function init() {
   registrarServiceWorker();
   cargarTema();
+  inicializarSelectorVistaProductos();
   inicializarEventos();
   setupV29();
   setupInstallPrompt();
