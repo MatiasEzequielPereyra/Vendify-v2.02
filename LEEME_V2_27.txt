@@ -1,0 +1,19 @@
+VENDIFY v2.27 — CAJA PROFESIONAL
+
+1) Ejecutar 011_caja_profesional.sql en Supabase.
+2) Subir index.html, app-v227.js, styles-v227.css y sw.js.
+
+Sucursales:
+- encabezado y Nueva sucursal quedan arriba
+- lista tiene scroll propio
+- Transferir stock queda fijo abajo
+
+Caja:
+- elegir sucursal y caja
+- abrir con fondo inicial
+- ingresos/retiros
+- ventas requieren caja abierta por el usuario
+- cierre/arqueo con efectivo declarado y diferencia
+- historial de cierres por sucursal
+
+Siguiente roadmap: v2.28 ventas profesionales (anulación, devolución, descuentos, pago mixto, ticket).

@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles-v226.css" />
+  <link rel="stylesheet" href="styles-v227.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -189,7 +189,15 @@
           </div>
         </div>
 
-        <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
+                <div class="cash-switcher-v227" title="Caja activa">
+          <span class="cash-switcher-icon-v227">▣</span>
+          <div class="cash-switcher-copy-v227"><small>Caja</small><select id="cash-selector-v227" aria-label="Caja activa"><option value="">Cargando...</option></select></div>
+        </div>
+        <button id="btn-caja-v227" class="btn btn-ghost cash-status-btn-v227" type="button" title="Abrir panel de caja">
+          <span id="cash-status-dot-v227" class="cash-status-dot-v227 closed"></span><span id="cash-status-label-v227">Caja cerrada</span>
+        </button>
+
+<button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
           <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
         </button>
 <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
@@ -501,32 +509,18 @@
 
 
           <!-- Sucursales -->
-          <section class="config-panel-v224" data-config-panel="sucursales" hidden>
-            <div class="config-section-head-v224 sucursales-head-v226">
-              <div>
-                <h3>Sucursales</h3>
-                <p>Administrá locales, cajas y stock independiente por sucursal.</p>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-nueva-sucursal-v226">
-                ＋ Nueva sucursal
-              </button>
+          <section class="config-panel-v224 branch-config-panel-v227" data-config-panel="sucursales" hidden>
+            <div class="branch-panel-head-v227">
+              <div><h3>Sucursales</h3><p>Administrá locales, cajas y stock independiente por sucursal.</p></div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nueva-sucursal-v226">＋ Nueva sucursal</button>
             </div>
-
-            <div class="branch-info-v226">
-              <span>El stock se administra por sucursal.</span>
-              <strong>La sucursal activa determina qué stock ves y qué stock descuenta una venta.</strong>
+            <div class="branch-panel-scroll-v227">
+              <div class="branch-info-v226"><span>El stock se administra por sucursal.</span><strong>La sucursal activa determina qué stock ves y qué stock descuenta una venta.</strong></div>
+              <div id="sucursales-list-v226" class="sucursales-list-v226"></div>
             </div>
-
-            <div id="sucursales-list-v226" class="sucursales-list-v226"></div>
-
-            <div class="settings-card-v224 transfer-card-v226">
-              <div>
-                <h4>Transferencia de stock</h4>
-                <p class="hint">Mové mercadería entre sucursales sin alterar el stock total del negocio.</p>
-              </div>
-              <button type="button" class="btn btn-secondary" id="btn-transferir-stock-v226">
-                ⇄ Transferir stock
-              </button>
+            <div class="branch-panel-footer-v227">
+              <div><strong>Transferencias</strong><small>Mové mercadería entre locales sin alterar el stock total.</small></div>
+              <button type="button" class="btn btn-secondary" id="btn-transferir-stock-v226">⇄ Transferir stock</button>
             </div>
           </section>
 
@@ -1028,6 +1022,24 @@
 
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- Caja profesional -->
+  <div id="modal-caja-operativa-v227" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div><div class="modal-content cash-modal-v227">
+      <div class="modal-header"><div><h2>Caja</h2><p class="hint" id="cash-context-v227">Sucursal · Caja</p></div><button class="btn-icon" id="btn-cerrar-caja-panel-v227" aria-label="Cerrar">✕</button></div>
+      <div class="cash-modal-body-v227"><div id="cash-current-v227"></div><div class="cash-history-section-v227"><div class="cash-section-head-v227"><div><h3>Últimos cierres</h3><p>Historial de esta sucursal.</p></div></div><div id="cash-history-v227" class="cash-history-v227"></div></div></div>
+    </div>
+  </div>
+  <div id="modal-caja-movimiento-v227" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div><div class="modal-content modal-sm"><div class="modal-header"><div><h2 id="cash-movement-title-v227">Movimiento</h2><p class="hint">Registrá una entrada o salida manual de efectivo.</p></div><button class="btn-icon" id="btn-close-cash-movement-v227">✕</button></div>
+      <form id="form-cash-movement-v227"><input type="hidden" id="cash-movement-type-v227"/><div class="form-group"><label for="cash-movement-amount-v227">Monto</label><input type="number" id="cash-movement-amount-v227" min="0.01" step="0.01" required/></div><div class="form-group"><label for="cash-movement-reason-v227">Motivo</label><input id="cash-movement-reason-v227" maxlength="120" required placeholder="Ej: cambio, proveedor, retiro..."/></div><span class="field-error" id="cash-movement-error-v227"></span><div class="modal-actions"><button type="button" class="btn btn-secondary" id="btn-cancel-cash-movement-v227">Cancelar</button><button type="submit" class="btn btn-primary">Registrar</button></div></form>
+    </div>
+  </div>
+  <div id="modal-cash-close-v227" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div><div class="modal-content modal-sm"><div class="modal-header"><div><h2>Cerrar caja</h2><p class="hint">Contá el efectivo físico y Vendify calculará la diferencia.</p></div><button class="btn-icon" id="btn-close-cash-close-v227">✕</button></div>
+      <form id="form-cash-close-v227"><div class="cash-expected-v227"><span>Efectivo esperado</span><strong id="cash-close-expected-v227">$0</strong></div><div class="form-group"><label for="cash-close-declared-v227">Efectivo contado</label><input type="number" id="cash-close-declared-v227" min="0" step="0.01" required/></div><div class="cash-difference-preview-v227 neutral" id="cash-difference-preview-v227">Diferencia: $0</div><div class="form-group"><label for="cash-close-note-v227">Observación</label><textarea id="cash-close-note-v227" rows="3" maxlength="300" placeholder="Opcional"></textarea></div><span class="field-error" id="cash-close-error-v227"></span><div class="modal-actions"><button type="button" class="btn btn-secondary" id="btn-cancel-cash-close-v227">Cancelar</button><button type="submit" class="btn btn-primary">Cerrar caja</button></div></form>
+    </div>
+  </div>
+
   <!-- Modal Historial de ventas (tickets) -->
   <div id="modal-historial" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
@@ -1113,6 +1125,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app-v226.js"></script>
+  <script src="app-v227.js"></script>
 </body>
 </html>
