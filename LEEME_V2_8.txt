@@ -1,0 +1,29 @@
+VENDIFY v2.8 — FIX RECORTE MÓVIL + MODAL ELIMINAR
+=================================================
+
+No requiere SQL nuevo ni nuevas Edge Functions.
+
+SUBIR A VERCEL:
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+Luego:
+Ctrl + Shift + R / borrar caché PWA si corresponde.
+
+FOTO:
+- Cámara/Galería
+- abre Recortar foto
+- arrastrar con dedo
+- zoom
+- Restablecer
+- Usar esta foto
+
+FIX:
+En v2.7 faltaba el HTML del modal/canvas de recorte aunque el JS existía.
+v2.8 agrega el editor correctamente y mejora la carga de imágenes móviles.
+
+ELIMINACIÓN:
+El modal ahora es compacto y los botones Cancelar/Eliminar quedan inmediatamente
+debajo del mensaje, con footer fijo dentro del modal.

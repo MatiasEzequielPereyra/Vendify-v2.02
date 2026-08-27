@@ -1,0 +1,41 @@
+VENDIFY v2.9 — PRODUCTOS COMPACTOS + CATÁLOGOS + SCANNER
+============================================================
+
+1. EJECUTAR SQL
+009_productos_barcode_catalogo.sql
+
+Agrega a productos:
+- marca
+- presentacion
+- codigo_barras
+- índice único por negocio/código
+
+2. SUBIR A VERCEL
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+3. RECARGAR
+Ctrl + Shift + R o cerrar/reabrir la PWA.
+
+NOVEDADES
+- Productos horizontal en PC y lista compacta en móvil.
+- Foto deja de ser central en la carga.
+- Catálogo inicial Kiosco / Almacén / Minimercado.
+- 290 productos/presentaciones sugeridas.
+- Los catálogos NO inventan códigos de barras: quedan vacíos hasta escanear el artículo real.
+- Cámara para código de barras.
+- Scanner de cámara en Nueva venta (permanece abierto para escanear varios).
+- Scanner USB compatible: código + Enter agrega al carrito.
+- Open Food Facts intenta completar marca, nombre, presentación y categoría en productos nuevos.
+
+PRUEBA RECOMENDADA
+A) Ejecutar SQL 009.
+B) Catálogo inicial > Kiosco > importar.
+C) Editar un producto físico > Escanear > asociar EAN > Guardar.
+D) Nueva venta > Escanear > apuntar al mismo EAN.
+E) Debe agregarse al carrito.
+
+NOTA
+La consulta externa puede no encontrar todos los productos argentinos. Cuando no encuentra uno, Vendify conserva el código escaneado y permite completar manualmente.

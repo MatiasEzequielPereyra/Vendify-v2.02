@@ -264,6 +264,11 @@
       <select id="filtro-categoria" class="select">
         <option value="">Todas las categorías</option>
       </select>
+      <select id="filtro-stock-v29" class="select">
+        <option value="">Todo el stock</option>
+        <option value="bajo">Stock bajo</option>
+        <option value="sin">Sin stock</option>
+      </select>
       <select id="orden" class="select">
         <option value="nombre-asc">Nombre A-Z</option>
         <option value="nombre-desc">Nombre Z-A</option>
@@ -272,11 +277,17 @@
         <option value="precioVenta-asc">Precio venta ↑</option>
         <option value="precioVenta-desc">Precio venta ↓</option>
       </select>
+      <button type="button" class="btn btn-secondary" id="btn-catalogo-v29">📚 Catálogo inicial</button>
     </section>
 
-    <!-- Grilla de productos -->
+    <!-- Productos compactos -->
     <section class="grid-section">
-      <div id="productos-grid" class="productos-grid"></div>
+      <div class="productos-list-shell">
+        <div class="productos-list-head" aria-hidden="true">
+          <span>Producto</span><span>Categoría</span><span>Stock</span><span>Precio</span><span>Acciones</span>
+        </div>
+        <div id="productos-grid" class="productos-grid productos-lista-v29"></div>
+      </div>
 
       <div id="empty-state" class="empty-state hidden">
         <div class="empty-illustration">📦</div>
@@ -303,67 +314,59 @@
   <!-- Modal Producto -->
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
-    <div class="modal-content">
+    <div class="modal-content modal-product-v29">
       <div class="modal-header">
         <h2 id="modal-titulo">Nuevo producto</h2>
         <button class="btn-icon" id="btn-cerrar-modal" aria-label="Cerrar">✕</button>
       </div>
       <form id="form-producto" novalidate>
         <input type="hidden" id="producto-id" />
+        <!-- IDs legacy ocultos para compatibilidad de la versión anterior -->
+        <input type="file" id="foto-input" accept="image/*" class="hidden" />
+        <input type="file" id="foto-camara" accept="image/*" capture="environment" class="hidden" />
+        <div id="foto-preview" class="hidden"><span id="foto-placeholder"></span><img id="foto-img" class="hidden" alt="" /></div>
+        <button type="button" id="btn-quitar-foto" class="hidden"></button>
 
-        <div class="form-group foto-group">
-          <label>Foto del producto</label>
-          <div class="foto-upload">
-            <div class="foto-preview" id="foto-preview">
-              <span class="foto-placeholder" id="foto-placeholder">📷</span>
-              <img id="foto-img" class="hidden" alt="Vista previa" />
-            </div>
-            <div class="foto-actions">
-              <label class="btn btn-secondary btn-sm" for="foto-input">📁 Galería</label>
-              <input type="file" id="foto-input" accept="image/*" class="hidden" />
-              <label class="btn btn-secondary btn-sm" for="foto-camara">📷 Cámara</label>
-              <input type="file" id="foto-camara" accept="image/*" capture="environment" class="hidden" />
-              <button type="button" class="btn btn-ghost btn-sm" id="btn-quitar-foto">Quitar</button>
-            </div>
-            <p class="hint">Opcional · En el celular podés sacar la foto al momento</p>
+        <div class="barcode-entry-v29">
+          <div class="form-group">
+            <label for="codigo-barras">Código de barras</label>
+            <input type="text" id="codigo-barras" inputmode="numeric" maxlength="32" placeholder="Escaneá o ingresá el código" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="btn-scan-producto">📷 Escanear</button>
+          <button type="button" class="btn btn-ghost" id="btn-buscar-barcode">Buscar datos</button>
+        </div>
+        <p class="hint" id="barcode-status-v29"></p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="marca">Marca</label>
+            <input type="text" id="marca" maxlength="60" placeholder="Ej: Coca-Cola" />
+          </div>
+          <div class="form-group">
+            <label for="presentacion">Presentación</label>
+            <input type="text" id="presentacion" maxlength="50" placeholder="Ej: 500 ml" />
           </div>
         </div>
 
         <div class="form-group">
           <label for="nombre">Nombre del producto *</label>
-          <input type="text" id="nombre" required maxlength="80" placeholder="Ej: Coca Cola 500ml" autocomplete="off" />
+          <input type="text" id="nombre" required maxlength="100" placeholder="Ej: Coca-Cola Original 500 ml" autocomplete="off" />
           <span class="field-error" id="error-nombre"></span>
         </div>
 
         <div class="form-group">
           <label for="categoria">Categoría</label>
-          <select id="categoria" class="select select-full">
-            <option value="">Sin categoría</option>
-          </select>
+          <select id="categoria" class="select select-full"><option value="">Sin categoría</option></select>
         </div>
 
         <div class="form-row">
-          <div class="form-group">
-            <label for="precio-compra">Precio de compra ($)</label>
-            <input type="number" id="precio-compra" min="0" step="0.01" placeholder="0.00" />
-          </div>
-          <div class="form-group">
-            <label for="precio-venta">Precio de venta ($)</label>
-            <input type="number" id="precio-venta" min="0" step="0.01" placeholder="0.00" />
-          </div>
+          <div class="form-group"><label for="precio-compra">Costo ($)</label><input type="number" id="precio-compra" min="0" step="0.01" placeholder="0" /></div>
+          <div class="form-group"><label for="precio-venta">Precio venta ($)</label><input type="number" id="precio-venta" min="0" step="0.01" placeholder="0" /></div>
         </div>
-
         <div class="form-row">
-          <div class="form-group">
-            <label for="stock">Stock actual</label>
-            <input type="number" id="stock" min="0" step="1" value="0" />
-          </div>
-          <div class="form-group">
-            <label for="stock-minimo">Stock mínimo (alerta)</label>
-            <input type="number" id="stock-minimo" min="0" step="1" value="5" />
-          </div>
+          <div class="form-group"><label for="stock">Stock actual</label><input type="number" id="stock" min="0" step="1" value="0" /></div>
+          <div class="form-group"><label for="stock-minimo">Stock mínimo</label><input type="number" id="stock-minimo" min="0" step="1" value="5" /></div>
         </div>
-
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
           <button type="submit" class="btn btn-primary" id="btn-guardar">Guardar</button>
@@ -442,6 +445,55 @@
       <div class="modal-actions crop-actions">
         <button type="button" class="btn btn-secondary" id="btn-cancelar-crop">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-aplicar-crop">Usar esta foto</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Scanner de código de barras -->
+  <div id="modal-scanner-v29" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-scanner-v29">
+      <div class="modal-header">
+        <div><h2>Escanear código</h2><p class="hint" id="scanner-mode-label-v29">Apuntá la cámara al código de barras.</p></div>
+        <button class="btn-icon" id="btn-close-scanner-v29" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="scanner-video-wrap-v29"><video id="scanner-video-v29" playsinline muted></video><div class="scanner-line-v29"></div></div>
+        <div class="scanner-status-v29" id="scanner-status-v29">Preparando cámara...</div>
+        <div class="scanner-manual-v29">
+          <input type="text" id="scanner-manual-code-v29" inputmode="numeric" placeholder="O ingresá el código manualmente" />
+          <button type="button" class="btn btn-secondary" id="btn-use-manual-code-v29">Usar código</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Catálogo inicial -->
+  <div id="modal-catalogo-v29" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-catalogo-v29">
+      <div class="modal-header">
+        <div><h2>📚 Catálogo inicial</h2><p class="hint">Elegí una base y dejá marcados solo los productos que vendés.</p></div>
+        <button class="btn-icon" id="btn-close-catalogo-v29" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="catalog-tabs-v29">
+          <button type="button" class="catalog-tab-v29 active" data-catalog="kiosco">Kiosco</button>
+          <button type="button" class="catalog-tab-v29" data-catalog="almacen">Almacén</button>
+          <button type="button" class="catalog-tab-v29" data-catalog="minimercado">Minimercado</button>
+        </div>
+        <div class="catalog-tools-v29">
+          <input type="search" id="catalog-search-v29" placeholder="Buscar marca, producto o presentación..." />
+          <button type="button" class="btn btn-ghost btn-sm" id="catalog-select-all-v29">Seleccionar visibles</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="catalog-clear-v29">Quitar visibles</button>
+        </div>
+        <div class="catalog-summary-v29"><strong id="catalog-selected-count-v29">0</strong> seleccionados</div>
+        <div id="catalog-list-v29" class="catalog-list-v29"></div>
+      </div>
+      <div class="modal-actions catalog-actions-v29">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-catalogo-v29">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-import-catalogo-v29">Importar seleccionados</button>
       </div>
     </div>
   </div>
@@ -670,8 +722,11 @@
 
       <div class="venta-body">
         <div class="venta-productos-col">
-          <div class="search-box">
-            <input type="search" id="venta-buscador" placeholder="Buscar producto..." autocomplete="off" />
+          <div class="venta-search-v29">
+            <div class="search-box">
+              <input type="search" id="venta-buscador" placeholder="Buscar nombre o código..." autocomplete="off" />
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-scan-venta">📷 Escanear</button>
           </div>
           <div id="venta-productos-lista" class="venta-productos-lista"></div>
         </div>
@@ -706,6 +761,7 @@
   </div>
 
   <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
