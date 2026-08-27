@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles-v223.css" />
+  <link rel="stylesheet" href="styles-v224.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -178,31 +178,45 @@
           <strong id="context-usuario">Usuario</strong>
           <span id="context-rol">Rol</span>
         </div>
-        <span class="sesion-badge" title="Sesión activa">🟢 <span id="sesion-email"></span></span>
-        <button id="btn-cerrar-sesion" class="btn btn-ghost" title="Cerrar sesión">
-          Salir
+        <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
+          <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
         </button>
-        <button id="btn-theme" class="btn btn-ghost" title="Cambiar tema (T)">
-          <span id="theme-icon">☀️</span>
+        <button id="btn-config" class="btn btn-ghost header-action" title="Configuración">
+          <span class="header-action-icon">⚙</span><span class="header-action-label">Configuración</span>
         </button>
-        <button id="btn-historial" class="btn btn-ghost" title="Historial de ventas (tickets)">
-          📋 Historial
+        <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
+          <span>▣</span><span>Vender</span>
         </button>
-        <button id="btn-config" class="btn btn-ghost" title="Configuración">
-          ⚙️ Config
+        <button id="btn-nuevo" class="btn btn-primary header-primary">
+          <span>＋</span><span>Producto</span>
         </button>
-        <button id="btn-export" class="btn btn-ghost" title="Exportar CSV">
-          ⬇️ Exportar
+        <button id="btn-equipo" class="btn btn-secondary header-action" title="Administrar equipo y permisos">
+          <span class="header-action-icon">👥</span><span class="header-action-label">Equipo</span>
         </button>
-        <button id="btn-vender" class="btn btn-primary btn-vender" title="Modo venta (V)">
-          🧾 Vender
-        </button>
-        <button id="btn-nuevo" class="btn btn-primary">
-          <span>+</span> Nuevo producto
-        </button>
-        <button id="btn-equipo" class="btn btn-secondary" title="Administrar equipo y permisos">
-          👥 Equipo
-        </button>
+
+        <div class="user-menu-wrap">
+          <button id="btn-user-menu" class="user-menu-trigger" type="button" aria-expanded="false" aria-haspopup="menu">
+            <span class="user-avatar" id="user-avatar">U</span>
+            <span class="user-menu-copy">
+              <strong id="user-menu-name">Usuario</strong>
+              <small id="user-menu-role">Rol</small>
+            </span>
+            <span class="user-menu-chevron">⌄</span>
+          </button>
+
+          <div id="user-menu" class="user-menu hidden" role="menu">
+            <div class="user-menu-head">
+              <strong id="user-menu-name-popover">Usuario</strong>
+              <span id="sesion-email"></span>
+            </div>
+            <button type="button" class="user-menu-item" id="btn-user-settings">
+              <span>⚙</span><span>Configuración</span>
+            </button>
+            <button type="button" class="user-menu-item danger" id="btn-cerrar-sesion">
+              <span>↪</span><span>Cerrar sesión</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 <!-- Stats -->
@@ -278,12 +292,7 @@
         <option value="precioVenta-desc">Precio venta ↓</option>
       </select>
       <button type="button" class="btn btn-secondary" id="btn-catalogo-v29">📚 Catálogo inicial</button>
-
-      <button type="button" class="btn btn-danger" id="btn-eliminar-todos-productos">
-        🗑 Eliminar todos
-      </button>
-
-    </section>
+</section>
 
     <!-- Productos compactos -->
     <section class="grid-section">
@@ -377,39 +386,161 @@
     </div>
   </div>
 
-  <!-- Modal Configuración (categorías) -->
-  <div id="modal-config" class="modal hidden" role="dialog" aria-modal="true">
+  <!-- Configuración -->
+  <div id="modal-config" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="config-title">
     <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Configuración</h2>
+    <div class="modal-content config-modal-v224">
+      <div class="modal-header config-modal-header">
+        <div>
+          <h2 id="config-title">Configuración</h2>
+          <p class="hint">Administrá Vendify y los datos de tu negocio.</p>
+        </div>
         <button class="btn-icon" id="btn-cerrar-config" aria-label="Cerrar">✕</button>
       </div>
-      <div class="modal-body">
-        <h3 class="config-section-title">Categorías</h3>
-        <p class="hint" style="margin-bottom: 0.85rem;">
-          Armá las categorías antes de cargar productos. Después las elegís al crear cada artículo.
-        </p>
 
-        <div class="config-add-row">
-          <input type="text" id="nueva-categoria" placeholder="Nueva categoría..." maxlength="40" autocomplete="off" />
-          <button type="button" class="btn btn-primary btn-sm" id="btn-add-categoria">Agregar</button>
+      <div class="config-layout-v224">
+        <nav class="config-tabs-v224" aria-label="Secciones de configuración">
+          <button type="button" class="config-tab-v224 active" data-config-tab="general">
+            <span>⌂</span><span>General</span>
+          </button>
+          <button type="button" class="config-tab-v224" data-config-tab="catalogo">
+            <span>▦</span><span>Catálogo</span>
+          </button>
+          <button type="button" class="config-tab-v224" data-config-tab="datos">
+            <span>⇩</span><span>Datos</span>
+          </button>
+          <button type="button" class="config-tab-v224" data-config-tab="apariencia">
+            <span>◐</span><span>Apariencia</span>
+          </button>
+        </nav>
+
+        <div class="config-content-v224">
+          <!-- General -->
+          <section class="config-panel-v224 active" data-config-panel="general">
+            <div class="config-section-head-v224">
+              <h3>Negocio</h3>
+              <p>Información del contexto activo.</p>
+            </div>
+
+            <div class="config-info-grid-v224">
+              <div class="config-info-card-v224">
+                <span>Negocio</span>
+                <strong id="config-negocio">—</strong>
+              </div>
+              <div class="config-info-card-v224">
+                <span>Sucursal</span>
+                <strong id="config-sucursal">—</strong>
+              </div>
+              <div class="config-info-card-v224">
+                <span>Usuario</span>
+                <strong id="config-usuario">—</strong>
+              </div>
+              <div class="config-info-card-v224">
+                <span>Rol</span>
+                <strong id="config-rol">—</strong>
+              </div>
+            </div>
+
+            <div class="config-callout-v224">
+              <div>
+                <strong>Equipo y accesos</strong>
+                <p>Usuarios, roles y contraseñas se administran desde Equipo.</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-config-equipo">Abrir Equipo</button>
+            </div>
+          </section>
+
+          <!-- Catálogo -->
+          <section class="config-panel-v224" data-config-panel="catalogo">
+            <div class="config-section-head-v224">
+              <h3>Catálogo</h3>
+              <p>Organizá categorías y prepará productos iniciales.</p>
+            </div>
+
+            <div class="settings-card-v224">
+              <h4>Categorías</h4>
+              <p class="hint">Creá categorías para mantener ordenado el inventario.</p>
+              <div class="config-add-row">
+                <input type="text" id="nueva-categoria" placeholder="Nueva categoría..." maxlength="40" autocomplete="off" />
+                <button type="button" class="btn btn-primary btn-sm" id="btn-add-categoria">Agregar</button>
+              </div>
+              <ul id="lista-categorias-config" class="lista-categorias-config"></ul>
+            </div>
+
+            <div class="settings-card-v224 settings-action-row-v224">
+              <div>
+                <h4>Catálogo inicial</h4>
+                <p class="hint">Elegí productos sugeridos de kiosco, almacén o minimercado.</p>
+              </div>
+              <button type="button" class="btn btn-secondary" id="btn-config-catalogo">Abrir catálogo</button>
+            </div>
+
+            <div class="settings-card-v224 settings-action-row-v224">
+              <div>
+                <h4>Datos de prueba</h4>
+                <p class="hint">Carga productos de ejemplo para probar funciones.</p>
+              </div>
+              <button type="button" class="btn btn-secondary" id="btn-cargar-ejemplos-config">
+                Cargar ejemplos
+              </button>
+            </div>
+          </section>
+
+          <!-- Datos -->
+          <section class="config-panel-v224" data-config-panel="datos">
+            <div class="config-section-head-v224">
+              <h3>Datos</h3>
+              <p>Exportación y acciones administrativas del catálogo.</p>
+            </div>
+
+            <div class="settings-card-v224 settings-action-row-v224">
+              <div>
+                <h4>Exportar inventario</h4>
+                <p class="hint">Descargá productos, precios y stock en formato CSV.</p>
+              </div>
+              <button id="btn-export" type="button" class="btn btn-secondary">
+                ⇩ Exportar CSV
+              </button>
+            </div>
+
+            <div class="settings-danger-v224">
+              <div>
+                <h4>Zona de peligro</h4>
+                <p>Elimina todos los productos actuales del negocio. Las ventas históricas se conservan.</p>
+              </div>
+              <button type="button" class="btn btn-danger" id="btn-eliminar-todos-productos">
+                Eliminar todos los productos
+              </button>
+            </div>
+          </section>
+
+          <!-- Apariencia -->
+          <section class="config-panel-v224" data-config-panel="apariencia">
+            <div class="config-section-head-v224">
+              <h3>Apariencia</h3>
+              <p>Personalizá cómo se ve Vendify en este dispositivo.</p>
+            </div>
+
+            <div class="settings-card-v224 settings-action-row-v224">
+              <div>
+                <h4>Tema de la aplicación</h4>
+                <p class="hint">Alterná entre modo claro y oscuro.</p>
+              </div>
+              <button id="btn-theme" type="button" class="btn btn-secondary">
+                <span id="theme-icon">☀️</span>
+                Cambiar tema
+              </button>
+            </div>
+
+            <div class="settings-card-v224">
+              <h4>Vista de productos</h4>
+              <p class="hint">La preferencia Lista/Cuadrícula se guarda automáticamente en cada dispositivo.</p>
+            </div>
+          </section>
         </div>
-
-        <ul id="lista-categorias-config" class="lista-categorias-config"></ul>
-
-
-        <div class="config-divider"></div>
-
-        <h3 class="config-section-title">Datos de prueba</h3>
-        <p class="hint" style="margin-bottom: 0.75rem;">
-          Carga productos típicos de kiosco para probar la app.
-        </p>
-        <button type="button" class="btn btn-secondary" id="btn-cargar-ejemplos-config">
-          Cargar productos de ejemplo
-        </button>
       </div>
-      <div class="modal-actions" style="padding: 0 1.3rem 1.2rem;">
+
+      <div class="modal-actions config-footer-v224">
         <button type="button" class="btn btn-primary" id="btn-cerrar-config-ok">Listo</button>
       </div>
     </div>
@@ -783,6 +914,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app-v223.js"></script>
+  <script src="app-v224.js"></script>
 </body>
 </html>
