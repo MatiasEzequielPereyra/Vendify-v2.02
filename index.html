@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles-v224.css" />
+  <link rel="stylesheet" href="styles-v225.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -181,10 +181,7 @@
         <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
           <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
         </button>
-        <button id="btn-config" class="btn btn-ghost header-action" title="Configuración">
-          <span class="header-action-icon">⚙</span><span class="header-action-label">Configuración</span>
-        </button>
-        <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
+<button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
           <span>▣</span><span>Vender</span>
         </button>
         <button id="btn-nuevo" class="btn btn-primary header-primary">
@@ -338,15 +335,24 @@
         <div id="foto-preview" class="hidden"><span id="foto-placeholder"></span><img id="foto-img" class="hidden" alt="" /></div>
         <button type="button" id="btn-quitar-foto" class="hidden"></button>
 
-        <div class="barcode-entry-v29">
-          <div class="form-group">
-            <label for="codigo-barras">Código de barras</label>
-            <input type="text" id="codigo-barras" inputmode="numeric" maxlength="32" placeholder="Escaneá o ingresá el código" autocomplete="off" />
+        <div class="form-group barcode-field-v225">
+          <label for="codigo-barras">Código de barras</label>
+          <input type="text" id="codigo-barras" inputmode="numeric" maxlength="32"
+                 placeholder="Escaneá o ingresá el código" autocomplete="off" />
+
+          <div class="barcode-actions-v225">
+            <button type="button" class="btn btn-primary" id="btn-scan-producto">
+              <span aria-hidden="true">▣</span>
+              <span>Escanear</span>
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-buscar-barcode">
+              <span aria-hidden="true">⌕</span>
+              <span>Buscar datos</span>
+            </button>
           </div>
-          <button type="button" class="btn btn-secondary" id="btn-scan-producto">📷 Escanear</button>
-          <button type="button" class="btn btn-ghost" id="btn-buscar-barcode">Buscar datos</button>
+
+          <p class="hint barcode-status-v225" id="barcode-status-v29"></p>
         </div>
-        <p class="hint" id="barcode-status-v29"></p>
 
         <div class="form-row">
           <div class="form-group">
@@ -417,8 +423,17 @@
         <div class="config-content-v224">
           <!-- General -->
           <section class="config-panel-v224 active" data-config-panel="general">
-            <div class="config-section-head-v224">
-              <h3>Negocio</h3>
+            <div class="config-welcome-v225">
+              <div class="config-welcome-icon-v225">V</div>
+              <div>
+                <span class="config-eyebrow-v225">Panel de administración</span>
+                <h3 id="config-welcome-business">Tu negocio</h3>
+                <p>Gestioná catálogo, datos, equipo y apariencia desde un solo lugar.</p>
+              </div>
+            </div>
+
+            <div class="config-section-head-v224 config-section-head-spaced-v225">
+              <h3>Resumen</h3>
               <p>Información del contexto activo.</p>
             </div>
 
@@ -439,6 +454,21 @@
                 <span>Rol</span>
                 <strong id="config-rol">—</strong>
               </div>
+            </div>
+
+            <div class="config-quick-grid-v225">
+              <button type="button" class="config-quick-card-v225" data-config-go="catalogo">
+                <span class="config-quick-icon-v225">▦</span>
+                <span><strong>Catálogo</strong><small>Categorías y productos iniciales</small></span>
+              </button>
+              <button type="button" class="config-quick-card-v225" data-config-go="datos">
+                <span class="config-quick-icon-v225">⇩</span>
+                <span><strong>Datos</strong><small>Exportación y administración</small></span>
+              </button>
+              <button type="button" class="config-quick-card-v225" data-config-go="apariencia">
+                <span class="config-quick-icon-v225">◐</span>
+                <span><strong>Apariencia</strong><small>Tema y preferencias visuales</small></span>
+              </button>
             </div>
 
             <div class="config-callout-v224">
@@ -914,6 +944,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app-v224.js"></script>
+  <script src="app-v225.js"></script>
 </body>
 </html>
