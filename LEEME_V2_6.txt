@@ -1,0 +1,79 @@
+VENDIFY v2.6 — FIX CRÍTICO DE ROLES
+=====================================
+
+CAUSA DEL BUG
+-------------
+Las cuentas de empleados creadas con crear-empleado disparaban también
+el trigger general de auth.users.
+
+Ese trigger les creaba:
+- negocio propio
+- rol owner
+
+Después la Edge Function agregaba además:
+- membresía al negocio real
+- rol cashier/manager/admin
+
+obtener_contexto_app priorizaba owner, por eso un cajero podía entrar
+como Propietario y borrar productos.
+
+INSTALACIÓN
+-----------
+1. Ejecutar EN SUPABASE:
+   007_fix_roles_empleados.sql
+
+2. Subir a Vercel:
+   app.js
+   styles.css
+   sw.js
+
+3. Ctrl + Shift + R.
+
+RESULTADO
+---------
+OWNER
+- todo
+
+ADMIN
+- productos
+- stock
+- config
+- exportar
+- historial
+- equipo
+
+MANAGER / ENCARGADO
+- productos
+- stock
+- config
+- exportar
+- historial
+- NO Equipo
+
+CASHIER / CAJERO
+- vender
+- ver productos
+- ver stock
+- NO nuevo producto
+- NO editar
+- NO eliminar
+- NO ajustar stock
+- NO config
+- NO exportar
+- NO historial
+- NO equipo
+- NO costos
+
+VERIFICACIÓN SQL
+----------------
+select
+  e.nombre,
+  e.username,
+  nm.rol,
+  nm.negocio_id
+from public.empleados e
+join public.negocio_miembros nm
+  on nm.user_id=e.user_id
+ and nm.negocio_id=e.negocio_id;
+
+Ningún empleado debe figurar como owner.

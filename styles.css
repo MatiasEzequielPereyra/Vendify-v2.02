@@ -1672,3 +1672,55 @@ body[data-role="cashier"] .card-acciones,
 body[data-role="cashier"] .card-stock-controls {
   display: none !important;
 }
+
+
+/* ===== Vendify v2.7 · editor de recorte de fotos ===== */
+.modal-crop-content {
+  max-width: 620px;
+}
+
+.crop-stage {
+  width: min(100%, 500px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  overflow: hidden;
+  background:
+    linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--surface-3) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--surface-3) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--surface-3) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  cursor: grab;
+}
+
+.crop-stage:active {
+  cursor: grabbing;
+}
+
+#crop-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.crop-controls {
+  margin-top: 1rem;
+}
+
+.crop-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.crop-actions {
+  padding: 0 1.3rem 1.2rem;
+}
+
+.equipo-actions .btn-danger {
+  white-space: nowrap;
+}

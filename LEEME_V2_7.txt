@@ -1,0 +1,52 @@
+VENDIFY v2.7 — CROP DE FOTOS + ELIMINAR USUARIO + PASSWORD FIJA
+=================================================================
+
+1) SQL
+Ejecutar:
+008_password_fija_empleados.sql
+
+2) EDGE FUNCTIONS
+Actualizar y volver a hacer Deploy de:
+
+A) crear-empleado
+   archivo:
+   supabase/functions/crear-empleado/index.ts
+
+B) gestionar-empleado
+   archivo:
+   supabase/functions/gestionar-empleado/index.ts
+
+IMPORTANTE:
+- crear-empleado ahora guarda debe_cambiar_password=false.
+- resetear contraseña ahora deja esa contraseña como definitiva.
+- gestionar-empleado incluye action="delete".
+- eliminar usuarios está permitido SOLO al owner.
+
+3) VERCEL
+Reemplazar:
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+4) Ctrl + Shift + R
+
+RECORTE DE FOTOS
+Al usar Cámara o Galería:
+- se abre editor
+- arrastrar foto
+- usar slider de zoom
+- "Usar esta foto"
+- se guarda JPEG cuadrado 800x800 optimizado
+
+ELIMINAR EMPLEADO
+Equipo:
+- Editar
+- Reiniciar clave
+- Activar/Desactivar
+- Eliminar (solo propietario)
+
+PASSWORD
+La contraseña definida por el dueño es definitiva.
+No hay cambio obligatorio al primer login.
+Si el owner la reinicia, la nueva contraseña también queda definitiva.

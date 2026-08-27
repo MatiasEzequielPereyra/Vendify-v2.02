@@ -287,6 +287,16 @@ let productos = [];
 let categorias = [];
 let productoEditandoId = null;
 let fotoActualBase64 = null;
+
+// Editor de recorte
+let cropImage = null;
+let cropScale = 1;
+let cropBaseScale = 1;
+let cropOffsetX = 0;
+let cropOffsetY = 0;
+let cropDragging = false;
+let cropLastX = 0;
+let cropLastY = 0;
 let stockAjusteId = null;
 let stockAjusteValor = 0;
 let confirmCallback = null;
@@ -851,7 +861,14 @@ async function renderEquipo() {
                  data-id="${item.membership_id}"
                  data-activo="${item.activo ? "0" : "1"}">
             ${item.activo ? "Desactivar" : "Activar"}
-         </button>`
+         </button>
+         ${appContext.membership?.role === "owner" ? `
+           <button class="btn btn-danger btn-sm"
+                   data-equipo-action="delete-member"
+                   data-id="${item.membership_id}"
+                   data-nombre="${escapeHtml(item.nombre || item.username || "Empleado")}">
+             Eliminar
+           </button>` : ""}`
       : "";
 
     return `
@@ -861,7 +878,6 @@ async function renderEquipo() {
           <div class="equipo-meta">
             ${username}
             <span class="equipo-status ${item.activo ? "active" : "inactive"}">${item.activo ? "Activo" : "Inactivo"}</span>
-            ${item.debe_cambiar_password ? `<span class="equipo-status pending">Clave temporal</span>` : ""}
           </div>
         </div>
         <div>${rolControl}</div>
@@ -936,40 +952,38 @@ async function cambiarEstadoEquipo(membershipId, activo) {
   await renderEquipo();
 }
 
-async function cambiarPasswordEmpleadoV3(e) {
-  e.preventDefault();
 
-  const p1 = $("#employee-new-password").value;
-  const p2 = $("#employee-new-password-repeat").value;
-  const errorEl = $("#employee-password-error");
-  errorEl.textContent = "";
 
-  if (p1.length < 8) {
-    errorEl.textContent = "La contraseña debe tener al menos 8 caracteres.";
-    return;
-  }
-  if (p1 !== p2) {
-    errorEl.textContent = "Las contraseñas no coinciden.";
+
+async function eliminarEmpleadoDefinitivo(btn) {
+  if (appContext.membership?.role !== "owner") {
+    mostrarToast("Solo el propietario puede eliminar usuarios", "error");
     return;
   }
 
-  const { error } = await supabaseClient.auth.updateUser({ password: p1 });
-  if (error) {
-    errorEl.textContent = error.message;
+  const nombre = btn.dataset.nombre || "este empleado";
+  const ok = await confirmar(
+    "Eliminar usuario",
+    `¿Eliminar definitivamente a ${nombre}? Esta acción elimina su acceso a Vendify.`
+  );
+
+  if (!ok) return;
+
+  const { data, error } = await supabaseClient.functions.invoke("gestionar-empleado", {
+    body: {
+      action: "delete",
+      membership_id: btn.dataset.id,
+    },
+  });
+
+  if (error || data?.error) {
+    mostrarToast(data?.error || error?.message || "No se pudo eliminar el usuario", "error");
     return;
   }
 
-  const { error: rpcError } = await supabaseClient.rpc("marcar_password_empleado_cambiada");
-  if (rpcError) {
-    errorEl.textContent = rpcError.message;
-    return;
-  }
-
-  if (appContext.employee) appContext.employee.debe_cambiar_password = false;
-  $("#modal-password-empleado").classList.add("hidden");
-  mostrarToast("Contraseña actualizada", "success");
+  mostrarToast("Usuario eliminado definitivamente", "success");
+  await renderEquipo();
 }
-
 
 function abrirEditarEmpleadoDesdeBoton(btn) {
   $("#editar-membership-id").value = btn.dataset.id || "";
@@ -1024,7 +1038,7 @@ async function guardarEdicionEmpleado(e) {
 function abrirResetEmpleadoDesdeBoton(btn) {
   $("#reset-membership-id").value = btn.dataset.id || "";
   $("#reset-empleado-info").textContent =
-    `Nueva contraseña temporal para ${btn.dataset.nombre || "el empleado"}.`;
+    `Nueva contraseña para ${btn.dataset.nombre || "el empleado"}.`;
   $("#reset-empleado-password").value = generarPasswordTemporal();
   $("#reset-empleado-error").textContent = "";
   $("#modal-reset-empleado").classList.remove("hidden");
@@ -1057,7 +1071,7 @@ async function reiniciarPasswordEmpleado(e) {
   }
 
   cerrarResetEmpleado();
-  mostrarToast("Contraseña reiniciada. El empleado deberá cambiarla al ingresar.", "success");
+  mostrarToast("Contraseña del empleado actualizada", "success");
   await renderEquipo();
 }
 
@@ -1233,6 +1247,131 @@ function comprimirImagen(file) {
     reader.readAsDataURL(file);
   });
 }
+
+
+function leerArchivoImagen(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("No se pudo cargar la imagen"));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function abrirEditorRecorte(img) {
+  cropImage = img;
+
+  const canvas = $("#crop-canvas");
+  const size = canvas.width;
+
+  // Escala mínima para cubrir completamente el cuadrado.
+  cropBaseScale = Math.max(size / img.width, size / img.height);
+  cropScale = 1;
+  cropOffsetX = 0;
+  cropOffsetY = 0;
+
+  $("#crop-zoom").value = "1";
+  $("#modal-crop-foto").classList.remove("hidden");
+
+  renderCropCanvas();
+}
+
+function cerrarEditorRecorte() {
+  $("#modal-crop-foto")?.classList.add("hidden");
+  cropImage = null;
+  cropDragging = false;
+}
+
+function renderCropCanvas() {
+  if (!cropImage) return;
+
+  const canvas = $("#crop-canvas");
+  const ctx = canvas.getContext("2d");
+  const size = canvas.width;
+  const scale = cropBaseScale * cropScale;
+
+  const drawW = cropImage.width * scale;
+  const drawH = cropImage.height * scale;
+
+  const centerX = size / 2 + cropOffsetX;
+  const centerY = size / 2 + cropOffsetY;
+  const x = centerX - drawW / 2;
+  const y = centerY - drawH / 2;
+
+  // Limitar desplazamiento para que nunca quede espacio vacío.
+  const maxX = Math.max(0, (drawW - size) / 2);
+  const maxY = Math.max(0, (drawH - size) / 2);
+  cropOffsetX = Math.max(-maxX, Math.min(maxX, cropOffsetX));
+  cropOffsetY = Math.max(-maxY, Math.min(maxY, cropOffsetY));
+
+  const finalX = size / 2 + cropOffsetX - drawW / 2;
+  const finalY = size / 2 + cropOffsetY - drawH / 2;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(cropImage, finalX, finalY, drawW, drawH);
+}
+
+function aplicarRecorteFoto() {
+  if (!cropImage) return;
+
+  const source = $("#crop-canvas");
+  const output = document.createElement("canvas");
+
+  // Suficiente calidad para el producto sin guardar fotos gigantes.
+  output.width = 800;
+  output.height = 800;
+
+  const ctx = output.getContext("2d");
+  ctx.drawImage(source, 0, 0, 800, 800);
+
+  fotoActualBase64 = output.toDataURL("image/jpeg", 0.82);
+  mostrarPreviewFoto(fotoActualBase64);
+  cerrarEditorRecorte();
+  mostrarToast("Foto recortada", "success");
+}
+
+function puntoCropDesdeEvento(e) {
+  const canvas = $("#crop-canvas");
+  const rect = canvas.getBoundingClientRect();
+  const source = e.touches?.[0] || e;
+
+  return {
+    x: (source.clientX - rect.left) * (canvas.width / rect.width),
+    y: (source.clientY - rect.top) * (canvas.height / rect.height),
+  };
+}
+
+function iniciarDragCrop(e) {
+  if (!cropImage) return;
+  e.preventDefault();
+  cropDragging = true;
+  const p = puntoCropDesdeEvento(e);
+  cropLastX = p.x;
+  cropLastY = p.y;
+}
+
+function moverDragCrop(e) {
+  if (!cropDragging || !cropImage) return;
+  e.preventDefault();
+
+  const p = puntoCropDesdeEvento(e);
+  cropOffsetX += p.x - cropLastX;
+  cropOffsetY += p.y - cropLastY;
+  cropLastX = p.x;
+  cropLastY = p.y;
+
+  renderCropCanvas();
+}
+
+function terminarDragCrop() {
+  cropDragging = false;
+}
+
 
 function mostrarPreviewFoto(base64) {
   const img = $("#foto-img");
@@ -2172,7 +2311,6 @@ function inicializarEventos() {
       mostrarToast("Código copiado", "success");
     }
   });
-  $("#form-password-empleado")?.addEventListener("submit", cambiarPasswordEmpleadoV3);
 
   $("#form-editar-empleado")?.addEventListener("submit", guardarEdicionEmpleado);
   $("#btn-cerrar-editar-empleado")?.addEventListener("click", cerrarEditarEmpleado);
@@ -2201,6 +2339,8 @@ function inicializarEventos() {
       abrirEditarEmpleadoDesdeBoton(btn);
     } else if (btn.dataset.equipoAction === "reset-password") {
       abrirResetEmpleadoDesdeBoton(btn);
+    } else if (btn.dataset.equipoAction === "delete-member") {
+      eliminarEmpleadoDefinitivo(btn);
     }
   });
 
@@ -2249,16 +2389,36 @@ function inicializarEventos() {
   async function manejarFoto(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+
     try {
-      fotoActualBase64 = await comprimirImagen(file);
-      mostrarPreviewFoto(fotoActualBase64);
-      mostrarToast("Imagen cargada", "info");
-    } catch {
+      const img = await leerArchivoImagen(file);
+      abrirEditorRecorte(img);
+    } catch (error) {
+      console.error(error);
       mostrarToast("No se pudo procesar la imagen", "error");
     }
   }
   $("#foto-input").addEventListener("change", manejarFoto);
   $("#foto-camara").addEventListener("change", manejarFoto);
+
+  $("#crop-zoom")?.addEventListener("input", (e) => {
+    cropScale = Number(e.target.value);
+    renderCropCanvas();
+  });
+
+  const cropCanvas = $("#crop-canvas");
+  cropCanvas?.addEventListener("mousedown", iniciarDragCrop);
+  cropCanvas?.addEventListener("mousemove", moverDragCrop);
+  window.addEventListener("mouseup", terminarDragCrop);
+
+  cropCanvas?.addEventListener("touchstart", iniciarDragCrop, { passive: false });
+  cropCanvas?.addEventListener("touchmove", moverDragCrop, { passive: false });
+  window.addEventListener("touchend", terminarDragCrop);
+
+  $("#btn-aplicar-crop")?.addEventListener("click", aplicarRecorteFoto);
+  $("#btn-cancelar-crop")?.addEventListener("click", cerrarEditorRecorte);
+  $("#btn-cerrar-crop")?.addEventListener("click", cerrarEditorRecorte);
+  $("#modal-crop-foto .modal-backdrop")?.addEventListener("click", cerrarEditorRecorte);
   $("#btn-quitar-foto").addEventListener("click", () => {
     fotoActualBase64 = null;
     $("#foto-input").value = "";
@@ -2334,6 +2494,7 @@ function inicializarEventos() {
       else if (!$("#modal-venta").classList.contains("hidden")) cerrarVenta();
       else if (!$("#modal-historial").classList.contains("hidden")) cerrarHistorial();
       else if (!$("#modal-equipo").classList.contains("hidden")) cerrarEquipo();
+      else if (!$("#modal-crop-foto").classList.contains("hidden")) cerrarEditorRecorte();
       else if (!$("#modal-editar-empleado").classList.contains("hidden")) cerrarEditarEmpleado();
       else if (!$("#modal-reset-empleado").classList.contains("hidden")) cerrarResetEmpleado();
       else if (!$("#modal-config").classList.contains("hidden")) cerrarConfig();
