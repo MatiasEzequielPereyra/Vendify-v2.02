@@ -2308,3 +2308,58 @@ body.scanner-v29-open {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ============================================================
+   Vendify v2.12 · Scanner por encima de Nueva Venta
+   ============================================================ */
+
+/* Forzamos el scanner por encima de absolutamente cualquier modal. */
+#modal-scanner-v29 {
+  z-index: 10000 !important;
+}
+
+#modal-scanner-v29 .modal-backdrop {
+  z-index: 10000 !important;
+}
+
+#modal-scanner-v29 .modal-content {
+  position: relative;
+  z-index: 10001 !important;
+}
+
+/* El POS queda detrás mientras se usa la cámara, pero conserva su estado. */
+#modal-venta.modal-behind-scanner {
+  z-index: 90 !important;
+  pointer-events: none;
+}
+
+/* Evita que cualquier header/sticky del POS atraviese el scanner. */
+#modal-venta.modal-behind-scanner * {
+  pointer-events: none !important;
+}
+
+body.scanner-v29-open #modal-scanner-v29 {
+  display: flex !important;
+}
+
+/* En móvil el scanner se comporta como pantalla principal temporal. */
+@media (max-width: 760px) {
+  body.scanner-v29-open #modal-scanner-v29 {
+    inset: 0;
+    padding: .35rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.scanner-v29-open #modal-scanner-v29 .modal-backdrop {
+    background: rgba(0, 0, 0, .88);
+  }
+
+  body.scanner-v29-open #modal-scanner-v29 .modal-scanner-v29 {
+    width: 100%;
+    max-width: 540px;
+    max-height: calc(100dvh - .7rem);
+    overflow-y: auto;
+  }
+}

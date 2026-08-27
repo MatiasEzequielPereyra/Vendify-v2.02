@@ -1,5 +1,5 @@
 /**
- * Vendify v2.11 — Login dual y empleados internos
+ * Vendify v2.12 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
  * - Login por email + contraseña vía Supabase Auth
  * - Datos en Supabase Postgres (antes: localStorage)
@@ -2833,12 +2833,20 @@ async function procesarCodigoV29(code) {
   const now=Date.now(); if(code===scannerLastCodeV29 && now-scannerLastAtV29<900)return; scannerLastCodeV29=code;scannerLastAtV29=now;
   if(scannerModeV29==="venta"){
     const p=productos.find(x=>x.codigoBarras===code);
-    if(p){
+    if (p) {
       agregarAlCarrito(p.id);
       renderVentaProductos();
-      const s=$("#scanner-status-v29");
-      if(s)s.textContent=`✓ ${p.nombre} agregado`;
+
+      const s = $("#scanner-status-v29");
+      if (s) s.textContent = `✓ ${p.nombre} agregado`;
+
       navigator.vibrate?.(60);
+
+      // En Nueva venta el flujo es:
+      // venta -> scanner -> producto leído -> volver automáticamente a venta.
+      setTimeout(() => {
+        cerrarScannerV29();
+      }, 220);
     }
     else{const s=$("#scanner-status-v29");if(s)s.textContent=`No registrado: ${code}`;mostrarToast("Producto no registrado","error");}
     return;
@@ -2855,9 +2863,23 @@ async function abrirScannerV29(mode) {
   scannerModeV29=mode;
   scannerLastCodeV29="";
   scannerLastAtV29=0;
+  scannerClosingV29=false;
 
   document.body.classList.add("scanner-v29-open");
-  $("#modal-scanner-v29")?.classList.remove("hidden"); $("#scanner-mode-label-v29").textContent=mode==="venta"?"Escaneá productos: se agregan directamente al carrito.":"Apuntá la cámara al código del producto.";
+
+  const scannerModal = $("#modal-scanner-v29");
+  const ventaModal = $("#modal-venta");
+
+  if (scannerModal) {
+    scannerModal.style.zIndex = "10000";
+    scannerModal.classList.remove("hidden");
+  }
+
+  // Cuando se abre desde Nueva venta, dejamos el POS detrás sin cerrarlo.
+  if (mode === "venta" && ventaModal) {
+    ventaModal.classList.add("modal-behind-scanner");
+    ventaModal.setAttribute("aria-hidden", "true");
+  } $("#scanner-mode-label-v29").textContent=mode==="venta"?"Escaneá productos: se agregan directamente al carrito.":"Apuntá la cámara al código del producto.";
   $("#scanner-status-v29").textContent="Solicitando cámara...";
   try{
     if(!window.ZXingBrowser?.BrowserMultiFormatReader)throw new Error("El lector de códigos no cargó");
@@ -2897,8 +2919,22 @@ function cerrarScannerV29() {
     v.srcObject.getTracks().forEach(t=>t.stop());
     v.srcObject=null;
   }
-  $("#modal-scanner-v29")?.classList.add("hidden");
+  const scannerModal = $("#modal-scanner-v29");
+  const ventaModal = $("#modal-venta");
+
+  scannerModal?.classList.add("hidden");
+  if (scannerModal) scannerModal.style.zIndex = "";
+
   document.body.classList.remove("scanner-v29-open");
+
+  if (ventaModal) {
+    ventaModal.classList.remove("modal-behind-scanner");
+    ventaModal.removeAttribute("aria-hidden");
+  }
+
+  setTimeout(() => {
+    scannerClosingV29 = false;
+  }, 250);
 }
 
 function renderVentaProductos() {
