@@ -492,6 +492,14 @@ function aplicarPermisosV2() {
   setHidden("#btn-export", !puedeExportar);
   setHidden("#btn-historial", !puedeVerHistorial);
   setHidden("#btn-inventario", !(esOwner || esAdmin || esManager));
+  setHidden("#btn-compras", !(esOwner || esAdmin || esManager));
+
+  const gestionVisible =
+    puedeVerHistorial ||
+    puedeGestionarEquipo ||
+    esOwner || esAdmin || esManager;
+
+  setHidden("#btn-gestion-v230", !gestionVisible);
 
   setHidden(".card-acciones", !puedeGestionarProductos);
   setHidden(".card-stock-controls", !puedeAjustarStock);
@@ -2621,12 +2629,127 @@ async function cambiarStock(id, delta) {
 
   const p = productos.find((x) => x.id === id);
   if (!p) return;
-  if (delta < 0 && Number(p.stock || 0) <= 0) return;
 
-  abrirAjusteInventarioDesdeProducto(id, delta);
+  if (delta < 0 && Number(p.stock || 0) <= 0) {
+    mostrarToast(`"${p.nombre}" ya está en stock 0`, "info");
+    return;
+  }
+
+  // Durante la puesta en marcha del producto, + / - forman parte del conteo
+  // inicial y no interrumpen al usuario con un formulario.
+  // Cuando el producto ya tuvo actividad real, el backend devuelve
+  // requiere_motivo=true y abrimos el ajuste profesional.
+  const { data, error } = await supabaseClient.rpc(
+    "ajustar_stock_inicial_rapido_v1",
+    {
+      p_producto_id: p.id,
+      p_sucursal_id: appContext.branch.id,
+      p_delta: delta > 0 ? 1 : -1,
+    }
+  );
+
+  if (error) {
+    mostrarToast(error.message || "No se pudo modificar el stock", "error");
+    return;
+  }
+
+  if (data?.requiere_motivo) {
+    abrirAjusteInventarioDesdeProducto(id, delta);
+    return;
+  }
+
+  p.stock = Number(data?.stock ?? (Number(p.stock || 0) + delta));
+
+  emitirCambioStockRealtime("stock_inicial");
+  await cargarStockInteligente();
+  renderGrid();
+
+  if (!$("#modal-venta")?.classList.contains("hidden")) {
+    renderVentaProductos();
+    renderCarrito();
+  }
 }
 
 
+
+
+
+// ============================================================
+// Vendify v2.30 — Menú Gestión compacto
+// ============================================================
+
+function posicionarGestionMenuV230() {
+  const menu = $("#gestion-menu-v230");
+  const trigger = $("#btn-gestion-v230");
+  if (!menu || !trigger || menu.classList.contains("hidden")) return;
+
+  const margin = 10;
+  const rect = trigger.getBoundingClientRect();
+  const width = Math.min(290, Math.max(240, window.innerWidth - margin * 2));
+
+  let left = rect.right - width;
+  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+  menu.style.position = "fixed";
+  menu.style.left = `${left}px`;
+  menu.style.right = "auto";
+  menu.style.top = `${rect.bottom + 8}px`;
+  menu.style.width = `${width}px`;
+  menu.style.maxWidth = `calc(100vw - ${margin * 2}px)`;
+
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - margin) {
+      menu.style.top =
+        `${Math.max(margin, rect.top - r.height - 8)}px`;
+    }
+  });
+}
+
+function abrirCerrarGestionV230(force) {
+  const menu = $("#gestion-menu-v230");
+  const trigger = $("#btn-gestion-v230");
+  if (!menu || !trigger) return;
+
+  const open =
+    typeof force === "boolean"
+      ? force
+      : menu.classList.contains("hidden");
+
+  menu.classList.toggle("hidden", !open);
+  trigger.setAttribute("aria-expanded", open ? "true" : "false");
+
+  if (open) {
+    requestAnimationFrame(posicionarGestionMenuV230);
+  } else {
+    menu.style.position = "";
+    menu.style.left = "";
+    menu.style.right = "";
+    menu.style.top = "";
+    menu.style.width = "";
+    menu.style.maxWidth = "";
+  }
+}
+
+function setupGestionMenuV230() {
+  $("#btn-gestion-v230")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    abrirCerrarGestionV230();
+  });
+
+  $("#gestion-menu-v230")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (e.target.closest("button")) abrirCerrarGestionV230(false);
+  });
+
+  document.addEventListener("click", () => abrirCerrarGestionV230(false));
+
+  window.addEventListener("resize", () => {
+    if (!$("#gestion-menu-v230")?.classList.contains("hidden")) {
+      posicionarGestionMenuV230();
+    }
+  });
+}
 
 
 // ============================================================
@@ -3308,6 +3431,749 @@ function setupInventarioProfesional() {
   $("#inventory-transfer-origin")?.addEventListener("change", cargarProductosTransferenciaInventario);
   $("#inventory-transfer-product")?.addEventListener("change", actualizarDisponibleTransferenciaInventario);
 }
+
+
+// ============================================================
+// Vendify v2.30 — Compras y proveedores
+// ============================================================
+
+let proveedoresV230 = [];
+let comprasV230 = [];
+let compraItemsV230 = [];
+let compraEditandoIdV230 = null;
+let compraEditandoEstadoV230 = "borrador";
+let proveedorEditandoV230 = null;
+let comprasActiveTabV230 = "compras";
+
+function puedeGestionarComprasV230() {
+  return ["owner", "admin", "manager"].includes(appContext.membership?.role);
+}
+
+function activarTabComprasV230(tab = "compras") {
+  comprasActiveTabV230 = tab;
+
+  $$(".compras-tab-v230").forEach((btn) => {
+    const active = btn.dataset.comprasTab === tab;
+    btn.classList.toggle("active", active);
+  });
+
+  $$(".compras-panel-v230").forEach((panel) => {
+    const active = panel.dataset.comprasPanel === tab;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
+  });
+
+  if (tab === "compras") cargarComprasV230();
+  if (tab === "proveedores") cargarProveedoresV230();
+}
+
+async function abrirComprasV230(tab = "compras") {
+  if (!puedeGestionarComprasV230()) {
+    mostrarToast("Tu rol no permite administrar compras", "error");
+    return;
+  }
+
+  $("#compras-branch-badge-v230").textContent =
+    appContext.branch?.nombre || "Sucursal";
+
+  $("#modal-compras").classList.remove("hidden");
+  activarTabComprasV230(tab);
+
+  await Promise.all([
+    cargarProveedoresV230({ render: tab === "proveedores" }),
+    cargarComprasV230({ render: tab === "compras" }),
+  ]);
+}
+
+function cerrarComprasV230() {
+  $("#modal-compras")?.classList.add("hidden");
+}
+
+async function cargarProveedoresV230({ render = true } = {}) {
+  const { data, error } = await supabaseClient.rpc("listar_proveedores_v1");
+
+  if (error) {
+    console.error("[Proveedores]", error);
+    if (render) {
+      $("#proveedores-list-v230").innerHTML =
+        `<div class="inventory-empty">No se pudieron cargar los proveedores.</div>`;
+    }
+    return;
+  }
+
+  proveedoresV230 = data || [];
+
+  if (render) renderProveedoresV230();
+  actualizarSelectProveedoresV230();
+}
+
+function renderProveedoresV230() {
+  const el = $("#proveedores-list-v230");
+  if (!el) return;
+
+  const q = ($("#proveedores-search")?.value || "").trim().toLowerCase();
+
+  const rows = proveedoresV230.filter((p) => {
+    if (!q) return true;
+    return [
+      p.nombre,
+      p.cuit,
+      p.contacto,
+      p.telefono,
+      p.email,
+    ].filter(Boolean).join(" ").toLowerCase().includes(q);
+  });
+
+  if (!rows.length) {
+    el.innerHTML = `
+      <div class="inventory-empty compras-empty-v230">
+        ${proveedoresV230.length
+          ? "No hay proveedores para esa búsqueda."
+          : "Todavía no cargaste proveedores."}
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = rows.map((p) => `
+    <article class="proveedor-card-v230" data-provider-id="${p.id}">
+      <div class="proveedor-card-head-v230">
+        <div class="proveedor-avatar-v230">${escapeHtml((p.nombre || "P").slice(0,1).toUpperCase())}</div>
+        <div class="proveedor-title-v230">
+          <strong>${escapeHtml(p.nombre)}</strong>
+          <small>${escapeHtml(p.contacto || p.cuit || "Proveedor")}</small>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm"
+                data-provider-edit="${p.id}">Editar</button>
+      </div>
+
+      <div class="proveedor-metrics-v230">
+        <div>
+          <span>Total comprado</span>
+          <strong>${formatearPrecio(Number(p.total_comprado || 0))}</strong>
+        </div>
+        <div>
+          <span>Compras</span>
+          <strong>${Number(p.compras_recibidas || 0)}</strong>
+        </div>
+      </div>
+
+      <div class="proveedor-meta-v230">
+        <span>${p.telefono ? `Tel. ${escapeHtml(p.telefono)}` : "Sin teléfono"}</span>
+        <span>${p.ultima_compra
+          ? `Última compra ${escapeHtml(formatearFechaHoraV227(p.ultima_compra))}`
+          : "Sin compras recibidas"}</span>
+      </div>
+    </article>
+  `).join("");
+
+  el.querySelectorAll("[data-provider-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const p = proveedoresV230.find((x) => x.id === btn.dataset.providerEdit);
+      if (p) abrirProveedorEditorV230(p);
+    });
+  });
+}
+
+function actualizarSelectProveedoresV230(selected = null) {
+  const select = $("#compra-proveedor");
+  if (!select) return;
+
+  const activos = proveedoresV230.filter((p) => p.activo !== false);
+
+  select.innerHTML = activos.length
+    ? activos.map((p) =>
+        `<option value="${p.id}" ${p.id === selected ? "selected" : ""}>${escapeHtml(p.nombre)}</option>`
+      ).join("")
+    : `<option value="">Creá un proveedor primero</option>`;
+}
+
+function abrirProveedorEditorV230(proveedor = null) {
+  proveedorEditandoV230 = proveedor?.id || null;
+
+  $("#proveedor-editor-title").textContent =
+    proveedor ? "Editar proveedor" : "Nuevo proveedor";
+
+  $("#proveedor-id-v230").value = proveedor?.id || "";
+  $("#proveedor-nombre-v230").value = proveedor?.nombre || "";
+  $("#proveedor-cuit-v230").value = proveedor?.cuit || "";
+  $("#proveedor-contacto-v230").value = proveedor?.contacto || "";
+  $("#proveedor-telefono-v230").value = proveedor?.telefono || "";
+  $("#proveedor-email-v230").value = proveedor?.email || "";
+  $("#proveedor-direccion-v230").value = proveedor?.direccion || "";
+  $("#proveedor-notas-v230").value = proveedor?.notas || "";
+  $("#proveedor-editor-error").textContent = "";
+
+  $("#modal-proveedor-editor").classList.remove("hidden");
+  setTimeout(() => $("#proveedor-nombre-v230")?.focus(), 50);
+}
+
+function cerrarProveedorEditorV230() {
+  $("#modal-proveedor-editor")?.classList.add("hidden");
+  proveedorEditandoV230 = null;
+  $("#form-proveedor-v230")?.reset();
+}
+
+async function guardarProveedorV230(e) {
+  e.preventDefault();
+
+  const eraEdicion = Boolean(proveedorEditandoV230);
+  const nombre = $("#proveedor-nombre-v230").value.trim();
+  const errorEl = $("#proveedor-editor-error");
+  errorEl.textContent = "";
+
+  if (!nombre) {
+    errorEl.textContent = "El nombre es obligatorio.";
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "guardar_proveedor_v1",
+    {
+      p_id: proveedorEditandoV230,
+      p_nombre: nombre,
+      p_cuit: $("#proveedor-cuit-v230").value.trim() || null,
+      p_contacto: $("#proveedor-contacto-v230").value.trim() || null,
+      p_telefono: $("#proveedor-telefono-v230").value.trim() || null,
+      p_email: $("#proveedor-email-v230").value.trim() || null,
+      p_direccion: $("#proveedor-direccion-v230").value.trim() || null,
+      p_notas: $("#proveedor-notas-v230").value.trim() || null,
+    }
+  );
+
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  cerrarProveedorEditorV230();
+  await cargarProveedoresV230({ render: comprasActiveTabV230 === "proveedores" });
+
+  mostrarToast(
+    eraEdicion ? "Proveedor actualizado" : "Proveedor creado",
+    "success"
+  );
+}
+
+async function cargarComprasV230({ render = true } = {}) {
+  if (!appContext?.branch?.id) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "listar_compras_v1",
+    {
+      p_sucursal_id: appContext.branch.id,
+      p_limit: 150,
+    }
+  );
+
+  if (error) {
+    console.error("[Compras]", error);
+    if (render) {
+      $("#compras-list-v230").innerHTML =
+        `<div class="inventory-empty">No se pudieron cargar las compras.</div>`;
+    }
+    return;
+  }
+
+  comprasV230 = data || [];
+
+  if (render) renderComprasV230();
+  actualizarStatsComprasV230();
+}
+
+function actualizarStatsComprasV230() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const monthPurchases = comprasV230.filter((c) => {
+    if (c.estado !== "recibida" || !c.recibida_en) return false;
+    const d = new Date(c.recibida_en);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+
+  $("#compras-stat-count").textContent = monthPurchases.length;
+  $("#compras-stat-total").textContent = formatearPrecio(
+    monthPurchases.reduce((acc, c) => acc + Number(c.total || 0), 0)
+  );
+  $("#compras-stat-providers").textContent =
+    proveedoresV230.filter((p) => p.activo !== false).length;
+}
+
+function renderComprasV230() {
+  const el = $("#compras-list-v230");
+  if (!el) return;
+
+  const q = ($("#compras-search")?.value || "").trim().toLowerCase();
+  const state = $("#compras-filter-state")?.value || "";
+
+  const rows = comprasV230.filter((c) => {
+    const matchState = !state || c.estado === state;
+    const matchQ =
+      !q ||
+      [c.proveedor_nombre, c.numero_comprobante, c.nota]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+
+    return matchState && matchQ;
+  });
+
+  if (!rows.length) {
+    el.innerHTML = `
+      <div class="inventory-empty compras-empty-v230">
+        ${comprasV230.length
+          ? "No hay compras para esos filtros."
+          : "Todavía no registraste compras en esta sucursal."}
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = rows.map((c) => {
+    const estadoLabel =
+      c.estado === "recibida"
+        ? "Recibida"
+        : c.estado === "anulada"
+          ? "Anulada"
+          : "Borrador";
+
+    return `
+      <article class="compra-card-v230" data-purchase-id="${c.id}">
+        <div class="compra-status-v230 ${c.estado}">
+          <span></span>${estadoLabel}
+        </div>
+
+        <div class="compra-card-main-v230">
+          <div>
+            <strong>${escapeHtml(c.proveedor_nombre || "Sin proveedor")}</strong>
+            <small>
+              ${escapeHtml(c.numero_comprobante || "Sin comprobante")}
+              · ${Number(c.items_count || 0)} productos
+            </small>
+          </div>
+
+          <div class="compra-card-total-v230">
+            <strong>${formatearPrecio(Number(c.total || 0))}</strong>
+            <small>${escapeHtml(formatearFechaHoraV227(c.creado))}</small>
+          </div>
+        </div>
+
+        <div class="compra-card-actions-v230">
+          <button type="button" class="btn btn-secondary btn-sm"
+                  data-purchase-open="${c.id}">
+            ${c.estado === "borrador" ? "Continuar" : "Ver detalle"}
+          </button>
+          ${c.estado === "borrador"
+            ? `<button type="button" class="btn btn-ghost btn-sm danger"
+                       data-purchase-cancel="${c.id}">Anular borrador</button>`
+            : ""}
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  el.querySelectorAll("[data-purchase-open]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirCompraExistenteV230(btn.dataset.purchaseOpen));
+  });
+
+  el.querySelectorAll("[data-purchase-cancel]").forEach((btn) => {
+    btn.addEventListener("click", () => anularCompraBorradorV230(btn.dataset.purchaseCancel));
+  });
+}
+
+function llenarSelectSucursalesCompraV230(selected = null) {
+  const select = $("#compra-sucursal");
+  if (!select) return;
+
+  return listarSucursalesV2().then((branches) => {
+    select.innerHTML = branches.map((s) =>
+      `<option value="${s.id}" ${s.id === selected ? "selected" : ""}>${escapeHtml(s.nombre)}</option>`
+    ).join("");
+
+    if (!selected && appContext.branch?.id) {
+      select.value = appContext.branch.id;
+    }
+  });
+}
+
+function llenarSelectProductosCompraV230(selected = null) {
+  const select = $("#compra-item-producto");
+  if (!select) return;
+
+  select.innerHTML = productos.map((p) => `
+    <option value="${p.id}" ${p.id === selected ? "selected" : ""}>
+      ${escapeHtml(productoEtiquetaV29(p))}
+    </option>
+  `).join("");
+
+  actualizarCostoProductoCompraV230();
+}
+
+function actualizarCostoProductoCompraV230() {
+  const id = $("#compra-item-producto")?.value;
+  const p = productos.find((x) => x.id === id);
+  if (p && $("#compra-item-costo")) {
+    $("#compra-item-costo").value = Number(p.precioCompra || 0).toFixed(2);
+  }
+}
+
+async function abrirNuevaCompraV230() {
+  if (!proveedoresV230.length) {
+    await cargarProveedoresV230({ render: false });
+  }
+
+  if (!proveedoresV230.some((p) => p.activo !== false)) {
+    mostrarToast("Primero cargá al menos un proveedor", "info");
+    activarTabComprasV230("proveedores");
+    abrirProveedorEditorV230();
+    return;
+  }
+
+  compraEditandoIdV230 = null;
+  compraEditandoEstadoV230 = "borrador";
+  compraItemsV230 = [];
+
+  $("#compra-editor-title").textContent = "Nueva compra";
+  $("#compra-editor-subtitle").textContent =
+    "Guardala como borrador o recibí la mercadería ahora.";
+
+  $("#compra-comprobante").value = "";
+  $("#compra-nota").value = "";
+  $("#compra-editor-error").textContent = "";
+
+  actualizarSelectProveedoresV230();
+  await llenarSelectSucursalesCompraV230(appContext.branch?.id);
+  llenarSelectProductosCompraV230();
+
+  configurarCompraEditorReadonlyV230(false);
+  renderCompraItemsV230();
+
+  $("#modal-compra-editor").classList.remove("hidden");
+}
+
+async function abrirCompraExistenteV230(id) {
+  const { data, error } = await supabaseClient.rpc(
+    "obtener_compra_v1",
+    { p_compra_id: id }
+  );
+
+  if (error || !data?.compra) {
+    mostrarToast(error?.message || "No se pudo abrir la compra", "error");
+    return;
+  }
+
+  const c = data.compra;
+  compraEditandoIdV230 = c.id;
+  compraEditandoEstadoV230 = c.estado;
+  compraItemsV230 = (data.items || []).map((item) => ({
+    producto_id: item.producto_id,
+    producto_nombre: item.producto_nombre,
+    cantidad: Number(item.cantidad || 0),
+    costo_unitario: Number(item.costo_unitario || 0),
+  }));
+
+  $("#compra-editor-title").textContent =
+    c.estado === "borrador" ? "Editar compra" : "Detalle de compra";
+
+  $("#compra-editor-subtitle").textContent =
+    c.estado === "recibida"
+      ? `Mercadería recibida ${c.recibida_en ? formatearFechaHoraV227(c.recibida_en) : ""}`
+      : c.estado === "anulada"
+        ? "Esta compra fue anulada."
+        : "Podés modificar el borrador antes de recibirlo.";
+
+  await cargarProveedoresV230({ render: false });
+  actualizarSelectProveedoresV230(c.proveedor_id);
+  $("#compra-proveedor").value = c.proveedor_id;
+
+  await llenarSelectSucursalesCompraV230(c.sucursal_id);
+  $("#compra-sucursal").value = c.sucursal_id;
+
+  $("#compra-comprobante").value = c.numero_comprobante || "";
+  $("#compra-nota").value = c.nota || "";
+  $("#compra-editor-error").textContent = "";
+
+  llenarSelectProductosCompraV230();
+
+  configurarCompraEditorReadonlyV230(c.estado !== "borrador");
+  renderCompraItemsV230();
+
+  $("#modal-compra-editor").classList.remove("hidden");
+}
+
+function configurarCompraEditorReadonlyV230(readonly) {
+  [
+    "#compra-proveedor",
+    "#compra-sucursal",
+    "#compra-comprobante",
+    "#compra-nota",
+  ].forEach((selector) => {
+    const el = $(selector);
+    if (el) el.disabled = readonly;
+  });
+
+  $("#compra-add-item-box-v230")?.classList.toggle("hidden", readonly);
+  $("#btn-save-compra-draft")?.classList.toggle("hidden", readonly);
+  $("#btn-receive-compra")?.classList.toggle("hidden", readonly);
+
+  document.body.classList.toggle("compra-readonly-v230", readonly);
+}
+
+function cerrarCompraEditorV230() {
+  $("#modal-compra-editor")?.classList.add("hidden");
+  compraEditandoIdV230 = null;
+  compraEditandoEstadoV230 = "borrador";
+  compraItemsV230 = [];
+  document.body.classList.remove("compra-readonly-v230");
+}
+
+function agregarItemCompraV230() {
+  const productId = $("#compra-item-producto").value;
+  const p = productos.find((x) => x.id === productId);
+  const qty = Math.max(1, Math.round(Number($("#compra-item-cantidad").value || 1)));
+  const cost = Math.max(0, Number($("#compra-item-costo").value || 0));
+
+  if (!p) return;
+
+  const existing = compraItemsV230.find((x) => x.producto_id === productId);
+
+  if (existing) {
+    existing.cantidad += qty;
+    existing.costo_unitario = cost;
+  } else {
+    compraItemsV230.push({
+      producto_id: p.id,
+      producto_nombre: productoEtiquetaV29(p),
+      cantidad: qty,
+      costo_unitario: cost,
+    });
+  }
+
+  $("#compra-item-cantidad").value = "1";
+  renderCompraItemsV230();
+}
+
+function renderCompraItemsV230() {
+  const el = $("#compra-items-list-v230");
+  if (!el) return;
+
+  const readonly = compraEditandoEstadoV230 !== "borrador";
+
+  if (!compraItemsV230.length) {
+    el.innerHTML =
+      `<div class="inventory-empty">Agregá los productos incluidos en la compra.</div>`;
+  } else {
+    el.innerHTML = compraItemsV230.map((item, index) => `
+      <div class="compra-item-row-v230">
+        <span class="compra-item-name-v230">
+          <strong>${escapeHtml(item.producto_nombre || "Producto")}</strong>
+        </span>
+
+        <label>
+          <input type="number"
+                 min="1"
+                 step="1"
+                 data-compra-qty="${index}"
+                 value="${Number(item.cantidad || 1)}"
+                 ${readonly ? "disabled" : ""} />
+        </label>
+
+        <label>
+          <input type="number"
+                 min="0"
+                 step="0.01"
+                 data-compra-cost="${index}"
+                 value="${Number(item.costo_unitario || 0).toFixed(2)}"
+                 ${readonly ? "disabled" : ""} />
+        </label>
+
+        <strong>${formatearPrecio(
+          Number(item.cantidad || 0) * Number(item.costo_unitario || 0)
+        )}</strong>
+
+        <button type="button" class="btn-icon danger"
+                data-compra-remove="${index}"
+                ${readonly ? "hidden" : ""}>✕</button>
+      </div>
+    `).join("");
+
+    if (!readonly) {
+      el.querySelectorAll("[data-compra-qty]").forEach((input) => {
+        input.addEventListener("input", () => {
+          const i = Number(input.dataset.compraQty);
+          compraItemsV230[i].cantidad = Math.max(1, Math.round(Number(input.value || 1)));
+          renderCompraItemsV230();
+        });
+      });
+
+      el.querySelectorAll("[data-compra-cost]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const i = Number(input.dataset.compraCost);
+          compraItemsV230[i].costo_unitario = Math.max(0, Number(input.value || 0));
+          renderCompraItemsV230();
+        });
+      });
+
+      el.querySelectorAll("[data-compra-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          compraItemsV230.splice(Number(btn.dataset.compraRemove), 1);
+          renderCompraItemsV230();
+        });
+      });
+    }
+  }
+
+  const total = compraItemsV230.reduce(
+    (sum, item) =>
+      sum + Number(item.cantidad || 0) * Number(item.costo_unitario || 0),
+    0
+  );
+
+  $("#compra-total-value-v230").textContent = formatearPrecio(total);
+}
+
+async function guardarCompraV230({ recibir = false } = {}) {
+  const errorEl = $("#compra-editor-error");
+  errorEl.textContent = "";
+
+  if (!$("#compra-proveedor").value) {
+    errorEl.textContent = "Seleccioná un proveedor.";
+    return;
+  }
+
+  if (!$("#compra-sucursal").value) {
+    errorEl.textContent = "Seleccioná una sucursal.";
+    return;
+  }
+
+  if (!compraItemsV230.length) {
+    errorEl.textContent = "Agregá al menos un producto.";
+    return;
+  }
+
+  const btn = recibir ? $("#btn-receive-compra") : $("#btn-save-compra-draft");
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = recibir ? "Recibiendo..." : "Guardando...";
+
+  const { data, error } = await supabaseClient.rpc(
+    "guardar_compra_borrador_v1",
+    {
+      p_compra_id: compraEditandoIdV230,
+      p_sucursal_id: $("#compra-sucursal").value,
+      p_proveedor_id: $("#compra-proveedor").value,
+      p_numero_comprobante: $("#compra-comprobante").value.trim() || null,
+      p_nota: $("#compra-nota").value.trim() || null,
+      p_items: compraItemsV230.map((item) => ({
+        producto_id: item.producto_id,
+        cantidad: Math.max(1, Math.round(Number(item.cantidad || 1))),
+        costo_unitario: Math.max(0, Number(item.costo_unitario || 0)),
+      })),
+    }
+  );
+
+  if (error || !data?.ok) {
+    btn.disabled = false;
+    btn.textContent = original;
+    errorEl.textContent = error?.message || data?.message || "No se pudo guardar la compra.";
+    return;
+  }
+
+  compraEditandoIdV230 = data.compra_id;
+
+  if (recibir) {
+    const receive = await supabaseClient.rpc(
+      "recibir_compra_v1",
+      { p_compra_id: compraEditandoIdV230 }
+    );
+
+    if (receive.error || !receive.data?.ok) {
+      btn.disabled = false;
+      btn.textContent = original;
+      errorEl.textContent =
+        receive.error?.message ||
+        receive.data?.message ||
+        "La compra quedó guardada como borrador, pero no se pudo recibir.";
+      return;
+    }
+
+    emitirCambioStockRealtime("compra_recibida");
+    await cargarProductos();
+    renderGrid();
+
+    mostrarToast(
+      `Compra recibida · ${Number(receive.data.unidades_ingresadas || 0)} unidades ingresadas`,
+      "success"
+    );
+  } else {
+    mostrarToast("Compra guardada como borrador", "success");
+  }
+
+  btn.disabled = false;
+  btn.textContent = original;
+
+  cerrarCompraEditorV230();
+  await Promise.all([
+    cargarComprasV230(),
+    cargarProveedoresV230({ render: comprasActiveTabV230 === "proveedores" }),
+  ]);
+}
+
+async function anularCompraBorradorV230(id) {
+  const ok = await confirmar(
+    "Anular borrador",
+    "La compra dejará de aparecer como pendiente. No se modificará el stock."
+  );
+
+  if (!ok) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "anular_compra_borrador_v1",
+    { p_compra_id: id }
+  );
+
+  if (error || !data?.ok) {
+    mostrarToast(error?.message || data?.message || "No se pudo anular", "error");
+    return;
+  }
+
+  await cargarComprasV230();
+  mostrarToast("Borrador anulado", "success");
+}
+
+function setupComprasV230() {
+  $("#btn-compras")?.addEventListener("click", () => abrirComprasV230("compras"));
+  $("#btn-close-compras")?.addEventListener("click", cerrarComprasV230);
+  $("#modal-compras .modal-backdrop")?.addEventListener("click", cerrarComprasV230);
+
+  $$(".compras-tab-v230").forEach((btn) => {
+    btn.addEventListener("click", () => activarTabComprasV230(btn.dataset.comprasTab));
+  });
+
+  $("#btn-nueva-compra")?.addEventListener("click", abrirNuevaCompraV230);
+  $("#btn-refresh-compras")?.addEventListener("click", () => cargarComprasV230());
+  $("#compras-search")?.addEventListener("input", renderComprasV230);
+  $("#compras-filter-state")?.addEventListener("change", renderComprasV230);
+
+  $("#btn-nuevo-proveedor")?.addEventListener("click", () => abrirProveedorEditorV230());
+  $("#btn-refresh-proveedores")?.addEventListener("click", () => cargarProveedoresV230());
+  $("#proveedores-search")?.addEventListener("input", renderProveedoresV230);
+
+  $("#form-proveedor-v230")?.addEventListener("submit", guardarProveedorV230);
+  $("#btn-close-proveedor-editor")?.addEventListener("click", cerrarProveedorEditorV230);
+  $("#btn-cancel-proveedor-editor")?.addEventListener("click", cerrarProveedorEditorV230);
+  $("#modal-proveedor-editor .modal-backdrop")?.addEventListener("click", cerrarProveedorEditorV230);
+
+  $("#btn-close-compra-editor")?.addEventListener("click", cerrarCompraEditorV230);
+  $("#btn-cancel-compra-editor")?.addEventListener("click", cerrarCompraEditorV230);
+  $("#modal-compra-editor .modal-backdrop")?.addEventListener("click", cerrarCompraEditorV230);
+
+  $("#compra-item-producto")?.addEventListener("change", actualizarCostoProductoCompraV230);
+  $("#btn-add-compra-item")?.addEventListener("click", agregarItemCompraV230);
+  $("#btn-save-compra-draft")?.addEventListener("click", () => guardarCompraV230({ recibir: false }));
+  $("#btn-receive-compra")?.addEventListener("click", () => guardarCompraV230({ recibir: true }));
+}
+
 
 // ============================================================
 // Seguridad de descuentos — PIN Owner/Admin
@@ -6205,8 +7071,12 @@ async function guardarProducto(e) {
     return;
   }
 
+  const stockRpc = eraEdicion
+    ? "establecer_stock_sucursal_v1"
+    : "establecer_stock_inicial_v1";
+
   const { data: stockData, error: stockError } = await supabaseClient.rpc(
-    "establecer_stock_sucursal_v1",
+    stockRpc,
     {
       p_producto_id: data.id,
       p_sucursal_id: appContext.branch.id,
@@ -6360,6 +7230,11 @@ async function registrarProductoDesdeScannerV214() {
   const codigoInput = $("#codigo-barras");
   if (codigoInput) codigoInput.value = code;
 
+  const stockInput = $("#stock");
+  if (stockInput && Number(stockInput.value || 0) <= 0) {
+    stockInput.value = "1";
+  }
+
   try {
     await buscarDatosBarcodeV29(code);
   } catch (error) {
@@ -6380,6 +7255,40 @@ function cancelarRegistroDesdeScannerV214() {
   scannerLastSuccessAtVPro = 0;
 }
 
+
+
+async function asegurarUnidadFisicaEscaneadaV230(producto) {
+  if (!producto?.id || !appContext?.branch?.id) return true;
+
+  const item = carrito.find((c) => c.id === producto.id);
+  const requerido = Number(item?.cantidad || 0) + 1;
+  const disponible = Number(producto.stock || 0);
+
+  if (disponible >= requerido) return true;
+
+  const { data, error } = await supabaseClient.rpc(
+    "confirmar_stock_por_scanner_v1",
+    {
+      p_producto_id: producto.id,
+      p_sucursal_id: appContext.branch.id,
+      p_stock_minimo_necesario: requerido,
+    }
+  );
+
+  if (error) {
+    console.error("[Scanner stock]", error);
+    mostrarToast(
+      error.message || "No se pudo confirmar la unidad escaneada",
+      "error"
+    );
+    return false;
+  }
+
+  producto.stock = Number(data?.stock ?? requerido);
+  emitirCambioStockRealtime("scanner_stock_fisico");
+  renderGrid();
+  return true;
+}
 
 async function procesarCodigoV29(code, meta = {}) {
   code = String(code || "").replace(/\D/g, "").trim();
@@ -6408,6 +7317,12 @@ async function procesarCodigoV29(code, meta = {}) {
     const p = productos.find((x) => x.codigoBarras === code);
 
     if (p) {
+      const stockConfirmado = await asegurarUnidadFisicaEscaneadaV230(p);
+      if (!stockConfirmado) {
+        setScannerAnimandoV29(true);
+        return;
+      }
+
       agregarAlCarrito(p.id);
       renderVentaProductos();
 
@@ -6447,6 +7362,11 @@ async function procesarCodigoV29(code, meta = {}) {
     }
 
     $("#codigo-barras").value = code;
+
+    if (!productoEditandoId && Number($("#stock")?.value || 0) <= 0) {
+      $("#stock").value = "1";
+    }
+
     await buscarDatosBarcodeV29(code);
   }
 }
@@ -7259,6 +8179,8 @@ function init() {
   setupSucursalesV226();
   setupCajaV227();
   setupInventarioProfesional();
+  setupGestionMenuV230();
+  setupComprasV230();
   iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();

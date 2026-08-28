@@ -231,14 +231,6 @@
           <span id="cash-status-label-v227">Caja cerrada</span>
         </button>
 
-        <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
-          <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
-        </button>
-
-        <button id="btn-inventario" class="btn btn-ghost header-action" title="Inventario profesional">
-          <span class="header-action-icon">▦</span><span class="header-action-label">Inventario</span>
-        </button>
-
         <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
           <span>▣</span><span>Vender</span>
         </button>
@@ -247,9 +239,52 @@
           <span>＋</span><span>Producto</span>
         </button>
 
-        <button id="btn-equipo" class="btn btn-secondary header-action" title="Administrar equipo y permisos">
-          <span class="header-action-icon">👥</span><span class="header-action-label">Equipo</span>
-        </button>
+        <div class="gestion-menu-wrap-v230">
+          <button id="btn-gestion-v230"
+                  class="btn btn-secondary header-action gestion-trigger-v230"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  title="Gestión del negocio">
+            <span class="header-action-icon gestion-icon-v230">☷</span>
+            <span class="header-action-label">Gestión</span>
+            <span class="gestion-chevron-v230">⌄</span>
+          </button>
+
+          <div id="gestion-menu-v230" class="gestion-menu-v230 hidden" role="menu">
+            <button id="btn-historial" class="gestion-menu-item-v230" type="button" role="menuitem">
+              <span class="gestion-item-icon-v230">▤</span>
+              <span>
+                <strong>Historial</strong>
+                <small>Ventas y tickets</small>
+              </span>
+            </button>
+
+            <button id="btn-inventario" class="gestion-menu-item-v230" type="button" role="menuitem">
+              <span class="gestion-item-icon-v230">▦</span>
+              <span>
+                <strong>Inventario</strong>
+                <small>Stock y movimientos</small>
+              </span>
+            </button>
+
+            <button id="btn-compras" class="gestion-menu-item-v230" type="button" role="menuitem">
+              <span class="gestion-item-icon-v230">⌁</span>
+              <span>
+                <strong>Compras</strong>
+                <small>Proveedores y mercadería</small>
+              </span>
+            </button>
+
+            <button id="btn-equipo" class="gestion-menu-item-v230" type="button" role="menuitem">
+              <span class="gestion-item-icon-v230">◎</span>
+              <span>
+                <strong>Equipo</strong>
+                <small>Usuarios y permisos</small>
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 <!-- Stats -->
@@ -1175,6 +1210,243 @@
           </section>
         </div>
       </div>
+    </div>
+  </div>
+
+
+  <!-- Compras y proveedores -->
+  <div id="modal-compras" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content compras-modal-v230">
+      <div class="modal-header compras-header-v230">
+        <div>
+          <div class="compras-title-row-v230">
+            <h2>Compras y proveedores</h2>
+            <span class="inventory-branch-badge" id="compras-branch-badge-v230">Sucursal</span>
+          </div>
+          <p class="hint">Ingresá mercadería, actualizá costos y conservá el historial de proveedores.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-compras" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="compras-layout-v230">
+        <nav class="compras-tabs-v230">
+          <button type="button" class="compras-tab-v230 active" data-compras-tab="compras">
+            <span>⌁</span><span>Compras</span>
+          </button>
+          <button type="button" class="compras-tab-v230" data-compras-tab="proveedores">
+            <span>◇</span><span>Proveedores</span>
+          </button>
+        </nav>
+
+        <div class="compras-content-v230">
+          <section class="compras-panel-v230 active" data-compras-panel="compras">
+            <div class="compras-hero-v230">
+              <div>
+                <span class="inventory-eyebrow">Abastecimiento</span>
+                <h3>Compras de mercadería</h3>
+                <p>Al recibir una compra, Vendify incrementa el stock y actualiza el costo automáticamente.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-nueva-compra">
+                ＋ Nueva compra
+              </button>
+            </div>
+
+            <div class="compras-stats-v230">
+              <div class="compras-stat-v230">
+                <span>Compras del mes</span>
+                <strong id="compras-stat-count">0</strong>
+                <small>Recibidas</small>
+              </div>
+              <div class="compras-stat-v230">
+                <span>Comprado este mes</span>
+                <strong id="compras-stat-total">$0</strong>
+                <small>Costo de mercadería</small>
+              </div>
+              <div class="compras-stat-v230">
+                <span>Proveedores</span>
+                <strong id="compras-stat-providers">0</strong>
+                <small>Activos</small>
+              </div>
+            </div>
+
+            <div class="compras-toolbar-v230">
+              <input id="compras-search" placeholder="Buscar proveedor o comprobante..." autocomplete="off" />
+              <select id="compras-filter-state" class="select">
+                <option value="">Todos los estados</option>
+                <option value="borrador">Borradores</option>
+                <option value="recibida">Recibidas</option>
+                <option value="anulada">Anuladas</option>
+              </select>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-compras">↻</button>
+            </div>
+
+            <div id="compras-list-v230" class="compras-list-v230"></div>
+          </section>
+
+          <section class="compras-panel-v230" data-compras-panel="proveedores" hidden>
+            <div class="compras-hero-v230">
+              <div>
+                <span class="inventory-eyebrow">Directorio</span>
+                <h3>Proveedores</h3>
+                <p>Contactos, historial de compra y gasto acumulado por proveedor.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-nuevo-proveedor">
+                ＋ Proveedor
+              </button>
+            </div>
+
+            <div class="compras-toolbar-v230 proveedores-toolbar-v230">
+              <input id="proveedores-search" placeholder="Buscar proveedor..." autocomplete="off" />
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-proveedores">↻</button>
+            </div>
+
+            <div id="proveedores-list-v230" class="proveedores-grid-v230"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor de compra -->
+  <div id="modal-compra-editor" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content compra-editor-v230">
+      <div class="modal-header">
+        <div>
+          <h2 id="compra-editor-title">Nueva compra</h2>
+          <p class="hint" id="compra-editor-subtitle">Guardala como borrador o recibí la mercadería ahora.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-compra-editor" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="compra-editor-body-v230">
+        <div class="compra-meta-grid-v230">
+          <div class="form-group">
+            <label for="compra-proveedor">Proveedor</label>
+            <select id="compra-proveedor" class="select select-full" required></select>
+          </div>
+
+          <div class="form-group">
+            <label for="compra-sucursal">Sucursal de ingreso</label>
+            <select id="compra-sucursal" class="select select-full" required></select>
+          </div>
+
+          <div class="form-group">
+            <label for="compra-comprobante">Factura / remito</label>
+            <input id="compra-comprobante" maxlength="80" placeholder="Ej: A-0012-000458" />
+          </div>
+
+          <div class="form-group">
+            <label for="compra-nota">Observación</label>
+            <input id="compra-nota" maxlength="180" placeholder="Opcional" />
+          </div>
+        </div>
+
+        <div class="compra-add-item-v230" id="compra-add-item-box-v230">
+          <div class="form-group">
+            <label for="compra-item-producto">Producto</label>
+            <select id="compra-item-producto" class="select select-full"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="compra-item-cantidad">Cantidad</label>
+            <input id="compra-item-cantidad" type="number" min="1" step="1" value="1" />
+          </div>
+
+          <div class="form-group">
+            <label for="compra-item-costo">Costo unitario</label>
+            <input id="compra-item-costo" type="number" min="0" step="0.01" value="0" />
+          </div>
+
+          <button type="button" class="btn btn-secondary" id="btn-add-compra-item">
+            ＋ Agregar
+          </button>
+        </div>
+
+        <div class="compra-items-table-v230">
+          <div class="compra-items-head-v230">
+            <span>Producto</span>
+            <span>Cantidad</span>
+            <span>Costo</span>
+            <span>Subtotal</span>
+            <span></span>
+          </div>
+          <div id="compra-items-list-v230"></div>
+        </div>
+
+        <div class="compra-total-v230">
+          <span>Total compra</span>
+          <strong id="compra-total-value-v230">$0</strong>
+        </div>
+
+        <span class="field-error" id="compra-editor-error"></span>
+      </div>
+
+      <div class="compra-editor-actions-v230">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-compra-editor">Cancelar</button>
+        <button type="button" class="btn btn-secondary" id="btn-save-compra-draft">Guardar borrador</button>
+        <button type="button" class="btn btn-primary" id="btn-receive-compra">Recibir mercadería</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor proveedor -->
+  <div id="modal-proveedor-editor" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2 id="proveedor-editor-title">Nuevo proveedor</h2>
+          <p class="hint">Datos comerciales y de contacto.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-proveedor-editor" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="form-proveedor-v230">
+        <input type="hidden" id="proveedor-id-v230" />
+
+        <div class="form-group">
+          <label for="proveedor-nombre-v230">Nombre *</label>
+          <input id="proveedor-nombre-v230" maxlength="100" required placeholder="Ej: Distribuidora Sur" />
+        </div>
+
+        <div class="compra-meta-grid-v230">
+          <div class="form-group">
+            <label for="proveedor-cuit-v230">CUIT</label>
+            <input id="proveedor-cuit-v230" maxlength="20" placeholder="Opcional" />
+          </div>
+          <div class="form-group">
+            <label for="proveedor-contacto-v230">Contacto</label>
+            <input id="proveedor-contacto-v230" maxlength="80" placeholder="Nombre del vendedor" />
+          </div>
+          <div class="form-group">
+            <label for="proveedor-telefono-v230">Teléfono</label>
+            <input id="proveedor-telefono-v230" maxlength="40" />
+          </div>
+          <div class="form-group">
+            <label for="proveedor-email-v230">Email</label>
+            <input id="proveedor-email-v230" type="email" maxlength="120" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="proveedor-direccion-v230">Dirección</label>
+          <input id="proveedor-direccion-v230" maxlength="160" />
+        </div>
+
+        <div class="form-group">
+          <label for="proveedor-notas-v230">Notas</label>
+          <textarea id="proveedor-notas-v230" rows="3" maxlength="400"></textarea>
+        </div>
+
+        <span class="field-error" id="proveedor-editor-error"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-proveedor-editor">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar proveedor</button>
+        </div>
+      </form>
     </div>
   </div>
 
