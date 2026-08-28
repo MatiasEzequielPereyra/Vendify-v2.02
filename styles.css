@@ -7747,3 +7747,75 @@ html[data-realtime-status="subscribed"] {
 }
 
 /* On narrower desktop configs, keep old mobile layout untouched. */
+
+
+/* ============================================================
+   Vendify — Modal confirmations always on top
+   ============================================================ */
+
+/* Confirmations can be opened from Inventory, Scanner, Config, etc.
+   Keep them above every operational modal. */
+#modal-confirm {
+  z-index: 20000 !important;
+}
+
+#modal-confirm > .modal-backdrop {
+  z-index: 20000 !important;
+  background: rgba(0, 0, 0, .54) !important;
+  backdrop-filter: blur(4px);
+}
+
+#modal-confirm > .modal-confirm-content {
+  position: relative;
+  z-index: 20001 !important;
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, .42),
+    0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* ============================================================
+   Vendify — Mobile product rows: tap row to edit
+   ============================================================ */
+
+@media (max-width: 700px) {
+  /* Editing is now done by tapping the product row. */
+  #productos-grid.vista-lista
+    > .producto-row-v223
+    .producto-v223-acciones
+    [data-action="editar"] {
+    display: none !important;
+  }
+
+  #productos-grid.vista-lista > .producto-row-v223[data-mobile-editable="true"] {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(37, 99, 235, .08);
+    transition:
+      border-color .14s ease,
+      background .14s ease,
+      transform .08s ease;
+  }
+
+  #productos-grid.vista-lista
+    > .producto-row-v223[data-mobile-editable="true"]:active {
+    transform: scale(.992);
+    border-color: color-mix(in srgb, var(--primary) 38%, var(--border)) !important;
+    background: color-mix(in srgb, var(--primary-soft) 35%, var(--surface)) !important;
+  }
+
+  /* With Edit removed, actions need much less space. */
+  #productos-grid.vista-lista
+    > .producto-row-v223
+    > .producto-v223-acciones {
+    min-width: 34px;
+  }
+
+  .producto-v223-acciones .row-actions-v29 {
+    gap: 0 !important;
+  }
+
+  .producto-v223-acciones .btn-icon.danger {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+  }
+}

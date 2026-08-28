@@ -5017,10 +5017,29 @@ function inicializarEventos() {
 
   $("#productos-grid").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    const card = btn.closest(".producto-card");
+    const card = e.target.closest(".producto-card");
     const id = card?.dataset.id;
+
     if (!id) return;
+
+    // Mobile: the product row itself is the Edit action.
+    // Explicit action buttons (+, -, stock, delete) keep their own behavior.
+    if (!btn) {
+      const mobileEditable =
+        window.matchMedia("(max-width: 700px)").matches &&
+        card.dataset.mobileEditable === "true";
+
+      if (!mobileEditable) return;
+
+      if (!exigirPermisoV2("manageProducts", "No tenés permiso para editar productos")) {
+        return;
+      }
+
+      const p = productos.find((x) => x.id === id);
+      if (p) abrirModal(p);
+      return;
+    }
+
     const action = btn.dataset.action;
     switch (action) {
       case "sumar":
@@ -5043,6 +5062,25 @@ function inicializarEventos() {
         eliminarProducto(id);
         break;
     }
+  });
+
+  $("#productos-grid").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+
+    const card = e.target.closest(
+      '.producto-card[data-mobile-editable="true"]'
+    );
+
+    if (!card || e.target.closest("[data-action]")) return;
+
+    e.preventDefault();
+
+    if (!exigirPermisoV2("manageProducts", "No tenés permiso para editar productos")) {
+      return;
+    }
+
+    const p = productos.find((x) => x.id === card.dataset.id);
+    if (p) abrirModal(p);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -5993,7 +6031,12 @@ function renderGrid() {
         : "";
 
       return `
-        <article class="producto-card producto-row-v29 producto-row-v223" data-id="${p.id}">
+        <article
+          class="producto-card producto-row-v29 producto-row-v223"
+          data-id="${p.id}"
+          data-mobile-editable="${manage ? "true" : "false"}"
+          ${manage ? 'tabindex="0" role="button" aria-label="Editar ' + escapeHtml(nombreCompleto) + '"' : ""}
+        >
           <div class="producto-v223-media">
             ${
               p.foto
