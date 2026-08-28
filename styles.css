@@ -6667,3 +6667,15 @@ body.scanner-v29-open #modal-scanner-v29 {
     text-overflow: ellipsis;
   }
 }
+
+
+/* Realtime status is exposed on <html data-realtime-status="...">.
+   Kept visually silent; useful for diagnostics without adding UI clutter. */
+html[data-realtime-status="channel_error"],
+html[data-realtime-status="timed_out"] {
+  --vendify-realtime-health: 0;
+}
+
+html[data-realtime-status="subscribed"] {
+  --vendify-realtime-health: 1;
+}

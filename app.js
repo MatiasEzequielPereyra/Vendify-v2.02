@@ -568,6 +568,7 @@ async function registrarVentaV2(items, medioPago) {
   });
 
   if (error) throw new Error(error.message || "No se pudo registrar la venta");
+  emitirCambioStockRealtime("venta");
   return data;
 }
 
@@ -583,6 +584,7 @@ async function ajustarStockV2(productoId, delta, tipo = "ajuste") {
   });
 
   if (error) throw new Error(error.message || "No se pudo ajustar el stock");
+  emitirCambioStockRealtime("ajuste_stock");
   return data;
 }
 
@@ -1216,24 +1218,171 @@ async function reiniciarPasswordEmpleado(e) {
 
 
 // =====================
-// Realtime: los cambios se reflejan al instante en todos los dispositivos
+// Realtime robusto — stock sincronizado entre dispositivos
 // =====================
 let realtimeReloadTimerV226 = null;
+let realtimeReconnectTimer = null;
+let realtimeFallbackTimer = null;
+let realtimeStatus = "IDLE";
+let realtimeFullRefreshTimer = null;
+let realtimeSyncInFlight = false;
+
+function actualizarEstadoRealtimeUI(status) {
+  realtimeStatus = status || "UNKNOWN";
+  document.documentElement.dataset.realtimeStatus = realtimeStatus.toLowerCase();
+}
+
+async function sincronizarStockLigero({ render = true } = {}) {
+  if (
+    realtimeSyncInFlight ||
+    !appContext?.ready ||
+    !appContext?.branch?.id ||
+    document.visibilityState === "hidden"
+  ) {
+    return;
+  }
+
+  realtimeSyncInFlight = true;
+
+  try {
+    const branchId = appContext.branch.id;
+
+    const { data, error } = await supabaseClient
+      .from("producto_stock_sucursal")
+      .select("producto_id,stock,stock_minimo")
+      .eq("sucursal_id", branchId);
+
+    if (error) throw error;
+
+    let huboCambios = false;
+    const stockMap = new Map(
+      (data || []).map((row) => [row.producto_id, row])
+    );
+
+    productos.forEach((p) => {
+      const row = stockMap.get(p.id);
+      if (!row) return;
+
+      const nuevoStock = Number(row.stock || 0);
+      const nuevoMin = Number(row.stock_minimo || 0);
+
+      if (
+        Number(p.stock || 0) !== nuevoStock ||
+        Number(p.stockMinimo || 0) !== nuevoMin
+      ) {
+        p.stock = nuevoStock;
+        p.stockMinimo = nuevoMin;
+        huboCambios = true;
+      }
+    });
+
+    if (huboCambios && render) {
+      renderGrid();
+      aplicarPermisosV2();
+
+      if (!$("#modal-venta")?.classList.contains("hidden")) {
+        renderVentaProductos();
+        renderCarrito();
+      }
+    }
+
+    return huboCambios;
+  } catch (error) {
+    console.warn("[Vendify Realtime] sync ligero falló:", error?.message || error);
+    return false;
+  } finally {
+    realtimeSyncInFlight = false;
+  }
+}
+
+function programarRefreshInteligenteRealtime() {
+  clearTimeout(realtimeFullRefreshTimer);
+
+  realtimeFullRefreshTimer = setTimeout(async () => {
+    if (!appContext?.ready || !appContext?.branch?.id) return;
+
+    try {
+      await cargarStockInteligente();
+      renderGrid();
+    } catch (error) {
+      console.debug(
+        "[Vendify Realtime] stock inteligente pendiente:",
+        error?.message || error
+      );
+    }
+  }, 900);
+}
 
 function refrescarProductosRealtimeV226() {
   clearTimeout(realtimeReloadTimerV226);
+
   realtimeReloadTimerV226 = setTimeout(async () => {
     await cargarProductos();
     actualizarFiltroCategorias();
     renderGrid();
     aplicarPermisosV2();
-    if (!$("#modal-venta")?.classList.contains("hidden")) renderVentaProductos();
+
+    if (!$("#modal-venta")?.classList.contains("hidden")) {
+      renderVentaProductos();
+      renderCarrito();
+    }
   }, 120);
 }
 
+function recibirCambioStockRealtime(payload) {
+  const branchId =
+    payload?.new?.sucursal_id ||
+    payload?.old?.sucursal_id ||
+    payload?.payload?.branch_id ||
+    payload?.branch_id;
+
+  if (branchId && branchId !== appContext?.branch?.id) return;
+
+  sincronizarStockLigero({ render: true });
+  programarRefreshInteligenteRealtime();
+}
+
+function emitirCambioStockRealtime(reason = "stock") {
+  if (!realtimeChannel || realtimeStatus !== "SUBSCRIBED") return;
+
+  realtimeChannel
+    .send({
+      type: "broadcast",
+      event: "stock_changed",
+      payload: {
+        branch_id: appContext?.branch?.id || null,
+        reason,
+        at: Date.now(),
+      },
+    })
+    .catch?.(() => {});
+}
+
+function programarReconexionRealtime() {
+  clearTimeout(realtimeReconnectTimer);
+
+  if (
+    !appContext?.ready ||
+    !appContext?.business?.id ||
+    !appContext?.branch?.id ||
+    document.visibilityState === "hidden"
+  ) {
+    return;
+  }
+
+  realtimeReconnectTimer = setTimeout(() => {
+    console.info("[Vendify Realtime] reconectando canal...");
+    suscribirRealtime();
+  }, 1600);
+}
+
 function suscribirRealtime() {
+  clearTimeout(realtimeReconnectTimer);
+
   if (realtimeChannel) {
-    supabaseClient.removeChannel(realtimeChannel);
+    try {
+      supabaseClient.removeChannel(realtimeChannel);
+    } catch {}
     realtimeChannel = null;
   }
 
@@ -1242,8 +1391,14 @@ function suscribirRealtime() {
   const businessId = appContext.business.id;
   const branchId = appContext.branch.id;
 
+  actualizarEstadoRealtimeUI("CONNECTING");
+
   realtimeChannel = supabaseClient
-    .channel(`vendify-${businessId}-${branchId}`)
+    .channel(`vendify-${businessId}-${branchId}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
     .on(
       "postgres_changes",
       {
@@ -1262,10 +1417,79 @@ function suscribirRealtime() {
         table: "producto_stock_sucursal",
         filter: `sucursal_id=eq.${branchId}`,
       },
-      refrescarProductosRealtimeV226
+      recibirCambioStockRealtime
     )
-    .subscribe((status) => console.info("[V2.26] Realtime:", status));
+    .on(
+      "broadcast",
+      { event: "stock_changed" },
+      recibirCambioStockRealtime
+    )
+    .subscribe(async (status) => {
+      console.info("[Vendify Realtime]", status);
+      actualizarEstadoRealtimeUI(status);
+
+      if (status === "SUBSCRIBED") {
+        clearTimeout(realtimeReconnectTimer);
+
+        // Al reconectar no confiamos en la memoria local:
+        // se compara inmediatamente contra PostgreSQL.
+        await sincronizarStockLigero({ render: true });
+        programarRefreshInteligenteRealtime();
+        return;
+      }
+
+      if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        programarReconexionRealtime();
+      }
+    });
 }
+
+function iniciarWatchdogRealtime() {
+  if (realtimeFallbackTimer) return;
+
+  // Respaldo liviano. Realtime debe ser instantáneo; esto corrige
+  // teléfonos que suspenden el WebSocket al bloquear la pantalla.
+  realtimeFallbackTimer = setInterval(async () => {
+    if (
+      document.visibilityState !== "visible" ||
+      !appContext?.ready ||
+      !appContext?.branch?.id
+    ) {
+      return;
+    }
+
+    await sincronizarStockLigero({ render: true });
+
+    if (realtimeStatus !== "SUBSCRIBED") {
+      programarReconexionRealtime();
+    }
+  }, 10000);
+
+  const resincronizar = async () => {
+    if (!appContext?.ready || !appContext?.branch?.id) return;
+
+    await sincronizarStockLigero({ render: true });
+    programarRefreshInteligenteRealtime();
+
+    if (realtimeStatus !== "SUBSCRIBED") {
+      suscribirRealtime();
+    }
+  };
+
+  window.addEventListener("focus", resincronizar);
+  window.addEventListener("online", resincronizar);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      resincronizar();
+    }
+  });
+}
+
 
 function aplicarCambioRemoto(payload) {
   const { eventType, new: nuevo, old: viejo } = payload;
@@ -2985,6 +3209,8 @@ async function guardarGestionVentaV228(e) {
 
   cerrarGestionVentaV228();
 
+  emitirCambioStockRealtime("devolucion");
+  emitirCambioStockRealtime("anulacion");
   await cargarProductos();
   renderGrid();
   await cargarEstadoCajaV227();
@@ -5828,6 +6054,7 @@ async function transferirStockV226(e) {
   }
 
   cerrarTransferenciaV226();
+  emitirCambioStockRealtime("transferencia");
 
   if ([origen, destino].includes(appContext.branch?.id)) {
     await cargarProductos();
@@ -5914,6 +6141,7 @@ function init() {
   setupV29();
   setupSucursalesV226();
   setupCajaV227();
+  iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();
   initAuth();

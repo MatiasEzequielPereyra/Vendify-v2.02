@@ -1,61 +1,50 @@
-VENDIFY — STOCK INTELIGENTE
-===========================
+VENDIFY — FIX REALTIME STOCK
+============================
 
-1. Ejecutar en Supabase SQL Editor:
-   stock_inteligente.sql
+PROBLEMA
+--------
+El frontend escuchaba producto_stock_sucursal, pero esa tabla no había
+quedado garantizada dentro de la publicación supabase_realtime.
 
-2. Reemplazar en Vercel:
+INSTALACIÓN
+-----------
+1. Supabase > SQL Editor
+2. Ejecutar completo:
+   fix_realtime_stock.sql
+
+3. Reemplazar en Vercel:
    index.html
    app.js
    styles.css
    sw.js
 
-NUEVA LOGICA
-------------
-Vendify ya no usa "stock mínimo = 5" para todos.
+QUÉ CAMBIA
+----------
+- producto_stock_sucursal queda habilitada explícitamente para Realtime.
+- productos también queda garantizada en Realtime.
+- REPLICA IDENTITY FULL para eventos completos.
+- Realtime escucha la sucursal activa.
+- Broadcast adicional entre clientes como segunda señal.
+- Reconexión automática si el canal falla.
+- Al volver al teléfono / PC se resincroniza con PostgreSQL.
+- Al recuperar internet se resincroniza.
+- Watchdog liviano cada 10 segundos como último respaldo.
+- El watchdog consulta SOLO producto_id + stock de la sucursal, no todo el
+  catálogo ni todas las estadísticas.
 
-Por producto y sucursal calcula:
+PRUEBA
+------
+1. Abrir PC y teléfono.
+2. Confirmar MISMA sucursal en ambos.
+3. Dejar ambos visibles.
+4. En PC: sumar 1 a un producto.
+5. Teléfono debería cambiar prácticamente al instante.
+6. En teléfono: restar 1.
+7. PC debería cambiar prácticamente al instante.
+8. Bloquear el teléfono 30 segundos, cambiar stock desde PC y desbloquear:
+   debe resincronizar al volver a primer plano.
 
-70% de la velocidad de los últimos 7 días
-+
-30% de la velocidad de los últimos 30 días
-
-Luego reserva aproximadamente:
-
-3 días de demanda × 25% de margen de seguridad.
-
-Ejemplo:
-10 unidades/día
-=> stock bajo aproximadamente 38 unidades.
-
-Un producto de baja rotación puede tener stock bajo = 1.
-
-SIN HISTORIAL
--------------
-Si un producto no tuvo ventas en los últimos 30 días,
-no se lo marca artificialmente como stock bajo.
-
-SIN STOCK
----------
-Ahora existe una tarjeta independiente "Sin stock",
-que muestra solamente productos con 0 unidades.
-
-Las tarjetas Stock bajo y Sin stock son clickeables.
-
-NUEVO PRODUCTO
---------------
-El campo manual "Stock mínimo" deja de mostrarse.
-Ahora Vendify muestra "Stock bajo inteligente" y lo
-calcula automáticamente cuando el producto genera ventas.
-
-EXTRA
------
-El RPC también calcula internamente:
-- unidades vendidas 7 días
-- unidades vendidas 30 días
-- promedio diario
-- días de cobertura
-- reposición sugerida para 7 días
-
-Esto queda preparado para el próximo módulo de
-Inventario / reposición inteligente.
+NOTA
+----
+Misma cuenta no es suficiente si cada dispositivo tiene una sucursal
+diferente seleccionada: el stock es por sucursal.
