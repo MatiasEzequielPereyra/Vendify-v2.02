@@ -235,6 +235,10 @@
           <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
         </button>
 
+        <button id="btn-inventario" class="btn btn-ghost header-action" title="Inventario profesional">
+          <span class="header-action-icon">▦</span><span class="header-action-label">Inventario</span>
+        </button>
+
         <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
           <span>▣</span><span>Vender</span>
         </button>
@@ -858,6 +862,25 @@
           <label for="stock-manual">O ingresá un valor exacto</label>
           <input type="number" id="stock-manual" min="0" step="1" />
         </div>
+
+        <div class="inventory-adjust-meta">
+          <div class="form-group">
+            <label for="stock-motivo">Motivo *</label>
+            <select id="stock-motivo" class="select select-full">
+              <option value="correccion">Corrección de stock</option>
+              <option value="reposicion">Reposición / ingreso</option>
+              <option value="rotura">Rotura</option>
+              <option value="vencimiento">Vencimiento</option>
+              <option value="perdida">Pérdida / merma</option>
+              <option value="inventario">Conteo físico</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="stock-nota">Observación</label>
+            <input id="stock-nota" maxlength="180"
+                   placeholder="Ej: 2 botellas rotas en depósito" />
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="btn-stock-cancel">Cancelar</button>
@@ -866,6 +889,294 @@
     </div>
   </div>
 
+
+
+  <!-- Inventario profesional -->
+  <div id="modal-inventario" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content inventory-modal">
+      <div class="modal-header inventory-modal-header">
+        <div>
+          <div class="inventory-title-row">
+            <h2>Inventario</h2>
+            <span class="inventory-branch-badge" id="inventory-branch-badge">Sucursal</span>
+          </div>
+          <p class="hint">Movimientos, ajustes, conteo físico y transferencias con trazabilidad.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-inventory" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="inventory-layout">
+        <nav class="inventory-tabs" aria-label="Secciones de inventario">
+          <button type="button" class="inventory-tab active" data-inventory-tab="resumen">
+            <span>◫</span><span>Resumen</span>
+          </button>
+          <button type="button" class="inventory-tab" data-inventory-tab="movimientos">
+            <span>↕</span><span>Movimientos</span>
+          </button>
+          <button type="button" class="inventory-tab" data-inventory-tab="ajuste">
+            <span>±</span><span>Ajustar</span>
+          </button>
+          <button type="button" class="inventory-tab" data-inventory-tab="conteo">
+            <span>✓</span><span>Conteo físico</span>
+          </button>
+          <button type="button" class="inventory-tab" data-inventory-tab="transferencias">
+            <span>⇄</span><span>Transferencias</span>
+          </button>
+        </nav>
+
+        <div class="inventory-content">
+          <!-- Resumen -->
+          <section class="inventory-panel active" data-inventory-panel="resumen">
+            <div class="inventory-hero">
+              <div>
+                <span class="inventory-eyebrow">Estado actual</span>
+                <h3 id="inventory-summary-title">Inventario de la sucursal</h3>
+                <p>Una vista rápida de disponibilidad y movimientos.</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-inventory">
+                ↻ Actualizar
+              </button>
+            </div>
+
+            <div class="inventory-summary-grid">
+              <div class="inventory-summary-card">
+                <span>Productos</span>
+                <strong id="inventory-stat-products">0</strong>
+                <small>SKUs cargados</small>
+              </div>
+              <div class="inventory-summary-card">
+                <span>Unidades</span>
+                <strong id="inventory-stat-units">0</strong>
+                <small>Stock físico total</small>
+              </div>
+              <div class="inventory-summary-card warning">
+                <span>Stock bajo</span>
+                <strong id="inventory-stat-low">0</strong>
+                <small>Según velocidad de venta</small>
+              </div>
+              <div class="inventory-summary-card danger">
+                <span>Sin stock</span>
+                <strong id="inventory-stat-zero">0</strong>
+                <small>Requieren atención</small>
+              </div>
+            </div>
+
+            <div class="inventory-dashboard-grid">
+              <div class="inventory-card">
+                <div class="inventory-card-head">
+                  <div>
+                    <h4>Necesitan atención</h4>
+                    <p>Productos con menor cobertura estimada.</p>
+                  </div>
+                </div>
+                <div id="inventory-attention-list" class="inventory-attention-list"></div>
+              </div>
+
+              <div class="inventory-card">
+                <div class="inventory-card-head">
+                  <div>
+                    <h4>Actividad reciente</h4>
+                    <p>Últimos movimientos de stock.</p>
+                  </div>
+                  <button type="button" class="btn btn-ghost btn-sm" data-inventory-go="movimientos">
+                    Ver todos
+                  </button>
+                </div>
+                <div id="inventory-recent-list" class="inventory-recent-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Movimientos -->
+          <section class="inventory-panel" data-inventory-panel="movimientos" hidden>
+            <div class="inventory-section-head">
+              <div>
+                <h3>Historial de movimientos</h3>
+                <p>Cada entrada y salida queda asociada a producto, usuario, sucursal y motivo.</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-movements">
+                ↻ Actualizar
+              </button>
+            </div>
+
+            <div class="inventory-filters">
+              <input id="inventory-movement-search" placeholder="Buscar producto..." autocomplete="off" />
+              <select id="inventory-movement-type" class="select">
+                <option value="">Todos los movimientos</option>
+                <option value="venta">Ventas</option>
+                <option value="ingreso">Ingresos</option>
+                <option value="ajuste">Correcciones</option>
+                <option value="rotura">Roturas</option>
+                <option value="vencimiento">Vencimientos</option>
+                <option value="perdida">Pérdidas / mermas</option>
+                <option value="inventario">Conteos físicos</option>
+                <option value="transferencia_salida">Transferencias salientes</option>
+                <option value="transferencia_entrada">Transferencias entrantes</option>
+              </select>
+            </div>
+
+            <div class="inventory-movement-table-wrap">
+              <div class="inventory-movement-table">
+                <div class="inventory-movement-header">
+                  <span>Producto</span>
+                  <span>Movimiento</span>
+                  <span>Variación</span>
+                  <span>Stock</span>
+                  <span>Usuario / fecha</span>
+                </div>
+                <div id="inventory-movement-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Ajuste -->
+          <section class="inventory-panel" data-inventory-panel="ajuste" hidden>
+            <div class="inventory-section-head">
+              <div>
+                <h3>Ajuste manual</h3>
+                <p>Registrá reposiciones, roturas, vencimientos, pérdidas o correcciones.</p>
+              </div>
+            </div>
+
+            <form id="inventory-adjust-form" class="inventory-form-card">
+              <div class="form-group">
+                <label for="inventory-adjust-product">Producto</label>
+                <select id="inventory-adjust-product" class="select select-full" required></select>
+                <small class="hint" id="inventory-adjust-current">Stock actual: —</small>
+              </div>
+
+              <div class="inventory-adjust-grid">
+                <div class="form-group">
+                  <label for="inventory-adjust-mode">Operación</label>
+                  <select id="inventory-adjust-mode" class="select select-full">
+                    <option value="sumar">Sumar unidades</option>
+                    <option value="restar">Restar unidades</option>
+                    <option value="establecer">Establecer stock exacto</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="inventory-adjust-amount">Cantidad</label>
+                  <input type="number" id="inventory-adjust-amount" min="0" step="1" value="1" required />
+                </div>
+              </div>
+
+              <div class="inventory-adjust-grid">
+                <div class="form-group">
+                  <label for="inventory-adjust-reason">Motivo</label>
+                  <select id="inventory-adjust-reason" class="select select-full" required>
+                    <option value="reposicion">Reposición / ingreso</option>
+                    <option value="correccion">Corrección de stock</option>
+                    <option value="rotura">Rotura</option>
+                    <option value="vencimiento">Vencimiento</option>
+                    <option value="perdida">Pérdida / merma</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="inventory-adjust-note">Observación</label>
+                  <input id="inventory-adjust-note" maxlength="180"
+                         placeholder="Detalle opcional" />
+                </div>
+              </div>
+
+              <div class="inventory-preview" id="inventory-adjust-preview">
+                Stock resultante: —
+              </div>
+
+              <span class="field-error" id="inventory-adjust-error"></span>
+
+              <div class="inventory-form-actions">
+                <button type="submit" class="btn btn-primary">Aplicar ajuste</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Conteo físico -->
+          <section class="inventory-panel" data-inventory-panel="conteo" hidden>
+            <div class="inventory-section-head">
+              <div>
+                <h3>Conteo físico</h3>
+                <p>Ingresá lo que realmente encontraste. Vendify registra y aplica las diferencias.</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-clear-count">
+                Limpiar conteo
+              </button>
+            </div>
+
+            <div class="inventory-count-toolbar">
+              <input id="inventory-count-search" placeholder="Buscar producto..." autocomplete="off" />
+              <div class="inventory-count-progress">
+                <span id="inventory-count-progress">0 contados</span>
+              </div>
+            </div>
+
+            <div id="inventory-count-list" class="inventory-count-list"></div>
+
+            <div class="inventory-count-footer">
+              <div class="form-group inventory-count-note">
+                <label for="inventory-count-note">Observación del conteo</label>
+                <input id="inventory-count-note" maxlength="200"
+                       placeholder="Ej: Conteo de cierre mensual" />
+              </div>
+
+              <button type="button" class="btn btn-primary" id="btn-apply-count">
+                Aplicar diferencias
+              </button>
+            </div>
+          </section>
+
+          <!-- Transferencias -->
+          <section class="inventory-panel" data-inventory-panel="transferencias" hidden>
+            <div class="inventory-section-head">
+              <div>
+                <h3>Transferir mercadería</h3>
+                <p>Mové stock entre sucursales y conservá la trazabilidad de origen y destino.</p>
+              </div>
+            </div>
+
+            <form id="inventory-transfer-form" class="inventory-form-card">
+              <div class="inventory-transfer-grid">
+                <div class="form-group">
+                  <label for="inventory-transfer-origin">Origen</label>
+                  <select id="inventory-transfer-origin" class="select select-full" required></select>
+                </div>
+                <div class="form-group">
+                  <label for="inventory-transfer-destination">Destino</label>
+                  <select id="inventory-transfer-destination" class="select select-full" required></select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="inventory-transfer-product">Producto</label>
+                <select id="inventory-transfer-product" class="select select-full" required></select>
+                <small class="hint" id="inventory-transfer-available">Disponible: —</small>
+              </div>
+
+              <div class="inventory-transfer-grid">
+                <div class="form-group">
+                  <label for="inventory-transfer-amount">Cantidad</label>
+                  <input type="number" id="inventory-transfer-amount" min="1" step="1" value="1" required />
+                </div>
+                <div class="form-group">
+                  <label for="inventory-transfer-note">Motivo / referencia</label>
+                  <input id="inventory-transfer-note" maxlength="180"
+                         placeholder="Ej: Reposición sucursal centro" />
+                </div>
+              </div>
+
+              <span class="field-error" id="inventory-transfer-error"></span>
+
+              <div class="inventory-form-actions">
+                <button type="submit" class="btn btn-primary">Transferir stock</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Equipo -->
   <div id="modal-equipo" class="modal hidden" role="dialog" aria-modal="true">

@@ -491,6 +491,7 @@ function aplicarPermisosV2() {
   setHidden("#btn-eliminar-todos-productos", !(esOwner || esAdmin));
   setHidden("#btn-export", !puedeExportar);
   setHidden("#btn-historial", !puedeVerHistorial);
+  setHidden("#btn-inventario", !(esOwner || esAdmin || esManager));
 
   setHidden(".card-acciones", !puedeGestionarProductos);
   setHidden(".card-stock-controls", !puedeAjustarStock);
@@ -2383,6 +2384,8 @@ function abrirModalStock(id) {
   $("#stock-nombre").textContent = p.nombre;
   $("#stock-actual").textContent = stockAjusteValor;
   $("#stock-manual").value = stockAjusteValor;
+  $("#stock-motivo").value = "correccion";
+  $("#stock-nota").value = "";
   $("#modal-stock").classList.remove("hidden");
 }
 
@@ -2400,29 +2403,52 @@ function aplicarDeltaStock(delta) {
 async function confirmarAjusteStock() {
   if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
   if (!stockAjusteId) return;
+
   const p = productos.find((x) => x.id === stockAjusteId);
   if (!p) return;
+
   const manual = parseInt($("#stock-manual").value, 10);
-  const valorFinal = Number.isFinite(manual) ? Math.max(0, manual) : stockAjusteValor;
-  const delta = valorFinal - p.stock;
+  const valorFinal = Number.isFinite(manual)
+    ? Math.max(0, manual)
+    : stockAjusteValor;
+
+  const delta = valorFinal - Number(p.stock || 0);
 
   if (delta === 0) {
     cerrarModalStock();
     return;
   }
 
-  let data;
-  try {
-    data = await ajustarStockV2(p.id, delta, "ajuste");
-    if (!data) return;
-  } catch (error) {
+  const motivo = $("#stock-motivo")?.value || "correccion";
+  const nota = $("#stock-nota")?.value.trim() || null;
+
+  const { data, error } = await supabaseClient.rpc(
+    "ajustar_stock_inventario_v1",
+    {
+      p_producto_id: p.id,
+      p_sucursal_id: appContext.branch.id,
+      p_modo: "establecer",
+      p_cantidad: valorFinal,
+      p_motivo: motivo,
+      p_nota: nota,
+    }
+  );
+
+  if (error) {
     mostrarToast(error.message || "No se pudo ajustar el stock", "error");
     return;
   }
 
-  p.stock = data.stock;
+  p.stock = Number(data.stock || valorFinal);
+  emitirCambioStockRealtime("ajuste_inventario");
+  await cargarStockInteligente();
   renderGrid();
-  mostrarToast(`Stock de "${p.nombre}" → ${data.stock}`);
+
+  mostrarToast(
+    `Stock de "${p.nombre}" → ${Number(data.stock || valorFinal)}`,
+    "success"
+  );
+
   cerrarModalStock();
 }
 
@@ -2590,33 +2616,698 @@ async function cambiarStock(id, delta) {
     mostrarToast("Tu rol no permite modificar stock", "error");
     return;
   }
+
   if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
+
   const p = productos.find((x) => x.id === id);
   if (!p) return;
-  if (delta < 0 && p.stock === 0) return;
+  if (delta < 0 && Number(p.stock || 0) <= 0) return;
 
-  const tipo = delta > 0 ? "ingreso" : "ajuste";
-  let data;
-  try {
-    data = await ajustarStockV2(id, delta, tipo);
-    if (!data) return;
-  } catch (error) {
-    mostrarToast(error.message || "No se pudo actualizar el stock", "error");
+  abrirAjusteInventarioDesdeProducto(id, delta);
+}
+
+
+
+
+// ============================================================
+// Vendify v2.29 — Inventario profesional
+// ============================================================
+
+let inventoryMovements = [];
+let inventoryCountDraft = new Map();
+let inventoryTransferProducts = [];
+let inventoryActiveTab = "resumen";
+
+function puedeGestionarInventario() {
+  return ["owner", "admin", "manager"].includes(appContext.membership?.role);
+}
+
+function inventoryMovementLabel(tipo) {
+  const labels = {
+    venta: "Venta",
+    ingreso: "Ingreso",
+    ajuste: "Corrección",
+    rotura: "Rotura",
+    vencimiento: "Vencimiento",
+    perdida: "Pérdida / merma",
+    inventario: "Conteo físico",
+    transferencia_salida: "Transferencia saliente",
+    transferencia_entrada: "Transferencia entrante",
+    devolucion: "Devolución",
+  };
+  return labels[tipo] || String(tipo || "Movimiento");
+}
+
+function inventoryMovementClass(tipo) {
+  if (["ingreso", "transferencia_entrada", "devolucion"].includes(tipo)) return "positive";
+  if (["rotura", "vencimiento", "perdida", "transferencia_salida", "venta"].includes(tipo)) return "negative";
+  return "neutral";
+}
+
+function activateInventoryTab(tab = "resumen") {
+  inventoryActiveTab = tab;
+
+  $$(".inventory-tab").forEach((btn) => {
+    const active = btn.dataset.inventoryTab === tab;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+
+  $$(".inventory-panel").forEach((panel) => {
+    const active = panel.dataset.inventoryPanel === tab;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
+  });
+
+  const content = $(".inventory-content");
+  if (content) content.scrollTop = 0;
+
+  if (tab === "movimientos") cargarMovimientosInventario();
+  if (tab === "ajuste") prepararAjusteInventario();
+  if (tab === "conteo") renderConteoFisico();
+  if (tab === "transferencias") prepararTransferenciaInventario();
+}
+
+async function abrirInventario(tab = "resumen") {
+  if (!puedeGestionarInventario()) {
+    mostrarToast("Tu rol no permite administrar inventario", "error");
     return;
   }
 
-  p.stock = data.stock;
+  if (!appContext?.branch?.id) {
+    mostrarToast("Seleccioná una sucursal", "error");
+    return;
+  }
+
+  $("#inventory-branch-badge").textContent = appContext.branch.nombre || "Sucursal";
+  $("#inventory-summary-title").textContent = `Inventario · ${appContext.branch.nombre || "Sucursal"}`;
+
+  $("#modal-inventario").classList.remove("hidden");
+  activateInventoryTab(tab);
+
+  await refrescarInventarioProfesional();
+}
+
+function cerrarInventario() {
+  $("#modal-inventario")?.classList.add("hidden");
+}
+
+async function refrescarInventarioProfesional() {
+  await cargarProductos();
+  renderResumenInventario();
+
+  if (inventoryActiveTab === "movimientos") {
+    await cargarMovimientosInventario();
+  } else if (inventoryActiveTab === "ajuste") {
+    prepararAjusteInventario();
+  } else if (inventoryActiveTab === "conteo") {
+    renderConteoFisico();
+  } else if (inventoryActiveTab === "transferencias") {
+    await prepararTransferenciaInventario();
+  }
+}
+
+function renderResumenInventario() {
+  const units = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
+  const low = productos.filter(esStockBajoInteligente).length;
+  const zero = productos.filter(esSinStock).length;
+
+  $("#inventory-stat-products").textContent = productos.length;
+  $("#inventory-stat-units").textContent = units.toLocaleString("es-AR");
+  $("#inventory-stat-low").textContent = low;
+  $("#inventory-stat-zero").textContent = zero;
+
+  const attention = productos
+    .map((p) => ({ p, info: obtenerStockInteligente(p) }))
+    .filter(({ p, info }) => esSinStock(p) || esStockBajoInteligente(p) || info?.estado === "proximo")
+    .sort((a, b) => {
+      if (esSinStock(a.p) !== esSinStock(b.p)) return esSinStock(a.p) ? -1 : 1;
+      const da = a.info?.diasCobertura ?? 9999;
+      const db = b.info?.diasCobertura ?? 9999;
+      return da - db;
+    })
+    .slice(0, 8);
+
+  const list = $("#inventory-attention-list");
+
+  if (!attention.length) {
+    list.innerHTML = `<div class="inventory-empty">No hay productos críticos en esta sucursal.</div>`;
+  } else {
+    list.innerHTML = attention.map(({ p, info }) => {
+      const estado = esSinStock(p)
+        ? "Sin stock"
+        : esStockBajoInteligente(p)
+          ? "Stock bajo"
+          : "Próximo";
+
+      const days = info?.diasCobertura == null
+        ? "Sin estimación"
+        : `${Number(info.diasCobertura).toFixed(1)} días de cobertura`;
+
+      return `
+        <button type="button" class="inventory-attention-row"
+                data-inventory-adjust-product="${p.id}">
+          <span class="inventory-attention-dot ${esSinStock(p) ? "danger" : "warning"}"></span>
+          <span class="inventory-attention-copy">
+            <strong>${escapeHtml(productoEtiquetaV29(p))}</strong>
+            <small>${escapeHtml(days)}</small>
+          </span>
+          <span class="inventory-attention-stock">
+            <strong>${Number(p.stock || 0)}</strong>
+            <small>${estado}</small>
+          </span>
+        </button>
+      `;
+    }).join("");
+
+    list.querySelectorAll("[data-inventory-adjust-product]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activateInventoryTab("ajuste");
+        prepararAjusteInventario(btn.dataset.inventoryAdjustProduct);
+      });
+    });
+  }
+
+  cargarMovimientosInventario({ limit: 6, target: "recent" });
+}
+
+async function cargarMovimientosInventario({ limit = 100, target = "table" } = {}) {
+  if (!appContext?.branch?.id) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "listar_movimientos_inventario_v1",
+    {
+      p_sucursal_id: appContext.branch.id,
+      p_limit: limit,
+    }
+  );
+
+  if (error) {
+    console.error("[Inventario] movimientos:", error);
+    if (target === "recent") {
+      $("#inventory-recent-list").innerHTML =
+        `<div class="inventory-empty">No se pudo cargar la actividad.</div>`;
+    } else {
+      $("#inventory-movement-list").innerHTML =
+        `<div class="inventory-empty">No se pudo cargar el historial.</div>`;
+    }
+    return;
+  }
+
+  if (target === "recent") {
+    renderMovimientosRecientes(data || []);
+    return;
+  }
+
+  inventoryMovements = data || [];
+  renderMovimientosInventario();
+}
+
+function renderMovimientosRecientes(rows) {
+  const el = $("#inventory-recent-list");
+  if (!el) return;
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="inventory-empty">Todavía no hay movimientos registrados.</div>`;
+    return;
+  }
+
+  el.innerHTML = rows.map((m) => `
+    <div class="inventory-recent-row">
+      <span class="inventory-recent-icon ${inventoryMovementClass(m.tipo)}">
+        ${Number(m.delta || 0) >= 0 ? "↑" : "↓"}
+      </span>
+      <span class="inventory-recent-copy">
+        <strong>${escapeHtml(m.producto_nombre || "Producto")}</strong>
+        <small>${escapeHtml(inventoryMovementLabel(m.tipo))} · ${escapeHtml(m.motivo || "Sin observación")}</small>
+      </span>
+      <span class="inventory-recent-value ${inventoryMovementClass(m.tipo)}">
+        ${Number(m.delta || 0) > 0 ? "+" : ""}${Number(m.delta || 0)}
+      </span>
+    </div>
+  `).join("");
+}
+
+function renderMovimientosInventario() {
+  const el = $("#inventory-movement-list");
+  if (!el) return;
+
+  const q = ($("#inventory-movement-search")?.value || "").trim().toLowerCase();
+  const type = $("#inventory-movement-type")?.value || "";
+
+  const filtered = inventoryMovements.filter((m) => {
+    const matchQ =
+      !q ||
+      String(m.producto_nombre || "").toLowerCase().includes(q) ||
+      String(m.motivo || "").toLowerCase().includes(q);
+
+    const matchType = !type || m.tipo === type;
+    return matchQ && matchType;
+  });
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="inventory-empty inventory-table-empty">No hay movimientos para esos filtros.</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map((m) => {
+    const d = Number(m.delta || 0);
+    const cls = inventoryMovementClass(m.tipo);
+
+    return `
+      <div class="inventory-movement-row">
+        <span class="inventory-movement-product">
+          <strong>${escapeHtml(m.producto_nombre || "Producto")}</strong>
+          <small>${escapeHtml(m.motivo || "Sin motivo")}</small>
+        </span>
+        <span>
+          <span class="inventory-type-pill ${cls}">
+            ${escapeHtml(inventoryMovementLabel(m.tipo))}
+          </span>
+        </span>
+        <strong class="inventory-delta ${cls}">
+          ${d > 0 ? "+" : ""}${d}
+        </strong>
+        <strong>${Number(m.stock_resultante || 0)}</strong>
+        <span class="inventory-movement-user">
+          <strong>${escapeHtml(m.usuario_nombre || "Usuario")}</strong>
+          <small>${escapeHtml(formatearFechaHoraV227(m.creado))}</small>
+        </span>
+      </div>
+    `;
+  }).join("");
+}
+
+function opcionesProductosInventario(selectedId = null) {
+  return productos.map((p) => `
+    <option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>
+      ${escapeHtml(productoEtiquetaV29(p))} · stock ${Number(p.stock || 0)}
+    </option>
+  `).join("");
+}
+
+function prepararAjusteInventario(productId = null, mode = null, amount = null) {
+  const select = $("#inventory-adjust-product");
+  if (!select) return;
+
+  const selected = productId || select.value || productos[0]?.id || "";
+  select.innerHTML = opcionesProductosInventario(selected);
+
+  if (selected) select.value = selected;
+  if (mode) $("#inventory-adjust-mode").value = mode;
+  if (amount != null) $("#inventory-adjust-amount").value = Math.abs(Number(amount)) || 1;
+
+  actualizarPreviewAjusteInventario();
+}
+
+function actualizarPreviewAjusteInventario() {
+  const id = $("#inventory-adjust-product")?.value;
+  const p = productos.find((x) => x.id === id);
+  const current = Number(p?.stock || 0);
+  const mode = $("#inventory-adjust-mode")?.value || "sumar";
+  const amount = Math.max(0, Number($("#inventory-adjust-amount")?.value || 0));
+
+  let result = current;
+  if (mode === "sumar") result = current + amount;
+  if (mode === "restar") result = Math.max(0, current - amount);
+  if (mode === "establecer") result = amount;
+
+  if ($("#inventory-adjust-current")) {
+    $("#inventory-adjust-current").textContent = `Stock actual: ${current}`;
+  }
+
+  if ($("#inventory-adjust-preview")) {
+    $("#inventory-adjust-preview").innerHTML =
+      `Stock resultante: <strong>${result}</strong> ` +
+      `<span>(${result - current >= 0 ? "+" : ""}${result - current})</span>`;
+  }
+}
+
+async function aplicarAjusteInventario(e) {
+  e.preventDefault();
+
+  const id = $("#inventory-adjust-product").value;
+  const mode = $("#inventory-adjust-mode").value;
+  const amount = Number($("#inventory-adjust-amount").value);
+  const reason = $("#inventory-adjust-reason").value;
+  const note = $("#inventory-adjust-note").value.trim() || null;
+  const errorEl = $("#inventory-adjust-error");
+
+  errorEl.textContent = "";
+
+  if (!id || !Number.isFinite(amount) || amount < 0) {
+    errorEl.textContent = "Revisá producto y cantidad.";
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "ajustar_stock_inventario_v1",
+    {
+      p_producto_id: id,
+      p_sucursal_id: appContext.branch.id,
+      p_modo: mode,
+      p_cantidad: Math.round(amount),
+      p_motivo: reason,
+      p_nota: note,
+    }
+  );
+
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  emitirCambioStockRealtime("inventario_ajuste");
+  await cargarProductos();
   renderGrid();
-  requestAnimationFrame(() => {
-    const el = document.querySelector(`.producto-card[data-id="${id}"] .card-stock-valor`);
-    if (el) {
-      el.classList.add("changed");
-      setTimeout(() => el.classList.remove("changed"), 400);
+  prepararAjusteInventario(id);
+  renderResumenInventario();
+  mostrarToast(`Stock actualizado a ${Number(data?.stock || 0)}`, "success");
+}
+
+function renderConteoFisico() {
+  const list = $("#inventory-count-list");
+  if (!list) return;
+
+  const q = ($("#inventory-count-search")?.value || "").trim().toLowerCase();
+
+  const visible = productos.filter((p) => {
+    if (!q) return true;
+    return productoEtiquetaV29(p).toLowerCase().includes(q);
+  });
+
+  if (!visible.length) {
+    list.innerHTML = `<div class="inventory-empty">No hay productos para mostrar.</div>`;
+    return;
+  }
+
+  list.innerHTML = visible.map((p) => {
+    const stored = inventoryCountDraft.has(p.id)
+      ? inventoryCountDraft.get(p.id)
+      : "";
+
+    return `
+      <div class="inventory-count-row" data-count-row="${p.id}">
+        <span class="inventory-count-product">
+          <strong>${escapeHtml(productoEtiquetaV29(p))}</strong>
+          <small>${escapeHtml(p.categoria || "Sin categoría")}</small>
+        </span>
+        <span class="inventory-system-stock">
+          <small>Sistema</small>
+          <strong>${Number(p.stock || 0)}</strong>
+        </span>
+        <label class="inventory-count-input">
+          <small>Contado</small>
+          <input type="number"
+                 min="0"
+                 step="1"
+                 inputmode="numeric"
+                 data-count-product="${p.id}"
+                 value="${stored}"
+                 placeholder="—" />
+        </label>
+        <span class="inventory-count-diff" data-count-diff="${p.id}">
+          —
+        </span>
+      </div>
+    `;
+  }).join("");
+
+  list.querySelectorAll("[data-count-product]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const id = input.dataset.countProduct;
+
+      if (input.value === "") {
+        inventoryCountDraft.delete(id);
+      } else {
+        inventoryCountDraft.set(id, Math.max(0, Number(input.value || 0)));
+      }
+
+      actualizarDiferenciaConteo(id);
+      actualizarProgresoConteo();
+    });
+  });
+
+  visible.forEach((p) => actualizarDiferenciaConteo(p.id));
+  actualizarProgresoConteo();
+}
+
+function actualizarDiferenciaConteo(id) {
+  const p = productos.find((x) => x.id === id);
+  const el = document.querySelector(`[data-count-diff="${id}"]`);
+  if (!p || !el) return;
+
+  if (!inventoryCountDraft.has(id)) {
+    el.textContent = "—";
+    el.className = "inventory-count-diff";
+    return;
+  }
+
+  const counted = Number(inventoryCountDraft.get(id) || 0);
+  const diff = counted - Number(p.stock || 0);
+
+  el.textContent = `${diff > 0 ? "+" : ""}${diff}`;
+  el.className =
+    `inventory-count-diff ${diff > 0 ? "positive" : diff < 0 ? "negative" : "zero"}`;
+}
+
+function actualizarProgresoConteo() {
+  const el = $("#inventory-count-progress");
+  if (!el) return;
+
+  const withDiff = Array.from(inventoryCountDraft.entries()).filter(([id, counted]) => {
+    const p = productos.find((x) => x.id === id);
+    return p && Number(counted) !== Number(p.stock || 0);
+  }).length;
+
+  el.textContent =
+    `${inventoryCountDraft.size} contados · ${withDiff} con diferencia`;
+}
+
+async function aplicarConteoFisico() {
+  if (!inventoryCountDraft.size) {
+    mostrarToast("Ingresá al menos un producto contado", "info");
+    return;
+  }
+
+  const items = Array.from(inventoryCountDraft.entries()).map(([producto_id, stock_contado]) => ({
+    producto_id,
+    stock_contado: Math.max(0, Math.round(Number(stock_contado))),
+  }));
+
+  const differences = items.filter((item) => {
+    const p = productos.find((x) => x.id === item.producto_id);
+    return p && Number(p.stock || 0) !== item.stock_contado;
+  });
+
+  const ok = await confirmar(
+    "Aplicar conteo físico",
+    differences.length
+      ? `Se ajustarán ${differences.length} productos con diferencias. El conteo quedará auditado.`
+      : "No hay diferencias. ¿Querés guardar igualmente este conteo?"
+  );
+
+  if (!ok) return;
+
+  const btn = $("#btn-apply-count");
+  btn.disabled = true;
+  btn.textContent = "Aplicando...";
+
+  const { data, error } = await supabaseClient.rpc(
+    "aplicar_conteo_fisico_v1",
+    {
+      p_sucursal_id: appContext.branch.id,
+      p_items: items,
+      p_nota: $("#inventory-count-note").value.trim() || null,
+    }
+  );
+
+  btn.disabled = false;
+  btn.textContent = "Aplicar diferencias";
+
+  if (error) {
+    mostrarToast(error.message, "error");
+    return;
+  }
+
+  inventoryCountDraft.clear();
+  $("#inventory-count-note").value = "";
+
+  emitirCambioStockRealtime("conteo_fisico");
+  await cargarProductos();
+  renderGrid();
+  renderConteoFisico();
+  renderResumenInventario();
+
+  mostrarToast(
+    `Conteo guardado · ${Number(data?.productos_ajustados || 0)} ajustes`,
+    "success"
+  );
+}
+
+function limpiarConteoFisico() {
+  inventoryCountDraft.clear();
+  $("#inventory-count-note").value = "";
+  renderConteoFisico();
+}
+
+async function prepararTransferenciaInventario() {
+  const origin = $("#inventory-transfer-origin");
+  const destination = $("#inventory-transfer-destination");
+  if (!origin || !destination) return;
+
+  let branches = [];
+  try {
+    branches = await listarSucursalesV2();
+  } catch (error) {
+    $("#inventory-transfer-error").textContent = error.message;
+    return;
+  }
+
+  const options = branches
+    .map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`)
+    .join("");
+
+  origin.innerHTML = options;
+  destination.innerHTML = options;
+
+  origin.value = appContext.branch?.id || branches[0]?.id || "";
+  destination.value =
+    branches.find((s) => s.id !== origin.value)?.id || branches[0]?.id || "";
+
+  await cargarProductosTransferenciaInventario();
+}
+
+async function cargarProductosTransferenciaInventario() {
+  const originId = $("#inventory-transfer-origin")?.value;
+  if (!originId) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "listar_productos_sucursal_v1",
+    { p_sucursal_id: originId }
+  );
+
+  if (error) {
+    $("#inventory-transfer-error").textContent = error.message;
+    return;
+  }
+
+  inventoryTransferProducts = (data || []).map(mapearProductoDB);
+
+  const select = $("#inventory-transfer-product");
+  select.innerHTML = inventoryTransferProducts
+    .map((p) =>
+      `<option value="${p.id}">${escapeHtml(productoEtiquetaV29(p))} · stock ${Number(p.stock || 0)}</option>`
+    )
+    .join("");
+
+  actualizarDisponibleTransferenciaInventario();
+}
+
+function actualizarDisponibleTransferenciaInventario() {
+  const id = $("#inventory-transfer-product")?.value;
+  const p = inventoryTransferProducts.find((x) => x.id === id);
+  $("#inventory-transfer-available").textContent =
+    p ? `Disponible en origen: ${Number(p.stock || 0)}` : "Disponible: —";
+}
+
+async function transferirStockInventario(e) {
+  e.preventDefault();
+
+  const origin = $("#inventory-transfer-origin").value;
+  const destination = $("#inventory-transfer-destination").value;
+  const product = $("#inventory-transfer-product").value;
+  const amount = Number($("#inventory-transfer-amount").value);
+  const note = $("#inventory-transfer-note").value.trim() || "Transferencia entre sucursales";
+  const errorEl = $("#inventory-transfer-error");
+
+  errorEl.textContent = "";
+
+  if (origin === destination) {
+    errorEl.textContent = "Origen y destino deben ser distintos.";
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "transferir_stock_v2",
+    {
+      p_producto_id: product,
+      p_origen_id: origin,
+      p_destino_id: destination,
+      p_cantidad: Math.round(amount),
+      p_motivo: note,
+    }
+  );
+
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  emitirCambioStockRealtime("transferencia_inventario");
+
+  if ([origin, destination].includes(appContext.branch?.id)) {
+    await cargarProductos();
+    renderGrid();
+  }
+
+  $("#inventory-transfer-note").value = "";
+  $("#inventory-transfer-amount").value = "1";
+  await cargarProductosTransferenciaInventario();
+  renderResumenInventario();
+
+  mostrarToast(
+    `Transferencia realizada · ${Number(amount)} unidades`,
+    "success"
+  );
+}
+
+function abrirAjusteInventarioDesdeProducto(id, delta = null) {
+  abrirInventario("ajuste").then(() => {
+    if (delta == null) {
+      prepararAjusteInventario(id, "establecer", productos.find((p) => p.id === id)?.stock || 0);
+    } else {
+      prepararAjusteInventario(
+        id,
+        delta >= 0 ? "sumar" : "restar",
+        Math.abs(delta)
+      );
     }
   });
 }
 
+function setupInventarioProfesional() {
+  $("#btn-inventario")?.addEventListener("click", () => abrirInventario("resumen"));
+  $("#btn-close-inventory")?.addEventListener("click", cerrarInventario);
+  $("#modal-inventario .modal-backdrop")?.addEventListener("click", cerrarInventario);
 
+  $$(".inventory-tab").forEach((btn) => {
+    btn.addEventListener("click", () => activateInventoryTab(btn.dataset.inventoryTab));
+  });
+
+  $$("[data-inventory-go]").forEach((btn) => {
+    btn.addEventListener("click", () => activateInventoryTab(btn.dataset.inventoryGo));
+  });
+
+  $("#btn-refresh-inventory")?.addEventListener("click", refrescarInventarioProfesional);
+  $("#btn-refresh-movements")?.addEventListener("click", () => cargarMovimientosInventario());
+
+  $("#inventory-movement-search")?.addEventListener("input", renderMovimientosInventario);
+  $("#inventory-movement-type")?.addEventListener("change", renderMovimientosInventario);
+
+  $("#inventory-adjust-form")?.addEventListener("submit", aplicarAjusteInventario);
+  $("#inventory-adjust-product")?.addEventListener("change", actualizarPreviewAjusteInventario);
+  $("#inventory-adjust-mode")?.addEventListener("change", actualizarPreviewAjusteInventario);
+  $("#inventory-adjust-amount")?.addEventListener("input", actualizarPreviewAjusteInventario);
+
+  $("#inventory-count-search")?.addEventListener("input", renderConteoFisico);
+  $("#btn-clear-count")?.addEventListener("click", limpiarConteoFisico);
+  $("#btn-apply-count")?.addEventListener("click", aplicarConteoFisico);
+
+  $("#inventory-transfer-form")?.addEventListener("submit", transferirStockInventario);
+  $("#inventory-transfer-origin")?.addEventListener("change", cargarProductosTransferenciaInventario);
+  $("#inventory-transfer-product")?.addEventListener("change", actualizarDisponibleTransferenciaInventario);
+}
 
 // ============================================================
 // Seguridad de descuentos — PIN Owner/Admin
@@ -6524,6 +7215,7 @@ function init() {
   setupV29();
   setupSucursalesV226();
   setupCajaV227();
+  setupInventarioProfesional();
   iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();

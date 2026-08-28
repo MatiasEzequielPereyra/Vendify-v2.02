@@ -1,105 +1,112 @@
-VENDIFY — FLUJO SCANNER + PIN DE DESCUENTOS
-==============================================
+VENDIFY v2.29 — INVENTARIO PROFESIONAL
+======================================
 
-INSTALACIÓN
------------
-1. Supabase > SQL Editor
-2. Ejecutar completo:
-   seguridad_descuentos.sql
+ANTES DE SUBIR EL FRONTEND
+--------------------------
+Supabase > SQL Editor > ejecutar completo:
 
-3. Reemplazar en Vercel:
-   index.html
-   app.js
-   styles.css
-   sw.js
+inventario_profesional.sql
 
-SCANNER / PRODUCTO NUEVO
-------------------------
-Flujo esperado:
+DESPUÉS REEMPLAZAR EN VERCEL
+----------------------------
+index.html
+app.js
+styles.css
+sw.js
 
-Venta
-  ↓
-Scanner
-  ↓
-Código desconocido
-  ↓
-Registrar producto
-  ↓
-Formulario Nuevo producto ENCIMA de Venta
-  ↓
-Guardar
-  ↓
-Se cierra solo el formulario
-  ↓
-Producto se agrega al carrito
-  ↓
-Volvés a la misma venta
+CONFIGURACIÓN EN PC
+-------------------
+Se rearmó el layout desktop:
+- modal más ancho y alto
+- sidebar fija
+- contenido con scroll independiente
+- General aprovecha el ancho
+- Resumen en 4 columnas
+- accesos rápidos en 4 columnas
+- Equipo / PIN quedan equilibrados
+- Sucursales usa grilla de 2 tarjetas y scroll propio
+- Catálogo distribuye mejor sus tarjetas
+- teléfono conserva el layout compacto anterior
 
-Ya no hace falta cerrar Venta manualmente.
+INVENTARIO PROFESIONAL
+----------------------
+Nuevo botón "Inventario" en el header.
 
-DESCUENTOS
-----------
-Cada Propietario o Administrador configura su PIN personal desde:
+Secciones:
+1. Resumen
+   - productos
+   - unidades
+   - stock bajo inteligente
+   - sin stock
+   - productos que requieren atención
+   - movimientos recientes
 
-Cuenta
-→ Configuración
-→ General
-→ PIN para autorizar descuentos
+2. Movimientos
+   - venta
+   - ingreso
+   - corrección
+   - rotura
+   - vencimiento
+   - pérdida / merma
+   - conteo físico
+   - transferencias
+   - usuario, fecha, delta y stock resultante
 
-PIN:
-- 4 a 8 números
-- se guarda hasheado
-- no se guarda en app.js
-- no se puede volver a leer
-- se puede reemplazar por uno nuevo
+3. Ajustar
+   - sumar
+   - restar
+   - establecer stock exacto
+   - motivo obligatorio
+   - observación opcional
 
-Para aplicar descuento:
-1. Elegir porcentaje o monto.
-2. Ingresar valor.
-3. Tocar "Autorizar".
-4. Ingresar PIN de cualquier Owner/Admin activo del negocio.
-5. Vendify aplica el descuento.
+4. Conteo físico
+   - se puede contar una parte o todo el catálogo
+   - muestra stock del sistema
+   - cantidad real contada
+   - diferencia
+   - al confirmar aplica todas las diferencias en una transacción
+   - guarda el conteo y sus items
 
-SEGURIDAD
----------
-La autorización queda ligada al:
-- usuario que vende
-- negocio
-- sucursal
-- subtotal exacto
-- tipo de descuento
-- valor exacto
+5. Transferencias
+   - origen
+   - destino
+   - producto
+   - cantidad
+   - motivo/referencia
+   - dos movimientos auditados: salida + entrada
 
-Vence a los 3 minutos.
+CAMBIO IMPORTANTE
+-----------------
+Los botones + / - de stock ya NO modifican silenciosamente el stock.
+Ahora abren Inventario > Ajustar para registrar el motivo.
 
-Si cambia el carrito o cambia el descuento, hay que autorizar de nuevo.
+El modal de ajuste exacto existente también pide:
+- motivo
+- observación
 
-El backend también bloquea ventas con descuento sin autorización válida:
-no es solamente una protección visual.
+PERMISOS
+--------
+Owner / Admin / Manager:
+- inventario
+- ajustes
+- conteos
+- transferencias
 
-RATE LIMIT
-----------
-5 PIN incorrectos:
-→ bloqueo de intentos por 5 minutos.
+Cashier:
+- no administra inventario
 
-PRUEBA
-------
-A) Scanner:
-- Abrir Venta.
-- Escanear código no existente.
-- Registrar producto.
-- El formulario debe quedar arriba del POS.
-- Guardar.
-- Debe volver al POS con el producto en carrito.
-
-B) PIN:
-- Entrar como Owner/Admin.
-- Configurar PIN, ej. 4826.
-- Abrir venta.
-- Seleccionar 10%.
-- Ingresar 10.
-- Sin PIN el total NO debe aplicar el descuento.
-- Autorizar con 4826.
-- El total debe actualizarse.
-- Modificar el carrito.
-- El descuento debe quedar pendiente nuevamente.
+PRUEBA RECOMENDADA
+------------------
+1. Ejecutar SQL.
+2. Abrir Inventario.
+3. Ajustar +5 como "Reposición".
+4. Revisar Movimientos.
+5. Ajustar -1 como "Rotura".
+6. Revisar Movimientos.
+7. Conteo físico:
+   sistema 10
+   contado 8
+   aplicar
+   debe quedar 8 y registrar -2.
+8. Transferir 2 unidades entre sucursales.
+9. Revisar historial en origen y destino.
