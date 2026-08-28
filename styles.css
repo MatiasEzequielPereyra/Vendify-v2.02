@@ -6564,3 +6564,106 @@ body.scanner-v29-open #modal-scanner-v29 {
     grid-template-columns: 1fr 70px 1fr;
   }
 }
+
+
+/* ============================================================
+   Vendify — Stock inteligente
+   ============================================================ */
+
+.stats {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.stat-helper {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: .55rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.stat-card.danger {
+  border-color: rgba(239, 68, 68, .38);
+  background: linear-gradient(
+    135deg,
+    var(--surface),
+    rgba(239, 68, 68, .07)
+  );
+}
+
+.stat-card.danger .stat-value {
+  color: var(--danger);
+}
+
+.stat-card.danger.clickable:hover,
+.stat-card.danger.clickable.active {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, .20);
+}
+
+.stat-card.danger.clickable.active {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, .09),
+    var(--surface)
+  );
+}
+
+.stock-smart-card .stat-icon,
+.stock-zero-card .stat-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+}
+
+.stock-smart-form {
+  min-height: 74px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.stock-smart-form-value {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  color: var(--primary);
+  font-family: var(--brand-font, "Inter", sans-serif);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.stock-smart-form .hint {
+  margin-top: 2px !important;
+  line-height: 1.25;
+}
+
+.stock-low-v29 {
+  cursor: help;
+}
+
+@media (max-width: 1100px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-card {
+    min-width: 0;
+  }
+
+  .stat-label,
+  .stat-helper {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

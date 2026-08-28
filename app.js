@@ -1321,6 +1321,7 @@ async function cargarProductos() {
   }
 
   productos = (data || []).map(mapearProductoDB);
+  await cargarStockInteligente();
 }
 
 async function cargarCategorias() {
@@ -1797,17 +1798,26 @@ async function eliminarCategoria(index) {
 // Filtro stock bajo
 // =====================
 function toggleFiltroStockBajo() {
+  const select = $("#filtro-stock-v29");
+
+  if (select) select.value = "";
   filtroStockBajo = !filtroStockBajo;
-  $("#stat-bajo-card").classList.toggle("active", filtroStockBajo);
-  $("#filtro-activo").classList.toggle("hidden", !filtroStockBajo);
+
+  actualizarFiltroRapidoStockUI();
   renderGrid();
-  if (filtroStockBajo) mostrarToast("Filtrando productos con stock bajo", "info");
+
+  if (filtroStockBajo) {
+    mostrarToast("Filtrando stock bajo según velocidad de venta", "info");
+  }
 }
 
 function limpiarFiltroStockBajo() {
   filtroStockBajo = false;
-  $("#stat-bajo-card").classList.remove("active");
-  $("#filtro-activo").classList.add("hidden");
+
+  const select = $("#filtro-stock-v29");
+  if (select) select.value = "";
+
+  actualizarFiltroRapidoStockUI();
   renderGrid();
 }
 
@@ -3664,6 +3674,7 @@ function inicializarEventos() {
 
 
   $("#stat-bajo-card").addEventListener("click", toggleFiltroStockBajo);
+  $("#stat-sin-card")?.addEventListener("click", filtrarSinStockRapido);
   $("#btn-limpiar-filtro").addEventListener("click", limpiarFiltroStockBajo);
 
   $("#btn-cargar-ejemplos")?.addEventListener("click", cargarEjemplos);
@@ -4421,6 +4432,174 @@ let usbBufferV29 = "";
 let usbStartedAtV29 = 0;
 let usbLastAtV29 = 0;
 
+
+// ============================================================
+// Stock inteligente por producto / sucursal
+// ============================================================
+
+let stockInteligente = new Map();
+
+function obtenerStockInteligente(producto) {
+  if (!producto?.id) return null;
+  return stockInteligente.get(producto.id) || null;
+}
+
+function esSinStock(producto) {
+  return Number(producto?.stock || 0) <= 0;
+}
+
+function esStockBajoInteligente(producto) {
+  const stock = Number(producto?.stock || 0);
+  if (stock <= 0) return false;
+
+  const info = obtenerStockInteligente(producto);
+
+  // Si todavía no existe el RPC/migración, mantener compatibilidad
+  // con el valor antiguo para no romper la interfaz.
+  if (!info) {
+    return stock <= Number(producto?.stockMinimo ?? 0);
+  }
+
+  return Boolean(info.esBajo);
+}
+
+function textoStockInteligente(producto) {
+  const info = obtenerStockInteligente(producto);
+
+  if (!info) {
+    return `Stock actual: ${Number(producto?.stock || 0)}`;
+  }
+
+  const stock = Number(producto?.stock || 0);
+
+  if (stock <= 0) {
+    return "Sin stock";
+  }
+
+  if (!info.tieneHistorial) {
+    return "Sin historial suficiente de ventas";
+  }
+
+  const dias =
+    info.diasCobertura == null
+      ? "—"
+      : `${Number(info.diasCobertura).toFixed(1)} días`;
+
+  return [
+    `Stock bajo calculado: ≤ ${info.stockBajo}`,
+    `Venta estimada: ${Number(info.promedioDiario || 0).toFixed(2)}/día`,
+    `Cobertura actual: ${dias}`,
+  ].join(" · ");
+}
+
+async function cargarStockInteligente() {
+  stockInteligente = new Map();
+
+  if (!appContext?.branch?.id) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "obtener_stock_inteligente_sucursal",
+    { p_sucursal_id: appContext.branch.id }
+  );
+
+  if (error) {
+    // Fallback silencioso: la app sigue funcionando aunque el usuario
+    // todavía no haya ejecutado la migración.
+    console.warn("[Vendify] Stock inteligente no disponible:", error.message);
+    return;
+  }
+
+  (data || []).forEach((row) => {
+    stockInteligente.set(row.producto_id, {
+      vendidos7d: Number(row.vendidos_7d || 0),
+      vendidos30d: Number(row.vendidos_30d || 0),
+      promedioDiario: Number(row.promedio_diario || 0),
+      stockBajo: Number(row.stock_bajo_calculado || 0),
+      diasCobertura:
+        row.dias_cobertura == null ? null : Number(row.dias_cobertura),
+      reposicion7d: Number(row.reposicion_sugerida_7d || 0),
+      estado: row.estado || "sin_datos",
+      tieneHistorial: Boolean(row.tiene_historial),
+      esBajo: row.estado === "bajo",
+    });
+  });
+}
+
+function actualizarStockSmartForm(producto = null) {
+  const value = $("#stock-smart-form-value");
+  const hint = $("#stock-smart-form-hint");
+  if (!value || !hint) return;
+
+  if (!producto) {
+    value.textContent = "Se calculará según las ventas";
+    hint.textContent =
+      "Cuando el producto tenga historial, Vendify calculará su umbral automáticamente.";
+    return;
+  }
+
+  const info = obtenerStockInteligente(producto);
+
+  if (!info?.tieneHistorial) {
+    value.textContent = "Todavía sin historial";
+    hint.textContent =
+      "El umbral aparecerá cuando existan ventas suficientes del producto.";
+    return;
+  }
+
+  value.textContent = `≤ ${info.stockBajo} unidades`;
+
+  const dias =
+    info.diasCobertura == null
+      ? "—"
+      : `${Number(info.diasCobertura).toFixed(1)} días`;
+
+  hint.textContent =
+    `${Number(info.promedioDiario || 0).toFixed(2)} unidades/día · ` +
+    `cobertura actual ${dias}`;
+}
+
+function actualizarFiltroRapidoStockUI() {
+  const select = $("#filtro-stock-v29");
+  const chip = $("#filtro-activo");
+  const text = $("#filtro-activo-texto");
+  const value = select?.value || "";
+
+  $("#stat-bajo-card")?.classList.toggle(
+    "active",
+    filtroStockBajo || value === "bajo"
+  );
+
+  $("#stat-sin-card")?.classList.toggle(
+    "active",
+    value === "sin"
+  );
+
+  const activo = filtroStockBajo || value === "bajo" || value === "sin";
+  chip?.classList.toggle("hidden", !activo);
+
+  if (text) {
+    text.textContent =
+      value === "sin"
+        ? "Mostrando productos sin stock"
+        : "Mostrando productos con stock bajo inteligente";
+  }
+}
+
+function filtrarSinStockRapido() {
+  const select = $("#filtro-stock-v29");
+  if (!select) return;
+
+  filtroStockBajo = false;
+  select.value = select.value === "sin" ? "" : "sin";
+  actualizarFiltroRapidoStockUI();
+  renderGrid();
+
+  if (select.value === "sin") {
+    mostrarToast("Filtrando productos sin stock", "info");
+  }
+}
+
+
 function mapearProductoDB(row) {
   return {
     id: row.id, nombre: row.nombre, marca: row.marca || "", presentacion: row.presentacion || "",
@@ -4439,19 +4618,48 @@ function filtrarYOrdenar() {
   const cat = $("#filtro-categoria")?.value || "";
   const stockFilter = $("#filtro-stock-v29")?.value || "";
   const [campo, dir] = ($("#orden")?.value || "nombre-asc").split("-");
+
   let lista = productos.filter((p) => {
-    const searchHay = [p.nombre,p.marca,p.presentacion,p.codigoBarras,p.categoria].filter(Boolean).join(" ").toLowerCase();
+    const searchHay = [
+      p.nombre,
+      p.marca,
+      p.presentacion,
+      p.codigoBarras,
+      p.categoria,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
     const matchTexto = !texto || searchHay.includes(texto);
     const matchCat = !cat || p.categoria === cat;
-    const matchLegacy = !filtroStockBajo || p.stock <= (p.stockMinimo ?? 5);
-    const matchStock = !stockFilter || (stockFilter === "bajo" && p.stock > 0 && p.stock <= (p.stockMinimo ?? 5)) || (stockFilter === "sin" && p.stock === 0);
+
+    const low = esStockBajoInteligente(p);
+    const zero = esSinStock(p);
+
+    const matchLegacy = !filtroStockBajo || low;
+    const matchStock =
+      !stockFilter ||
+      (stockFilter === "bajo" && low) ||
+      (stockFilter === "sin" && zero);
+
     return matchTexto && matchCat && matchLegacy && matchStock;
   });
-  lista.sort((a,b) => {
-    let va=a[campo] ?? "", vb=b[campo] ?? "";
-    if(typeof va === "string"){va=va.toLowerCase();vb=String(vb).toLowerCase();}
-    if(va<vb)return dir==="asc"?-1:1; if(va>vb)return dir==="asc"?1:-1; return 0;
+
+  lista.sort((a, b) => {
+    let va = a[campo] ?? "";
+    let vb = b[campo] ?? "";
+
+    if (typeof va === "string") {
+      va = va.toLowerCase();
+      vb = String(vb).toLowerCase();
+    }
+
+    if (va < vb) return dir === "asc" ? -1 : 1;
+    if (va > vb) return dir === "asc" ? 1 : -1;
+    return 0;
   });
+
   return lista;
 }
 
@@ -4477,15 +4685,15 @@ function renderGrid() {
     (a, p) => a + Number(p.stock || 0) * Number(p.precioVenta || 0),
     0
   );
-  const bajos = productos.filter(
-    (p) => Number(p.stock || 0) <= Number(p.stockMinimo ?? 5)
-  ).length;
+  const bajos = productos.filter(esStockBajoInteligente).length;
+  const sinStock = productos.filter(esSinStock).length;
 
   $("#stat-productos").textContent = productos.length;
   $("#stat-stock").textContent = totalStock;
   $("#stat-costo").textContent = costs ? formatearPrecio(costoTotal) : "—";
   $("#stat-venta").textContent = formatearPrecio(ventaTotal);
   $("#stat-bajo").textContent = bajos;
+  $("#stat-sin").textContent = sinStock;
 
   if (!productos.length) {
     grid.innerHTML = "";
@@ -4506,7 +4714,8 @@ function renderGrid() {
 
   grid.innerHTML = lista
     .map((p) => {
-      const low = Number(p.stock || 0) <= Number(p.stockMinimo ?? 5);
+      const low = esStockBajoInteligente(p);
+      const stockInfoTitle = escapeHtml(textoStockInteligente(p));
       const stockClass =
         Number(p.stock || 0) === 0
           ? "stock-zero-v29"
@@ -4521,12 +4730,12 @@ function renderGrid() {
       const categoria = p.categoria || "Sin categoría";
 
       const stockHtml = adjust
-        ? `<div class="row-stock-actions-v29">
+        ? `<div class="row-stock-actions-v29" title="${stockInfoTitle}">
             <button data-action="restar" aria-label="Restar stock">−</button>
             <button class="stock-number-v29 ${stockClass}" data-action="ajustar">${Number(p.stock || 0)}</button>
             <button data-action="sumar" aria-label="Sumar stock">+</button>
           </div>`
-        : `<strong class="stock-number-v29 ${stockClass}">${Number(p.stock || 0)}</strong>`;
+        : `<strong class="stock-number-v29 ${stockClass}" title="${stockInfoTitle}">${Number(p.stock || 0)}</strong>`;
 
       const actions = manage
         ? `<div class="row-actions-v29">
@@ -4575,7 +4784,9 @@ function abrirModal(producto=null) {
   $("#producto-id").value=producto?.id||""; $("#nombre").value=producto?.nombre||""; $("#marca").value=producto?.marca||"";
   $("#presentacion").value=producto?.presentacion||""; $("#codigo-barras").value=producto?.codigoBarras||"";
   $("#precio-compra").value=producto?.precioCompra??""; $("#precio-venta").value=producto?.precioVenta??"";
-  $("#stock").value=producto?.stock??0; $("#stock-minimo").value=producto?.stockMinimo??5;
+  $("#stock").value=producto?.stock??0;
+  $("#stock-minimo").value=0;
+  actualizarStockSmartForm(producto || null);
   $("#error-nombre").textContent=""; $("#barcode-status-v29").textContent="";
   renderSelectCategorias(producto?.categoria||""); $("#modal").classList.remove("hidden"); setTimeout(()=>$("#nombre").focus(),50);
 }
@@ -4596,7 +4807,7 @@ async function guardarProducto(e) {
   const nombre = $("#nombre").value.trim();
   const codigo = $("#codigo-barras").value.trim();
   const stockSucursal = Math.max(0, parseInt($("#stock").value, 10) || 0);
-  const stockMinimoSucursal = Math.max(0, parseInt($("#stock-minimo").value, 10) || 0);
+  const stockMinimoSucursal = 0;
 
   if (!nombre) {
     $("#error-nombre").textContent = "El nombre es obligatorio";
@@ -5113,7 +5324,11 @@ async function importarCatalogoV29() {
 async function cargarEjemplos() {abrirCatalogoV29();}
 
 function setupV29() {
-  $("#filtro-stock-v29")?.addEventListener("change",renderGrid); $("#btn-catalogo-v29")?.addEventListener("click",abrirCatalogoV29);
+  $("#filtro-stock-v29")?.addEventListener("change", () => {
+    filtroStockBajo = false;
+    actualizarFiltroRapidoStockUI();
+    renderGrid();
+  }); $("#btn-catalogo-v29")?.addEventListener("click",abrirCatalogoV29);
   $("#btn-eliminar-todos-productos")?.addEventListener("click", eliminarTodosLosProductosV222);
   $("#btn-scan-producto")?.addEventListener("click",()=>abrirScannerV29("producto")); $("#btn-scan-venta")?.addEventListener("click",()=>abrirScannerV29("venta"));
   $("#btn-buscar-barcode")?.addEventListener("click",()=>buscarDatosBarcodeV29($("#codigo-barras").value));

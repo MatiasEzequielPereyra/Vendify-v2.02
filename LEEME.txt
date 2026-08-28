@@ -1,0 +1,61 @@
+VENDIFY — STOCK INTELIGENTE
+===========================
+
+1. Ejecutar en Supabase SQL Editor:
+   stock_inteligente.sql
+
+2. Reemplazar en Vercel:
+   index.html
+   app.js
+   styles.css
+   sw.js
+
+NUEVA LOGICA
+------------
+Vendify ya no usa "stock mínimo = 5" para todos.
+
+Por producto y sucursal calcula:
+
+70% de la velocidad de los últimos 7 días
++
+30% de la velocidad de los últimos 30 días
+
+Luego reserva aproximadamente:
+
+3 días de demanda × 25% de margen de seguridad.
+
+Ejemplo:
+10 unidades/día
+=> stock bajo aproximadamente 38 unidades.
+
+Un producto de baja rotación puede tener stock bajo = 1.
+
+SIN HISTORIAL
+-------------
+Si un producto no tuvo ventas en los últimos 30 días,
+no se lo marca artificialmente como stock bajo.
+
+SIN STOCK
+---------
+Ahora existe una tarjeta independiente "Sin stock",
+que muestra solamente productos con 0 unidades.
+
+Las tarjetas Stock bajo y Sin stock son clickeables.
+
+NUEVO PRODUCTO
+--------------
+El campo manual "Stock mínimo" deja de mostrarse.
+Ahora Vendify muestra "Stock bajo inteligente" y lo
+calcula automáticamente cuando el producto genera ventas.
+
+EXTRA
+-----
+El RPC también calcula internamente:
+- unidades vendidas 7 días
+- unidades vendidas 30 días
+- promedio diario
+- días de cobertura
+- reposición sugerida para 7 días
+
+Esto queda preparado para el próximo módulo de
+Inventario / reposición inteligente.

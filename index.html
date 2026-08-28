@@ -278,18 +278,30 @@
           <span class="stat-value" id="stat-venta">$0</span>
         </div>
       </div>
-      <div class="stat-card warning clickable" id="stat-bajo-card" title="Click para filtrar stock bajo">
+      <div class="stat-card warning clickable stock-smart-card" id="stat-bajo-card"
+           title="Calculado según la velocidad de venta de cada producto">
         <div class="stat-icon">⚠️</div>
         <div class="stat-info">
           <span class="stat-label">Stock bajo</span>
           <span class="stat-value" id="stat-bajo">0</span>
+          <small class="stat-helper">Según ritmo de venta</small>
+        </div>
+      </div>
+
+      <div class="stat-card danger clickable stock-zero-card" id="stat-sin-card"
+           title="Productos sin unidades disponibles">
+        <div class="stat-icon">⊘</div>
+        <div class="stat-info">
+          <span class="stat-label">Sin stock</span>
+          <span class="stat-value" id="stat-sin">0</span>
+          <small class="stat-helper">0 unidades</small>
         </div>
       </div>
     </section>
 
     <!-- Chip de filtro activo -->
     <div id="filtro-activo" class="filtro-activo hidden">
-      <span>Mostrando solo stock bajo</span>
+      <span id="filtro-activo-texto">Mostrando solo stock bajo</span>
       <button type="button" id="btn-limpiar-filtro" class="btn-chip">✕ Quitar filtro</button>
     </div>
 
@@ -415,7 +427,16 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label for="stock">Stock actual</label><input type="number" id="stock" min="0" step="1" value="0" /></div>
-          <div class="form-group"><label for="stock-minimo">Stock mínimo</label><input type="number" id="stock-minimo" min="0" step="1" value="5" /></div>
+          <div class="form-group stock-smart-form">
+            <label>Stock bajo inteligente</label>
+            <div class="stock-smart-form-value" id="stock-smart-form-value">
+              Se calculará según las ventas
+            </div>
+            <small class="hint" id="stock-smart-form-hint">
+              Vendify ajusta este valor automáticamente.
+            </small>
+            <input type="hidden" id="stock-minimo" value="0" />
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
