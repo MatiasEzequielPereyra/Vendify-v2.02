@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles-v227.css" />
+  <link rel="stylesheet" href="styles-v228.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -1068,6 +1068,83 @@
     </div>
   </div>
 
+
+  <!-- Ticket / reimpresión -->
+  <div id="modal-ticket-v228" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content ticket-modal-v228">
+      <div class="modal-header">
+        <div>
+          <h2>Ticket</h2>
+          <p class="hint">Vista previa del comprobante.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-ticket-v228" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="ticket-preview-v228" class="ticket-preview-v228"></div>
+      <div class="modal-actions ticket-actions-v228">
+        <button type="button" class="btn btn-secondary" id="btn-close-ticket-bottom-v228">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btn-print-ticket-v228">🖨 Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Devolución / anulación -->
+  <div id="modal-return-v228" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content return-modal-v228">
+      <div class="modal-header">
+        <div>
+          <h2 id="return-title-v228">Devolver artículos</h2>
+          <p class="hint" id="return-subtitle-v228">El stock volverá a la sucursal original.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-return-v228" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="form-return-v228">
+        <div id="return-warning-v228" class="return-warning-v228 hidden"></div>
+
+        <div id="return-items-section-v228">
+          <div class="return-section-title-v228">
+            <strong>Artículos</strong>
+            <span>Elegí qué cantidad vuelve al stock.</span>
+          </div>
+          <div id="return-items-v228" class="return-items-v228"></div>
+        </div>
+
+        <div class="return-form-grid-v228">
+          <div class="form-group">
+            <label for="return-method-v228">Medio del reintegro</label>
+            <select id="return-method-v228" class="select select-full">
+              <option value="Efectivo">Efectivo</option>
+              <option value="Débito">Débito</option>
+              <option value="Crédito">Crédito</option>
+              <option value="Transferencia">Transferencia</option>
+              <option value="Mercado Pago">Mercado Pago</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="return-reason-v228">Motivo</label>
+            <input id="return-reason-v228" maxlength="200" required
+                   placeholder="Ej: producto defectuoso, error de cobro..." />
+          </div>
+        </div>
+
+        <div class="return-total-v228">
+          <span id="return-total-label-v228">Reintegro estimado</span>
+          <strong id="return-total-v228">$0</strong>
+        </div>
+
+        <span class="field-error" id="return-error-v228"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-return-v228">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-return-v228">Confirmar devolución</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Venta (POS) -->
   <div id="modal-venta" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
@@ -1100,19 +1177,78 @@
             <p class="carrito-vacio" id="carrito-vacio">Tocá un producto para agregarlo</p>
           </div>
 
-          <div class="venta-medio-pago">
-            <label for="medio-pago">Medio de pago</label>
-            <select id="medio-pago" class="select select-full">
-              <option value="Efectivo">Efectivo</option>
-              <option value="Tarjeta">Tarjeta</option>
-              <option value="Transferencia">Transferencia</option>
-              <option value="Otro">Otro</option>
-            </select>
+          <div class="sale-tools-v228">
+            <div class="sale-discount-v228">
+              <div class="sale-field-title-v228">
+                <span>Descuento</span>
+                <small>Opcional</small>
+              </div>
+              <div class="sale-discount-row-v228">
+                <select id="venta-descuento-tipo-v228" class="select">
+                  <option value="">Sin descuento</option>
+                  <option value="porcentaje">Porcentaje %</option>
+                  <option value="monto">Monto $</option>
+                </select>
+                <input type="number" id="venta-descuento-valor-v228"
+                       min="0" step="0.01" value="0" disabled
+                       aria-label="Valor del descuento" />
+              </div>
+            </div>
+
+            <div class="sale-note-v228">
+              <label for="venta-observacion-v228">Observación</label>
+              <input id="venta-observacion-v228" maxlength="250"
+                     placeholder="Opcional · Ej: cliente habitual, pedido especial..." />
+            </div>
           </div>
 
-          <div class="venta-total-row">
-            <span>Total</span>
-            <span id="carrito-total">$0</span>
+          <div class="sale-payment-card-v228">
+            <div class="sale-payment-head-v228">
+              <div>
+                <strong>Forma de pago</strong>
+                <small>Elegí pago único o dividí el total.</small>
+              </div>
+              <div class="sale-payment-mode-v228">
+                <button type="button" class="active" data-pay-mode-v228="single">Único</button>
+                <button type="button" data-pay-mode-v228="mixed">Mixto</button>
+              </div>
+            </div>
+
+            <div id="single-payment-v228">
+              <select id="medio-pago" class="select select-full">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Débito">Débito</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Mercado Pago">Mercado Pago</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+
+            <div id="mixed-payment-v228" class="hidden">
+              <div id="mixed-payment-rows-v228" class="mixed-payment-rows-v228"></div>
+              <div class="mixed-payment-footer-v228">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-add-payment-v228">
+                  ＋ Agregar medio
+                </button>
+                <span id="mixed-payment-remaining-v228">Restante $0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sale-totals-v228">
+            <div>
+              <span>Subtotal</span>
+              <strong id="venta-subtotal-v228">$0</strong>
+            </div>
+            <div id="venta-descuento-row-v228" class="hidden">
+              <span>Descuento</span>
+              <strong id="venta-descuento-total-v228">−$0</strong>
+            </div>
+            <div class="sale-grand-total-v228">
+              <span>Total</span>
+              <strong id="carrito-total">$0</strong>
+            </div>
           </div>
 
           <button type="button" class="btn btn-primary btn-lg btn-cobrar" id="btn-cobrar" disabled>
@@ -1125,6 +1261,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app-v227.js"></script>
+  <script src="app-v228.js"></script>
 </body>
 </html>

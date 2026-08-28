@@ -1,0 +1,90 @@
+VENDIFY v2.28 — VENTAS PROFESIONALES
+=====================================
+
+ORDEN
+-----
+1. Supabase > SQL Editor:
+   ejecutar COMPLETO 012_ventas_profesionales.sql
+
+2. Después subir a Vercel:
+   - index.html
+   - app-v228.js
+   - styles-v228.css
+   - sw.js
+
+NOVEDADES
+---------
+NUEVA VENTA:
+- descuento porcentual
+- descuento por monto
+- observación
+- pago único
+- pago mixto con varios medios
+- Efectivo / Débito / Crédito / Transferencia / Mercado Pago / Otro
+- cálculo de saldo restante
+
+TICKET:
+- ticket automático al cobrar
+- impresión
+- reimpresión desde Historial
+- subtotal / descuento / total / pagos / observación
+
+HISTORIAL:
+- estado de cada venta
+- Completada
+- Dev. parcial
+- Devuelta
+- Anulada
+- total neto
+- cobros y reintegros
+- items devueltos
+
+DEVOLUCIONES:
+- Owner / Admin / Manager
+- parciales o totales
+- cantidad por producto
+- restaura stock
+- registra motivo
+- registra medio del reintegro
+- impacta en la caja abierta actual
+
+ANULACIONES:
+- no borra la venta
+- restaura todo el stock
+- genera reintegro
+- queda registrada en audit_log
+- solo si la venta no tenía devoluciones previas
+
+CAJA:
+- ahora usa venta_pagos
+- soporta pagos mixtos
+- devoluciones en efectivo reducen el efectivo esperado del turno
+
+PRUEBA RECOMENDADA
+------------------
+1. Abrir caja con $10.000.
+2. Venta:
+   subtotal $10.000
+   descuento 10%
+   total $9.000
+3. Pago mixto:
+   Efectivo $4.000
+   Transferencia $5.000
+4. El ticket debe mostrar ambos medios.
+5. Caja:
+   Efectivo esperado = fondo + $4.000.
+6. Historial -> devolver un artículo.
+7. Elegir Efectivo como reintegro.
+8. Stock debe regresar.
+9. Efectivo esperado debe bajar por el importe reintegrado.
+10. Reimprimir ticket desde Historial.
+
+SIGUIENTE ROADMAP
+-----------------
+v2.29 Inventario profesional:
+- historial completo de movimientos
+- ajustes con motivo
+- inventario físico / conteo
+- diferencias
+- roturas / vencimientos / pérdidas
+- transferencias con historial visual
