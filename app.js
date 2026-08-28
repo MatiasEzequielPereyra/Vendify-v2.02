@@ -485,6 +485,7 @@ function aplicarPermisosV2() {
   setHidden("#btn-equipo", !puedeGestionarEquipo);
   setHidden("#btn-config-equipo", !puedeGestionarEquipo);
   setHidden("#btn-user-settings", !puedeConfigurar);
+  setHidden("#config-discount-pin-card", !(esOwner || esAdmin));
   setHidden("#btn-nueva-sucursal-v226", !(esOwner || esAdmin));
   setHidden("#btn-transferir-stock-v226", esCashier);
   setHidden("#btn-eliminar-todos-productos", !(esOwner || esAdmin));
@@ -2361,6 +2362,7 @@ function abrirConfig(tab = "general") {
 
   activarTabConfigV224(tab || "general");
   $("#modal-config").classList.remove("hidden");
+  actualizarEstadoPinDescuento();
 
   requestAnimationFrame(() => activarTabConfigV224(tab || "general"));
 }
@@ -2615,6 +2617,296 @@ async function cambiarStock(id, delta) {
 }
 
 
+
+// ============================================================
+// Seguridad de descuentos — PIN Owner/Admin
+// ============================================================
+
+let descuentoAutorizacion = null;
+
+function solicitudDescuentoActual() {
+  const subtotal = Number(calcularTotalCarrito().toFixed(2));
+  const tipo = $("#venta-descuento-tipo-v228")?.value || "";
+  let valor = Number($("#venta-descuento-valor-v228")?.value || 0);
+
+  if (tipo === "porcentaje") {
+    valor = Math.max(0, Math.min(100, valor));
+  } else if (tipo === "monto") {
+    valor = Math.max(0, Math.min(subtotal, valor));
+  } else {
+    valor = 0;
+  }
+
+  return {
+    subtotal,
+    tipo: tipo || null,
+    valor: Number(valor.toFixed(2)),
+  };
+}
+
+function autorizacionDescuentoCoincide() {
+  if (!descuentoAutorizacion?.ok) return false;
+
+  const actual = solicitudDescuentoActual();
+
+  return (
+    actual.tipo === descuentoAutorizacion.tipo &&
+    Math.abs(actual.valor - descuentoAutorizacion.valor) <= 0.001 &&
+    Math.abs(actual.subtotal - descuentoAutorizacion.subtotal) <= 0.01 &&
+    Date.now() < descuentoAutorizacion.expiraMs
+  );
+}
+
+function actualizarUIAutorizacionDescuento() {
+  const btn = $("#btn-autorizar-descuento");
+  const status = $("#discount-auth-status");
+  const caption = $("#discount-auth-caption");
+  const solicitud = solicitudDescuentoActual();
+
+  const tieneSolicitud =
+    Boolean(solicitud.tipo) &&
+    solicitud.valor > 0 &&
+    solicitud.subtotal > 0;
+
+  const autorizada = tieneSolicitud && autorizacionDescuentoCoincide();
+
+  if (btn) {
+    btn.disabled = !tieneSolicitud || autorizada;
+    btn.innerHTML = autorizada ? "✓ Autorizado" : "🔒 Autorizar";
+  }
+
+  if (status) {
+    status.classList.remove("pending", "authorized", "required");
+
+    if (!solicitud.tipo || solicitud.valor <= 0) {
+      status.classList.add("pending");
+      status.innerHTML =
+        '<span class="discount-auth-dot"></span><span>Sin descuento aplicado</span>';
+    } else if (autorizada) {
+      status.classList.add("authorized");
+      status.innerHTML =
+        `<span class="discount-auth-dot"></span>` +
+        `<span>Autorizado por ${escapeHtml(descuentoAutorizacion.autorizador || "Administrador")}</span>`;
+    } else {
+      status.classList.add("required");
+      status.innerHTML =
+        '<span class="discount-auth-dot"></span><span>Ingresá un PIN de administrador para aplicar este descuento</span>';
+    }
+  }
+
+  if (caption) {
+    caption.textContent = autorizada
+      ? "Autorizado"
+      : "Requiere autorización";
+  }
+}
+
+function invalidarAutorizacionDescuento({ recalcular = true } = {}) {
+  descuentoAutorizacion = null;
+  actualizarUIAutorizacionDescuento();
+  if (recalcular) actualizarTotalesVentaV228();
+}
+
+function abrirAutorizacionDescuento() {
+  const solicitud = solicitudDescuentoActual();
+
+  if (!solicitud.tipo || solicitud.valor <= 0) {
+    mostrarToast("Ingresá primero el descuento que querés aplicar", "info");
+    return;
+  }
+
+  if (solicitud.subtotal <= 0) {
+    mostrarToast("Agregá productos antes de autorizar el descuento", "info");
+    return;
+  }
+
+  const request =
+    solicitud.tipo === "porcentaje"
+      ? `${solicitud.valor}%`
+      : formatearPrecio(solicitud.valor);
+
+  $("#discount-auth-subtotal").textContent =
+    formatearPrecio(solicitud.subtotal);
+  $("#discount-auth-request").textContent = request;
+  $("#discount-admin-pin").value = "";
+  $("#discount-auth-error").textContent = "";
+
+  $("#modal-discount-auth").classList.remove("hidden");
+  setTimeout(() => $("#discount-admin-pin")?.focus(), 60);
+}
+
+function cerrarAutorizacionDescuento() {
+  $("#modal-discount-auth")?.classList.add("hidden");
+  $("#discount-admin-pin").value = "";
+  $("#discount-auth-error").textContent = "";
+}
+
+async function enviarAutorizacionDescuento(e) {
+  e.preventDefault();
+
+  const solicitud = solicitudDescuentoActual();
+  const pin = $("#discount-admin-pin").value.trim();
+  const errorEl = $("#discount-auth-error");
+  const btn = $("#btn-submit-discount-auth");
+
+  errorEl.textContent = "";
+
+  if (!/^\d{4,8}$/.test(pin)) {
+    errorEl.textContent = "El PIN debe tener entre 4 y 8 números.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Verificando...";
+
+  const { data, error } = await supabaseClient.rpc(
+    "autorizar_descuento_v1",
+    {
+      p_pin: pin,
+      p_sucursal_id: appContext.branch.id,
+      p_subtotal: solicitud.subtotal,
+      p_descuento_tipo: solicitud.tipo,
+      p_descuento_valor: solicitud.valor,
+    }
+  );
+
+  btn.disabled = false;
+  btn.textContent = "Autorizar descuento";
+
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  if (!data?.ok) {
+    errorEl.textContent =
+      data?.message || "PIN incorrecto o autorización no disponible.";
+    return;
+  }
+
+  descuentoAutorizacion = {
+    ok: true,
+    tipo: solicitud.tipo,
+    valor: solicitud.valor,
+    subtotal: solicitud.subtotal,
+    autorizador: data.autorizador_nombre || data.autorizador_rol || "Administrador",
+    expiraMs: Date.now() + Math.max(30, Number(data.expira_segundos || 180)) * 1000,
+  };
+
+  cerrarAutorizacionDescuento();
+  actualizarUIAutorizacionDescuento();
+  actualizarTotalesVentaV228();
+
+  mostrarToast(
+    `Descuento autorizado por ${descuentoAutorizacion.autorizador}`,
+    "success"
+  );
+}
+
+async function actualizarEstadoPinDescuento() {
+  const card = $("#config-discount-pin-card");
+  const status = $("#pin-config-status");
+  const btn = $("#btn-configurar-pin-descuento");
+
+  if (!card || !status || !btn || !appContext?.ready) return;
+
+  const role = appContext.membership?.role;
+  const puede = role === "owner" || role === "admin";
+
+  card.classList.toggle("hidden", !puede);
+
+  if (!puede) return;
+
+  status.textContent = "Consultando estado...";
+
+  const { data, error } = await supabaseClient.rpc("estado_pin_descuento_v1");
+
+  if (error) {
+    status.textContent = "No se pudo consultar el estado del PIN.";
+    return;
+  }
+
+  if (data?.configurado) {
+    status.innerHTML =
+      '<span class="pin-status-dot configured"></span>' +
+      '<span>Tu PIN está configurado</span>';
+    btn.textContent = "Cambiar PIN";
+  } else {
+    status.innerHTML =
+      '<span class="pin-status-dot"></span>' +
+      '<span>Todavía no configuraste tu PIN</span>';
+    btn.textContent = "Configurar PIN";
+  }
+
+  const count = Number(data?.autorizadores_configurados || 0);
+  if (count > 0) {
+    status.innerHTML +=
+      `<small>${count} ${count === 1 ? "autorizador disponible" : "autorizadores disponibles"} en el negocio</small>`;
+  }
+}
+
+function abrirConfigPinDescuento() {
+  $("#config-discount-pin").value = "";
+  $("#config-discount-pin-confirm").value = "";
+  $("#config-discount-pin-error").textContent = "";
+  $("#modal-config-discount-pin").classList.remove("hidden");
+  setTimeout(() => $("#config-discount-pin")?.focus(), 60);
+}
+
+function cerrarConfigPinDescuento() {
+  $("#modal-config-discount-pin")?.classList.add("hidden");
+  $("#config-discount-pin").value = "";
+  $("#config-discount-pin-confirm").value = "";
+  $("#config-discount-pin-error").textContent = "";
+}
+
+async function guardarConfigPinDescuento(e) {
+  e.preventDefault();
+
+  const pin = $("#config-discount-pin").value.trim();
+  const confirm = $("#config-discount-pin-confirm").value.trim();
+  const errorEl = $("#config-discount-pin-error");
+  const btn = $("#btn-save-config-pin");
+
+  errorEl.textContent = "";
+
+  if (!/^\d{4,8}$/.test(pin)) {
+    errorEl.textContent = "Usá un PIN de 4 a 8 números.";
+    return;
+  }
+
+  if (pin !== confirm) {
+    errorEl.textContent = "Los PIN no coinciden.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Guardando...";
+
+  const { data, error } = await supabaseClient.rpc(
+    "configurar_pin_descuento_v1",
+    { p_pin: pin }
+  );
+
+  btn.disabled = false;
+  btn.textContent = "Guardar PIN";
+
+  if (error) {
+    errorEl.textContent = error.message;
+    return;
+  }
+
+  if (!data?.ok) {
+    errorEl.textContent = data?.message || "No se pudo configurar el PIN.";
+    return;
+  }
+
+  cerrarConfigPinDescuento();
+  await actualizarEstadoPinDescuento();
+  mostrarToast("PIN de descuentos configurado", "success");
+}
+
+
 // ============================================================
 // Vendify v2.28 — Ventas profesionales
 // ============================================================
@@ -2635,22 +2927,27 @@ const MEDIOS_PAGO_V228 = [
 
 function calcularTotalesVentaV228() {
   const subtotal = calcularTotalCarrito();
-  const tipo = $("#venta-descuento-tipo-v228")?.value || "";
-  let valor = Number($("#venta-descuento-valor-v228")?.value || 0);
+  const solicitud = solicitudDescuentoActual();
+  const autorizada = autorizacionDescuentoCoincide();
+
+  let tipo = null;
+  let valor = 0;
   let descuento = 0;
 
-  if (tipo === "porcentaje") {
-    valor = Math.max(0, Math.min(100, valor));
+  if (autorizada && solicitud.tipo === "porcentaje") {
+    tipo = solicitud.tipo;
+    valor = solicitud.valor;
     descuento = subtotal * valor / 100;
-  } else if (tipo === "monto") {
-    valor = Math.max(0, valor);
+  } else if (autorizada && solicitud.tipo === "monto") {
+    tipo = solicitud.tipo;
+    valor = solicitud.valor;
     descuento = Math.min(subtotal, valor);
   }
 
   descuento = Math.round(descuento * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - descuento) * 100) / 100);
 
-  return { subtotal, tipo: tipo || null, valor, descuento, total };
+  return { subtotal, tipo, valor, descuento, total };
 }
 
 function actualizarTotalesVentaV228() {
@@ -2667,11 +2964,13 @@ function actualizarTotalesVentaV228() {
   if (totalEl) totalEl.textContent = formatearPrecio(t.total);
 
   actualizarRestantePagoMixtoV228();
+  actualizarUIAutorizacionDescuento();
   return t;
 }
 
 function resetVentaProfesionalV228() {
   pagoModoV228 = "single";
+  descuentoAutorizacion = null;
 
   document.querySelectorAll("[data-pay-mode-v228]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.payModeV228 === "single");
@@ -3209,8 +3508,7 @@ async function guardarGestionVentaV228(e) {
 
   cerrarGestionVentaV228();
 
-  emitirCambioStockRealtime("devolucion");
-  emitirCambioStockRealtime("anulacion");
+  emitirCambioStockRealtime(modo === "anular" ? "anulacion" : "devolucion");
   await cargarProductos();
   renderGrid();
   await cargarEstadoCajaV227();
@@ -3289,6 +3587,7 @@ function renderVentaProductos() {
 }
 
 function agregarAlCarrito(id) {
+  invalidarAutorizacionDescuento({ recalcular: false });
   const p = productos.find((x) => x.id === id);
   if (!p) return;
   const item = carrito.find((c) => c.id === id);
@@ -3307,6 +3606,7 @@ function agregarAlCarrito(id) {
 }
 
 function cambiarCantidadCarrito(id, delta) {
+  invalidarAutorizacionDescuento({ recalcular: false });
   const item = carrito.find((c) => c.id === id);
   if (!item) return;
   const p = productos.find((x) => x.id === id);
@@ -3317,6 +3617,7 @@ function cambiarCantidadCarrito(id, delta) {
 }
 
 function quitarDelCarrito(id) {
+  invalidarAutorizacionDescuento({ recalcular: false });
   carrito = carrito.filter((c) => c.id !== id);
   renderVentaProductos();
   renderCarrito();
@@ -3379,6 +3680,18 @@ async function confirmarVenta() {
   if (carrito.length === 0) return;
 
   const btn = $("#btn-cobrar");
+
+  const solicitudDescuento = solicitudDescuentoActual();
+  if (
+    solicitudDescuento.tipo &&
+    solicitudDescuento.valor > 0 &&
+    !autorizacionDescuentoCoincide()
+  ) {
+    mostrarToast("Autorizá el descuento con un PIN de administrador", "error");
+    abrirAutorizacionDescuento();
+    return;
+  }
+
   const totales = calcularTotalesVentaV228();
   let pagos;
 
@@ -3426,6 +3739,7 @@ async function confirmarVenta() {
   const total = Number(data?.venta?.total ?? totales.total);
   mostrarToast(`Venta cobrada: ${formatearPrecio(total)}`, "success");
 
+  descuentoAutorizacion = null;
   cerrarVenta();
   mostrarTicketV228(data);
 }
@@ -3793,12 +4107,29 @@ function inicializarEventos() {
 
   $("#venta-descuento-tipo-v228")?.addEventListener("change", (e) => {
     const input = $("#venta-descuento-valor-v228");
+    descuentoAutorizacion = null;
     input.disabled = !e.target.value;
     if (!e.target.value) input.value = "0";
     actualizarTotalesVentaV228();
   });
 
-  $("#venta-descuento-valor-v228")?.addEventListener("input", actualizarTotalesVentaV228);
+  $("#venta-descuento-valor-v228")?.addEventListener("input", () => {
+    descuentoAutorizacion = null;
+    actualizarTotalesVentaV228();
+  });
+
+  $("#btn-autorizar-descuento")?.addEventListener("click", abrirAutorizacionDescuento);
+
+  $("#form-discount-auth")?.addEventListener("submit", enviarAutorizacionDescuento);
+  $("#btn-close-discount-auth")?.addEventListener("click", cerrarAutorizacionDescuento);
+  $("#btn-cancel-discount-auth")?.addEventListener("click", cerrarAutorizacionDescuento);
+  $("#modal-discount-auth .modal-backdrop")?.addEventListener("click", cerrarAutorizacionDescuento);
+
+  $("#btn-configurar-pin-descuento")?.addEventListener("click", abrirConfigPinDescuento);
+  $("#form-config-discount-pin")?.addEventListener("submit", guardarConfigPinDescuento);
+  $("#btn-close-config-pin")?.addEventListener("click", cerrarConfigPinDescuento);
+  $("#btn-cancel-config-pin")?.addEventListener("click", cerrarConfigPinDescuento);
+  $("#modal-config-discount-pin .modal-backdrop")?.addEventListener("click", cerrarConfigPinDescuento);
 
   $("#btn-add-payment-v228")?.addEventListener("click", agregarPagoMixtoV228);
 
@@ -5001,6 +5332,36 @@ function renderGrid() {
   aplicarPermisosV2();
 }
 
+
+let productoSobreVentaActivo = false;
+
+function activarProductoSobreVenta() {
+  const productoModal = $("#modal");
+  const ventaModal = $("#modal-venta");
+
+  if (!productoModal || !ventaModal) return;
+
+  productoSobreVentaActivo = true;
+  productoModal.classList.add("modal-product-over-sale");
+  ventaModal.classList.add("modal-under-product");
+  ventaModal.setAttribute("aria-hidden", "true");
+}
+
+function restaurarVentaDetrasProducto({ enfocar = true } = {}) {
+  const productoModal = $("#modal");
+  const ventaModal = $("#modal-venta");
+
+  productoModal?.classList.remove("modal-product-over-sale");
+  ventaModal?.classList.remove("modal-under-product");
+  ventaModal?.removeAttribute("aria-hidden");
+
+  productoSobreVentaActivo = false;
+
+  if (enfocar && ventaModal && !ventaModal.classList.contains("hidden")) {
+    setTimeout(() => $("#venta-buscador")?.focus(), 60);
+  }
+}
+
 function abrirModal(producto=null) {
   if(!exigirPermisoV2("manageProducts","No tenés permiso para modificar productos"))return;
   productoEditandoId=producto?.id || null; fotoActualBase64=producto?.foto || null;
@@ -5017,8 +5378,19 @@ function abrirModal(producto=null) {
   renderSelectCategorias(producto?.categoria||""); $("#modal").classList.remove("hidden"); setTimeout(()=>$("#nombre").focus(),50);
 }
 
-function cerrarModal() {
-  $("#modal").classList.add("hidden"); $("#form-producto").reset(); productoEditandoId=null; fotoActualBase64=null;
+function cerrarModal({ preservarFlujoScanner = false } = {}) {
+  $("#modal").classList.add("hidden");
+  $("#form-producto").reset();
+  productoEditandoId = null;
+  fotoActualBase64 = null;
+
+  restaurarVentaDetrasProducto({ enfocar: !preservarFlujoScanner });
+
+  if (!preservarFlujoScanner) {
+    pendingReturnToSaleV214 = false;
+    pendingAddAfterCreateV214 = false;
+    pendingScannedCodeV214 = null;
+  }
 }
 
 async function guardarProducto(e) {
@@ -5140,16 +5512,23 @@ async function guardarProducto(e) {
 
   actualizarFiltroCategorias();
   renderGrid();
-  cerrarModal();
 
-  if (!eraEdicion && pendingReturnToSaleV214 && pendingAddAfterCreateV214) {
+  const volverAVentaTrasAlta =
+    !eraEdicion && pendingReturnToSaleV214 && pendingAddAfterCreateV214;
+
+  cerrarModal({ preservarFlujoScanner: volverAVentaTrasAlta });
+
+  if (volverAVentaTrasAlta) {
     pendingReturnToSaleV214 = false;
     pendingAddAfterCreateV214 = false;
     pendingScannedCodeV214 = null;
 
     $("#modal-venta")?.classList.remove("hidden");
+    restaurarVentaDetrasProducto({ enfocar: false });
     agregarAlCarrito(mapped.id);
     renderVentaProductos();
+    renderCarrito();
+    setTimeout(() => $("#venta-buscador")?.focus(), 80);
 
     mostrarToast(
       `${mapped.nombre} registrado en ${appContext.branch.nombre} y agregado a la venta`,
@@ -5239,6 +5618,10 @@ async function registrarProductoDesdeScannerV214() {
   cerrarScannerV29();
 
   abrirModal();
+
+  if (volverAVenta) {
+    activarProductoSobreVenta();
+  }
 
   const codigoInput = $("#codigo-barras");
   if (codigoInput) codigoInput.value = code;

@@ -1,16 +1,11 @@
-VENDIFY — FIX REALTIME STOCK
-============================
-
-PROBLEMA
---------
-El frontend escuchaba producto_stock_sucursal, pero esa tabla no había
-quedado garantizada dentro de la publicación supabase_realtime.
+VENDIFY — FLUJO SCANNER + PIN DE DESCUENTOS
+==============================================
 
 INSTALACIÓN
 -----------
 1. Supabase > SQL Editor
 2. Ejecutar completo:
-   fix_realtime_stock.sql
+   seguridad_descuentos.sql
 
 3. Reemplazar en Vercel:
    index.html
@@ -18,33 +13,93 @@ INSTALACIÓN
    styles.css
    sw.js
 
-QUÉ CAMBIA
+SCANNER / PRODUCTO NUEVO
+------------------------
+Flujo esperado:
+
+Venta
+  ↓
+Scanner
+  ↓
+Código desconocido
+  ↓
+Registrar producto
+  ↓
+Formulario Nuevo producto ENCIMA de Venta
+  ↓
+Guardar
+  ↓
+Se cierra solo el formulario
+  ↓
+Producto se agrega al carrito
+  ↓
+Volvés a la misma venta
+
+Ya no hace falta cerrar Venta manualmente.
+
+DESCUENTOS
 ----------
-- producto_stock_sucursal queda habilitada explícitamente para Realtime.
-- productos también queda garantizada en Realtime.
-- REPLICA IDENTITY FULL para eventos completos.
-- Realtime escucha la sucursal activa.
-- Broadcast adicional entre clientes como segunda señal.
-- Reconexión automática si el canal falla.
-- Al volver al teléfono / PC se resincroniza con PostgreSQL.
-- Al recuperar internet se resincroniza.
-- Watchdog liviano cada 10 segundos como último respaldo.
-- El watchdog consulta SOLO producto_id + stock de la sucursal, no todo el
-  catálogo ni todas las estadísticas.
+Cada Propietario o Administrador configura su PIN personal desde:
+
+Cuenta
+→ Configuración
+→ General
+→ PIN para autorizar descuentos
+
+PIN:
+- 4 a 8 números
+- se guarda hasheado
+- no se guarda en app.js
+- no se puede volver a leer
+- se puede reemplazar por uno nuevo
+
+Para aplicar descuento:
+1. Elegir porcentaje o monto.
+2. Ingresar valor.
+3. Tocar "Autorizar".
+4. Ingresar PIN de cualquier Owner/Admin activo del negocio.
+5. Vendify aplica el descuento.
+
+SEGURIDAD
+---------
+La autorización queda ligada al:
+- usuario que vende
+- negocio
+- sucursal
+- subtotal exacto
+- tipo de descuento
+- valor exacto
+
+Vence a los 3 minutos.
+
+Si cambia el carrito o cambia el descuento, hay que autorizar de nuevo.
+
+El backend también bloquea ventas con descuento sin autorización válida:
+no es solamente una protección visual.
+
+RATE LIMIT
+----------
+5 PIN incorrectos:
+→ bloqueo de intentos por 5 minutos.
 
 PRUEBA
 ------
-1. Abrir PC y teléfono.
-2. Confirmar MISMA sucursal en ambos.
-3. Dejar ambos visibles.
-4. En PC: sumar 1 a un producto.
-5. Teléfono debería cambiar prácticamente al instante.
-6. En teléfono: restar 1.
-7. PC debería cambiar prácticamente al instante.
-8. Bloquear el teléfono 30 segundos, cambiar stock desde PC y desbloquear:
-   debe resincronizar al volver a primer plano.
+A) Scanner:
+- Abrir Venta.
+- Escanear código no existente.
+- Registrar producto.
+- El formulario debe quedar arriba del POS.
+- Guardar.
+- Debe volver al POS con el producto en carrito.
 
-NOTA
-----
-Misma cuenta no es suficiente si cada dispositivo tiene una sucursal
-diferente seleccionada: el stock es por sucursal.
+B) PIN:
+- Entrar como Owner/Admin.
+- Configurar PIN, ej. 4826.
+- Abrir venta.
+- Seleccionar 10%.
+- Ingresar 10.
+- Sin PIN el total NO debe aplicar el descuento.
+- Autorizar con 4826.
+- El total debe actualizarse.
+- Modificar el carrito.
+- El descuento debe quedar pendiente nuevamente.

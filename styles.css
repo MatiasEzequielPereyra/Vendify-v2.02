@@ -6679,3 +6679,229 @@ html[data-realtime-status="timed_out"] {
 html[data-realtime-status="subscribed"] {
   --vendify-realtime-health: 1;
 }
+
+
+/* ============================================================
+   Vendify — Flujo producto sobre venta + autorización descuentos
+   ============================================================ */
+
+/* Cuando un código escaneado no existe, Alta de producto queda sobre POS. */
+#modal.modal-product-over-sale {
+  z-index: 11100 !important;
+}
+
+#modal.modal-product-over-sale .modal-backdrop {
+  z-index: 11100 !important;
+  background: rgba(0, 0, 0, .48);
+  backdrop-filter: blur(4px);
+}
+
+#modal.modal-product-over-sale .modal-content {
+  z-index: 11101 !important;
+  box-shadow:
+    0 26px 70px rgba(0,0,0,.38),
+    0 0 0 1px rgba(255,255,255,.03);
+}
+
+#modal-venta.modal-under-product {
+  z-index: 100 !important;
+  pointer-events: none;
+}
+
+#modal-venta.modal-under-product .modal-content {
+  transform: scale(.985);
+  opacity: .88;
+  transition: transform .18s ease, opacity .18s ease;
+}
+
+/* ---------- Discount authorization ---------- */
+
+.sale-discount-secure {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.sale-discount-secure .sale-discount-row-v228 {
+  grid-template-columns: minmax(0, 1fr) minmax(92px, .65fr) auto;
+}
+
+.discount-authorize-btn {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.discount-authorize-btn:disabled:not(.authorized) {
+  opacity: .55;
+}
+
+.discount-auth-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 25px;
+  margin-top: 7px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.discount-auth-status.pending {
+  background: var(--surface);
+}
+
+.discount-auth-status.required {
+  background: rgba(245, 158, 11, .10);
+  color: #d97706;
+}
+
+.discount-auth-status.authorized {
+  background: rgba(34, 197, 94, .10);
+  color: #16a34a;
+}
+
+.discount-auth-dot,
+.pin-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--text-muted);
+}
+
+.discount-auth-status.required .discount-auth-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245,158,11,.10);
+}
+
+.discount-auth-status.authorized .discount-auth-dot,
+.pin-status-dot.configured {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.10);
+}
+
+.discount-auth-modal {
+  width: min(410px, 94vw) !important;
+}
+
+.discount-auth-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.discount-auth-summary > div {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.discount-auth-summary span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.discount-auth-summary strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.discount-pin-config {
+  margin-top: 12px;
+}
+
+.settings-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.settings-title-row h4 {
+  margin: 0;
+}
+
+.security-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.pin-config-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.pin-config-status small {
+  flex-basis: 100%;
+  padding-left: 13px;
+  color: var(--text-muted);
+}
+
+.security-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 13px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--primary-soft);
+}
+
+.security-note strong {
+  font-size: 11px;
+}
+
+.security-note span {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  #modal.modal-product-over-sale {
+    align-items: flex-start;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  #modal.modal-product-over-sale .modal-product-v29 {
+    max-height: calc(100dvh - 20px) !important;
+  }
+
+  .sale-discount-secure .sale-discount-row-v228 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sale-discount-secure .discount-authorize-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .discount-auth-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .discount-auth-summary {
+    grid-template-columns: 1fr;
+  }
+}

@@ -539,6 +539,26 @@
               </div>
               <button type="button" class="btn btn-secondary btn-sm" id="btn-config-equipo">Abrir Equipo</button>
             </div>
+
+            <div class="settings-card-v224 settings-action-row-v224 discount-pin-config"
+                 id="config-discount-pin-card">
+              <div>
+                <div class="settings-title-row">
+                  <h4>PIN para autorizar descuentos</h4>
+                  <span class="security-badge">Seguridad</span>
+                </div>
+                <p class="hint">
+                  Tu PIN personal puede autorizar descuentos realizados por cualquier usuario del negocio.
+                </p>
+                <div class="pin-config-status" id="pin-config-status">
+                  Consultando estado...
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-secondary" id="btn-configurar-pin-descuento">
+                Configurar PIN
+              </button>
+            </div>
           </section>
 
 
@@ -1099,6 +1119,119 @@
   </div>
 
 
+  
+  <!-- Autorización de descuento -->
+  <div id="modal-discount-auth" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm discount-auth-modal">
+      <div class="modal-header">
+        <div>
+          <h2>Autorizar descuento</h2>
+          <p class="hint">Ingresá el PIN de un Propietario o Administrador.</p>
+        </div>
+        <button class="btn-icon" id="btn-close-discount-auth" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="form-discount-auth">
+        <div class="discount-auth-summary">
+          <div>
+            <span>Subtotal</span>
+            <strong id="discount-auth-subtotal">$0</strong>
+          </div>
+          <div>
+            <span>Descuento solicitado</span>
+            <strong id="discount-auth-request">—</strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="discount-admin-pin">PIN de autorización</label>
+          <input id="discount-admin-pin"
+                 type="password"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 minlength="4"
+                 maxlength="8"
+                 autocomplete="one-time-code"
+                 placeholder="••••"
+                 required />
+        </div>
+
+        <span class="field-error" id="discount-auth-error"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-discount-auth">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-discount-auth">
+            Autorizar descuento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Configurar PIN personal -->
+  <div id="modal-config-discount-pin" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2>PIN de descuentos</h2>
+          <p class="hint">
+            Solo Propietarios y Administradores pueden crear un PIN de autorización.
+          </p>
+        </div>
+        <button class="btn-icon" id="btn-close-config-pin" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="form-config-discount-pin">
+        <div class="security-note">
+          <strong>PIN personal</strong>
+          <span>No se guarda en texto plano y nunca se muestra después de configurarlo.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="config-discount-pin">Nuevo PIN</label>
+          <input id="config-discount-pin"
+                 type="password"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 minlength="4"
+                 maxlength="8"
+                 autocomplete="new-password"
+                 placeholder="4 a 8 números"
+                 required />
+        </div>
+
+        <div class="form-group">
+          <label for="config-discount-pin-confirm">Repetir PIN</label>
+          <input id="config-discount-pin-confirm"
+                 type="password"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 minlength="4"
+                 maxlength="8"
+                 autocomplete="new-password"
+                 placeholder="Repetí el PIN"
+                 required />
+        </div>
+
+        <span class="field-error" id="config-discount-pin-error"></span>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-config-pin">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" id="btn-save-config-pin">
+            Guardar PIN
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Caja profesional -->
@@ -1257,20 +1390,34 @@
           </div>
 
           <div class="sale-tools-v228">
-            <div class="sale-discount-v228">
+            <div class="sale-discount-v228 sale-discount-secure">
               <div class="sale-field-title-v228">
                 <span>Descuento</span>
-                <small>Opcional</small>
+                <small id="discount-auth-caption">Requiere autorización</small>
               </div>
+
               <div class="sale-discount-row-v228">
                 <select id="venta-descuento-tipo-v228" class="select">
                   <option value="">Sin descuento</option>
                   <option value="porcentaje">Porcentaje %</option>
                   <option value="monto">Monto $</option>
                 </select>
+
                 <input type="number" id="venta-descuento-valor-v228"
                        min="0" step="0.01" value="0" disabled
                        aria-label="Valor del descuento" />
+
+                <button type="button"
+                        class="btn btn-secondary discount-authorize-btn"
+                        id="btn-autorizar-descuento"
+                        disabled>
+                  🔒 Autorizar
+                </button>
+              </div>
+
+              <div class="discount-auth-status pending" id="discount-auth-status">
+                <span class="discount-auth-dot"></span>
+                <span>Sin descuento aplicado</span>
               </div>
             </div>
 
