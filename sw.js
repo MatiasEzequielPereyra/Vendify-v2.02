@@ -1,4 +1,4 @@
-/* Vendify v2.28 */
+/* Vendify service worker */
 self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
