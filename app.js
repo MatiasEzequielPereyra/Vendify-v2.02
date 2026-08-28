@@ -3873,6 +3873,550 @@ let scannerControlsV29 = null;
 let scannerReaderV29 = null;
 let scannerLastCodeV29 = "";
 let scannerLastAtV29 = 0;
+let scannerTrackVPro = null;
+let scannerNativeDetectorVPro = null;
+let scannerNativeLoopVPro = null;
+let scannerNativeBusyVPro = false;
+let scannerAssistTimerVPro = null;
+let scannerAutoZoomTimerVPro = null;
+let scannerOpenedAtVPro = 0;
+let scannerLastSuccessAtVPro = 0;
+let scannerCurrentZoomVPro = 1;
+let scannerZoomCapsVPro = null;
+let scannerTorchOnVPro = false;
+let scannerTorchSupportedVPro = false;
+let scannerFocusSupportedVPro = false;
+let scannerProfileVPro = null;
+let scannerEngineSuccessVPro = null;
+
+const SCANNER_PROFILE_KEY_VPRO = "vendify_scanner_profile_v2";
+
+function cargarPerfilScannerVPro() {
+  if (scannerProfileVPro) return scannerProfileVPro;
+
+  try {
+    scannerProfileVPro = JSON.parse(localStorage.getItem(SCANNER_PROFILE_KEY_VPRO) || "null");
+  } catch {
+    scannerProfileVPro = null;
+  }
+
+  if (!scannerProfileVPro || typeof scannerProfileVPro !== "object") {
+    scannerProfileVPro = {
+      successes: 0,
+      preferredZoom: 1,
+      avgReadMs: null,
+      engines: { native: 0, zxing: 0, capture: 0 },
+      formats: {},
+    };
+  }
+
+  return scannerProfileVPro;
+}
+
+function guardarPerfilScannerVPro() {
+  try {
+    localStorage.setItem(
+      SCANNER_PROFILE_KEY_VPRO,
+      JSON.stringify(cargarPerfilScannerVPro())
+    );
+  } catch {}
+}
+
+function registrarExitoScannerVPro({ engine = "zxing", format = "", zoom = null } = {}) {
+  const profile = cargarPerfilScannerVPro();
+  const elapsed = Math.max(0, Date.now() - scannerOpenedAtVPro);
+
+  profile.successes = Number(profile.successes || 0) + 1;
+  profile.engines ||= {};
+  profile.engines[engine] = Number(profile.engines[engine] || 0) + 1;
+
+  if (format) {
+    profile.formats ||= {};
+    profile.formats[format] = Number(profile.formats[format] || 0) + 1;
+  }
+
+  if (Number.isFinite(elapsed) && elapsed > 0 && elapsed < 30000) {
+    profile.avgReadMs =
+      profile.avgReadMs == null
+        ? elapsed
+        : Math.round(profile.avgReadMs * 0.8 + elapsed * 0.2);
+  }
+
+  const z = Number(zoom ?? scannerCurrentZoomVPro);
+  if (Number.isFinite(z) && z >= 1) {
+    profile.preferredZoom = Number(
+      (
+        Number(profile.preferredZoom || 1) * 0.72 +
+        z * 0.28
+      ).toFixed(2)
+    );
+  }
+
+  scannerEngineSuccessVPro = engine;
+  scannerLastSuccessAtVPro = Date.now();
+  guardarPerfilScannerVPro();
+  actualizarTextoAdaptativoVPro();
+}
+
+function actualizarTextoAdaptativoVPro() {
+  const el = $("#scanner-adaptive-text-vpro");
+  if (!el) return;
+
+  const p = cargarPerfilScannerVPro();
+
+  if (!p.successes) {
+    el.textContent = "Optimizando para este dispositivo";
+    return;
+  }
+
+  const avg = p.avgReadMs ? `${(p.avgReadMs / 1000).toFixed(1)} s` : "—";
+  el.textContent = `Perfil adaptativo · ${p.successes} lecturas · promedio ${avg}`;
+}
+
+function actualizarEngineScannerVPro(texto) {
+  const el = $("#scanner-engine-vpro");
+  if (el) el.textContent = texto || "Auto";
+}
+
+function mostrarHintScannerVPro(texto = "", tipo = "info") {
+  const el = $("#scanner-hint-vpro");
+  if (!el) return;
+
+  if (!texto) {
+    el.classList.add("hidden");
+    el.textContent = "";
+    el.dataset.type = "";
+    return;
+  }
+
+  el.textContent = texto;
+  el.dataset.type = tipo;
+  el.classList.remove("hidden");
+}
+
+function obtenerTrackScannerVPro() {
+  const video = $("#scanner-video-v29");
+  const track = video?.srcObject?.getVideoTracks?.()?.[0] || null;
+  scannerTrackVPro = track;
+  return track;
+}
+
+async function configurarTrackScannerVPro() {
+  const track = obtenerTrackScannerVPro();
+  if (!track) return;
+
+  let caps = {};
+  try {
+    caps = track.getCapabilities?.() || {};
+  } catch {}
+
+  let settings = {};
+  try {
+    settings = track.getSettings?.() || {};
+  } catch {}
+
+  const resolution = $("#scanner-resolution-badge-vpro");
+  if (resolution) {
+    const w = Number(settings.width || 0);
+    const h = Number(settings.height || 0);
+    resolution.textContent =
+      w >= 1800 ? "FHD" :
+      w >= 1200 ? "HD+" :
+      w >= 700 ? "HD" : "CAM";
+  }
+
+  scannerFocusSupportedVPro =
+    Array.isArray(caps.focusMode) &&
+    caps.focusMode.includes("continuous");
+
+  const focusBadge = $("#scanner-focus-badge-vpro");
+  if (focusBadge) {
+    focusBadge.textContent = scannerFocusSupportedVPro ? "AF continuo" : "AF";
+  }
+
+  if (scannerFocusSupportedVPro) {
+    try {
+      await track.applyConstraints({
+        advanced: [{ focusMode: "continuous" }]
+      });
+    } catch (err) {
+      console.debug("[Scanner Pro] focusMode no aplicable:", err);
+    }
+  }
+
+  scannerTorchSupportedVPro = Boolean(caps.torch);
+  $("#btn-scanner-torch-vpro")?.classList.toggle(
+    "hidden",
+    !scannerTorchSupportedVPro
+  );
+
+  if (caps.zoom && Number.isFinite(Number(caps.zoom.min))) {
+    scannerZoomCapsVPro = {
+      min: Number(caps.zoom.min),
+      max: Number(caps.zoom.max),
+      step: Number(caps.zoom.step || 0.1),
+    };
+
+    $("#scanner-zoom-wrap-vpro")?.classList.remove("hidden");
+
+    const profile = cargarPerfilScannerVPro();
+    const preferred = Math.max(
+      scannerZoomCapsVPro.min,
+      Math.min(
+        Math.min(scannerZoomCapsVPro.max, 2.2),
+        Number(profile.preferredZoom || settings.zoom || 1)
+      )
+    );
+
+    await aplicarZoomScannerVPro(preferred, { silencioso: true });
+  } else {
+    scannerZoomCapsVPro = null;
+    $("#scanner-zoom-wrap-vpro")?.classList.add("hidden");
+    scannerCurrentZoomVPro = 1;
+    actualizarZoomUIVPro();
+  }
+}
+
+function actualizarZoomUIVPro() {
+  const el = $("#scanner-zoom-value-vpro");
+  if (el) el.textContent = `${Number(scannerCurrentZoomVPro || 1).toFixed(1)}×`;
+}
+
+async function aplicarZoomScannerVPro(value, { silencioso = false } = {}) {
+  if (!scannerTrackVPro || !scannerZoomCapsVPro) return;
+
+  const min = scannerZoomCapsVPro.min;
+  const max = Math.min(scannerZoomCapsVPro.max, 3);
+  const z = Math.max(min, Math.min(max, Number(value)));
+
+  try {
+    await scannerTrackVPro.applyConstraints({
+      advanced: [{ zoom: z }]
+    });
+    scannerCurrentZoomVPro = z;
+    actualizarZoomUIVPro();
+
+    if (!silencioso) {
+      mostrarHintScannerVPro(`Zoom ${z.toFixed(1)}×`, "info");
+      setTimeout(() => {
+        if ($("#scanner-hint-vpro")?.textContent?.startsWith("Zoom")) {
+          mostrarHintScannerVPro("");
+        }
+      }, 900);
+    }
+  } catch (err) {
+    console.debug("[Scanner Pro] zoom no aplicable:", err);
+  }
+}
+
+async function cambiarZoomScannerVPro(delta) {
+  if (!scannerZoomCapsVPro) return;
+  const step = Math.max(0.1, scannerZoomCapsVPro.step || 0.1);
+  await aplicarZoomScannerVPro(scannerCurrentZoomVPro + delta * step * 2);
+}
+
+async function toggleTorchScannerVPro() {
+  if (!scannerTrackVPro || !scannerTorchSupportedVPro) return;
+
+  scannerTorchOnVPro = !scannerTorchOnVPro;
+
+  try {
+    await scannerTrackVPro.applyConstraints({
+      advanced: [{ torch: scannerTorchOnVPro }]
+    });
+
+    const btn = $("#btn-scanner-torch-vpro");
+    btn?.classList.toggle("active", scannerTorchOnVPro);
+    if (btn) {
+      const small = btn.querySelector("small");
+      if (small) small.textContent = scannerTorchOnVPro ? "Apagar" : "Linterna";
+    }
+  } catch (err) {
+    scannerTorchOnVPro = false;
+    console.debug("[Scanner Pro] torch no aplicable:", err);
+  }
+}
+
+async function iniciarDetectorNativoVPro() {
+  if (!("BarcodeDetector" in window)) {
+    scannerNativeDetectorVPro = null;
+    return false;
+  }
+
+  try {
+    const wanted = [
+      "ean_13", "ean_8", "upc_a", "upc_e",
+      "code_128", "code_39", "itf", "codabar"
+    ];
+
+    let supported = wanted;
+
+    if (typeof BarcodeDetector.getSupportedFormats === "function") {
+      const browserFormats = await BarcodeDetector.getSupportedFormats();
+      supported = wanted.filter((f) => browserFormats.includes(f));
+    }
+
+    if (!supported.length) return false;
+
+    scannerNativeDetectorVPro = new BarcodeDetector({ formats: supported });
+    actualizarEngineScannerVPro("Nativo + ZXing");
+
+    const loop = async () => {
+      if (
+        !scannerNativeDetectorVPro ||
+        scannerNativeBusyVPro ||
+        $("#modal-scanner-v29")?.classList.contains("hidden")
+      ) {
+        scannerNativeLoopVPro = requestAnimationFrame(loop);
+        return;
+      }
+
+      const video = $("#scanner-video-v29");
+
+      if (video?.readyState >= 2 && video.videoWidth > 0) {
+        scannerNativeBusyVPro = true;
+
+        try {
+          const codes = await scannerNativeDetectorVPro.detect(video);
+          const hit = codes?.find((c) => c?.rawValue);
+
+          if (hit?.rawValue) {
+            procesarCodigoV29(hit.rawValue, {
+              engine: "native",
+              format: hit.format || "",
+            });
+          }
+        } catch {
+          // El detector nativo puede fallar en frames durante autofocus.
+        } finally {
+          scannerNativeBusyVPro = false;
+        }
+      }
+
+      scannerNativeLoopVPro = requestAnimationFrame(loop);
+    };
+
+    scannerNativeLoopVPro = requestAnimationFrame(loop);
+    return true;
+  } catch (err) {
+    console.debug("[Scanner Pro] BarcodeDetector no disponible:", err);
+    scannerNativeDetectorVPro = null;
+    return false;
+  }
+}
+
+function detenerDetectorNativoVPro() {
+  if (scannerNativeLoopVPro) {
+    cancelAnimationFrame(scannerNativeLoopVPro);
+  }
+  scannerNativeLoopVPro = null;
+  scannerNativeDetectorVPro = null;
+  scannerNativeBusyVPro = false;
+}
+
+function iniciarAsistenciaScannerVPro() {
+  clearInterval(scannerAssistTimerVPro);
+  clearInterval(scannerAutoZoomTimerVPro);
+
+  scannerAssistTimerVPro = setInterval(() => {
+    const video = $("#scanner-video-v29");
+    if (!video || video.readyState < 2 || video.videoWidth < 2) return;
+
+    try {
+      const c = document.createElement("canvas");
+      c.width = 64;
+      c.height = 48;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(video, 0, 0, c.width, c.height);
+
+      const px = ctx.getImageData(0, 0, c.width, c.height).data;
+      let lum = 0;
+
+      for (let i = 0; i < px.length; i += 16) {
+        lum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      }
+
+      const samples = px.length / 16;
+      const avg = samples ? lum / samples : 120;
+
+      if (avg < 52 && scannerTorchSupportedVPro && !scannerTorchOnVPro) {
+        mostrarHintScannerVPro("Hay poca luz · probá encender la linterna", "warning");
+      } else if (
+        $("#scanner-hint-vpro")?.textContent?.includes("poca luz")
+      ) {
+        mostrarHintScannerVPro("");
+      }
+    } catch {}
+  }, 1300);
+
+  scannerAutoZoomTimerVPro = setInterval(async () => {
+    if (
+      !scannerZoomCapsVPro ||
+      scannerLastSuccessAtVPro >= scannerOpenedAtVPro ||
+      $("#modal-scanner-v29")?.classList.contains("hidden")
+    ) {
+      return;
+    }
+
+    const elapsed = Date.now() - scannerOpenedAtVPro;
+
+    if (elapsed < 2600) return;
+
+    const maxAdaptive = Math.min(scannerZoomCapsVPro.max, 1.8);
+
+    if (scannerCurrentZoomVPro < maxAdaptive - 0.05) {
+      await aplicarZoomScannerVPro(
+        Math.min(maxAdaptive, scannerCurrentZoomVPro + 0.2),
+        { silencioso: true }
+      );
+
+      const status = $("#scanner-status-v29");
+      if (status) {
+        status.textContent =
+          `Buscando · autozoom ${scannerCurrentZoomVPro.toFixed(1)}×`;
+      }
+    }
+  }, 2200);
+}
+
+function detenerAsistenciaScannerVPro() {
+  clearInterval(scannerAssistTimerVPro);
+  clearInterval(scannerAutoZoomTimerVPro);
+  scannerAssistTimerVPro = null;
+  scannerAutoZoomTimerVPro = null;
+}
+
+async function probarCanvasConLectoresVPro(canvas, label = "capture") {
+  // 1) Detector nativo.
+  if ("BarcodeDetector" in window) {
+    try {
+      const detector =
+        scannerNativeDetectorVPro ||
+        new BarcodeDetector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf"]
+        });
+
+      const codes = await detector.detect(canvas);
+      const hit = codes?.find((c) => c?.rawValue);
+
+      if (hit?.rawValue) {
+        await procesarCodigoV29(hit.rawValue, {
+          engine: label,
+          format: hit.format || "",
+        });
+        return true;
+      }
+    } catch {}
+  }
+
+  // 2) ZXing sobre imagen fija.
+  try {
+    const reader = new ZXingBrowser.BrowserMultiFormatReader();
+    if (typeof reader.decodeFromCanvas === "function") {
+      const result = await reader.decodeFromCanvas(canvas);
+      if (result?.getText?.()) {
+        await procesarCodigoV29(result.getText(), {
+          engine: label,
+          format: result.getBarcodeFormat?.()?.toString?.() || "",
+        });
+        return true;
+      }
+    }
+  } catch {}
+
+  return false;
+}
+
+function crearCanvasFrameVPro({ contrast = 1, threshold = null, crop = 0.04 } = {}) {
+  const video = $("#scanner-video-v29");
+  if (!video?.videoWidth || !video?.videoHeight) return null;
+
+  const sx = Math.round(video.videoWidth * crop);
+  const sy = Math.round(video.videoHeight * crop);
+  const sw = Math.round(video.videoWidth * (1 - crop * 2));
+  const sh = Math.round(video.videoHeight * (1 - crop * 2));
+
+  const maxW = 1600;
+  const scale = Math.min(1, maxW / sw);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(
+    video,
+    sx, sy, sw, sh,
+    0, 0, canvas.width, canvas.height
+  );
+
+  if (contrast !== 1 || threshold != null) {
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data;
+
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i], g = d[i + 1], b = d[i + 2];
+      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      gray = (gray - 128) * contrast + 128;
+      gray = Math.max(0, Math.min(255, gray));
+
+      if (threshold != null) {
+        gray = gray >= threshold ? 255 : 0;
+      }
+
+      d[i] = d[i + 1] = d[i + 2] = gray;
+    }
+
+    ctx.putImageData(img, 0, 0);
+  }
+
+  return canvas;
+}
+
+async function capturarYAnalizarScannerVPro() {
+  const btn = $("#btn-scanner-capture-vpro");
+  const status = $("#scanner-status-v29");
+
+  if (!$("#scanner-video-v29")?.videoWidth) {
+    mostrarHintScannerVPro("La cámara todavía no está lista", "warning");
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  setScannerAnimandoV29(false);
+  if (status) status.textContent = "Analizando captura con varios filtros…";
+
+  try {
+    const variants = [
+      { contrast: 1, threshold: null, crop: 0.02 },
+      { contrast: 1.45, threshold: null, crop: 0.04 },
+      { contrast: 1.8, threshold: null, crop: 0.07 },
+      { contrast: 1.25, threshold: 125, crop: 0.04 },
+      { contrast: 1.25, threshold: 155, crop: 0.04 },
+    ];
+
+    for (const opts of variants) {
+      const canvas = crearCanvasFrameVPro(opts);
+      if (!canvas) continue;
+
+      const ok = await probarCanvasConLectoresVPro(canvas, "capture");
+      if (ok) return;
+    }
+
+    if (status) status.textContent = "No pude leer esa captura";
+    mostrarHintScannerVPro(
+      "Probá estirar el envase, cambiar el ángulo o usar un poco de zoom",
+      "warning"
+    );
+    navigator.vibrate?.([35, 45, 35]);
+    setScannerAnimandoV29(true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+
 let usbBufferV29 = "";
 let usbStartedAtV29 = 0;
 let usbLastAtV29 = 0;
@@ -4277,51 +4821,98 @@ function cancelarRegistroDesdeScannerV214() {
   ocultarCodigoNoRegistradoV214();
 
   const status = $("#scanner-status-v29");
-  if (status) status.textContent = "Cámara activa · acercá el código al centro";
+  if (status) status.textContent = "Cámara activa · mantené el código dentro del marco";
+  scannerOpenedAtVPro = Date.now();
+  scannerLastSuccessAtVPro = 0;
 }
 
 
-async function procesarCodigoV29(code) {
-  code=String(code||"").replace(/\D/g,"").trim(); if(!code)return;
+async function procesarCodigoV29(code, meta = {}) {
+  code = String(code || "").replace(/\D/g, "").trim();
+  if (!code) return;
+
+  const now = Date.now();
+
+  if (code === scannerLastCodeV29 && now - scannerLastAtV29 < 900) {
+    return;
+  }
+
+  scannerLastCodeV29 = code;
+  scannerLastAtV29 = now;
+
   setScannerAnimandoV29(false);
-  const now=Date.now(); if(code===scannerLastCodeV29 && now-scannerLastAtV29<900)return; scannerLastCodeV29=code;scannerLastAtV29=now;
-  if(scannerModeV29==="venta"){
-    const p=productos.find(x=>x.codigoBarras===code);
+
+  if (meta.engine && meta.engine !== "manual" && meta.engine !== "usb") {
+    registrarExitoScannerVPro({
+      engine: meta.engine,
+      format: meta.format || "",
+      zoom: scannerCurrentZoomVPro,
+    });
+  }
+
+  if (scannerModeV29 === "venta") {
+    const p = productos.find((x) => x.codigoBarras === code);
+
     if (p) {
       agregarAlCarrito(p.id);
       renderVentaProductos();
 
       const s = $("#scanner-status-v29");
-      if (s) s.textContent = `✓ ${p.nombre} agregado`;
+      if (s) {
+        const engine =
+          meta.engine === "native" ? " · detector nativo" :
+          meta.engine === "capture" ? " · captura mejorada" :
+          meta.engine === "zxing" ? " · ZXing" : "";
 
-      navigator.vibrate?.(60);
+        s.textContent = `✓ ${p.nombre} agregado${engine}`;
+      }
 
-      // En Nueva venta el flujo es:
-      // venta -> scanner -> producto leído -> volver automáticamente a venta.
+      navigator.vibrate?.(70);
+
       setTimeout(() => {
         cerrarScannerV29();
-      }, 220);
-    }
-    else {
+      }, 260);
+    } else {
       mostrarCodigoNoRegistradoV214(code);
     }
+
     return;
   }
-  if(scannerModeV29==="producto"){
-    const existing=productos.find(x=>x.codigoBarras===code && x.id!==productoEditandoId);
+
+  if (scannerModeV29 === "producto") {
+    const existing = productos.find(
+      (x) => x.codigoBarras === code && x.id !== productoEditandoId
+    );
+
     cerrarScannerV29();
-    if(existing){mostrarToast(`El código ya corresponde a ${existing.nombre}`,"info");abrirModal(existing);return;}
-    $("#codigo-barras").value=code; await buscarDatosBarcodeV29(code);
+
+    if (existing) {
+      mostrarToast(`El código ya corresponde a ${existing.nombre}`, "info");
+      abrirModal(existing);
+      return;
+    }
+
+    $("#codigo-barras").value = code;
+    await buscarDatosBarcodeV29(code);
   }
 }
 
 async function abrirScannerV29(mode) {
-  scannerModeV29=mode;
-  scannerLastCodeV29="";
-  scannerLastAtV29=0;
-  scannerClosingV29=false;
-  pendingScannedCodeV214=null;
+  scannerModeV29 = mode;
+  scannerLastCodeV29 = "";
+  scannerLastAtV29 = 0;
+  scannerClosingV29 = false;
+  pendingScannedCodeV214 = null;
+  scannerOpenedAtVPro = Date.now();
+  scannerLastSuccessAtVPro = 0;
+  scannerEngineSuccessVPro = null;
+  scannerTorchOnVPro = false;
+  scannerCurrentZoomVPro = 1;
+
   ocultarCodigoNoRegistradoV214();
+  mostrarHintScannerVPro("");
+  actualizarTextoAdaptativoVPro();
+  actualizarEngineScannerVPro("Preparando");
 
   document.body.classList.add("scanner-v29-open");
 
@@ -4329,66 +4920,153 @@ async function abrirScannerV29(mode) {
   const ventaModal = $("#modal-venta");
 
   if (scannerModal) {
-    scannerModal.style.zIndex = "10000";
+    scannerModal.style.zIndex = "12000";
     scannerModal.classList.remove("hidden");
   }
 
-  // Cuando se abre desde Nueva venta, dejamos el POS detrás sin cerrarlo.
   if (mode === "venta" && ventaModal) {
     ventaModal.classList.add("modal-behind-scanner");
     ventaModal.setAttribute("aria-hidden", "true");
-  } $("#scanner-mode-label-v29").textContent=mode==="venta"?"Escaneá productos: se agregan directamente al carrito.":"Apuntá la cámara al código del producto.";
-  $("#scanner-status-v29").textContent="Solicitando cámara...";
+  }
+
+  $("#scanner-mode-label-v29").textContent =
+    mode === "venta"
+      ? "Escaneá productos: se agregan directamente al carrito."
+      : "Apuntá la cámara al código del producto.";
+
+  $("#scanner-status-v29").textContent =
+    "Abriendo cámara trasera en alta resolución…";
+
   setScannerAnimandoV29(false);
-  try{
-    if(!window.ZXingBrowser?.BrowserMultiFormatReader)throw new Error("El lector de códigos no cargó");
-    scannerReaderV29 = new ZXingBrowser.BrowserMultiFormatReader();
 
-    const videoEl = $("#scanner-video-v29");
-    let selectedDeviceId;
-
-    try {
-      const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-      const backCamera =
-        devices.find(d => /back|rear|environment|trasera/i.test(d.label || "")) ||
-        devices[devices.length - 1];
-
-      selectedDeviceId = backCamera?.deviceId;
-    } catch (deviceError) {
-      console.warn("[Scanner] No se pudo enumerar cámaras:", deviceError);
+  try {
+    if (!window.ZXingBrowser?.BrowserMultiFormatReader) {
+      throw new Error("El lector de códigos no cargó");
     }
 
-    scannerControlsV29 = await scannerReaderV29.decodeFromVideoDevice(
-      selectedDeviceId,
-      videoEl,
-      (result, error) => {
-        if (result) procesarCodigoV29(result.getText());
-      }
-    );
+    scannerReaderV29 = new ZXingBrowser.BrowserMultiFormatReader();
+    const videoEl = $("#scanner-video-v29");
+
+    // Pedimos explícitamente cámara trasera + resolución alta.
+    // BrowserMultiFormatReader permite controlar la captura con constraints.
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920, min: 720 },
+        height: { ideal: 1080, min: 480 },
+        frameRate: { ideal: 30, min: 15 },
+      },
+    };
+
+    if (typeof scannerReaderV29.decodeFromConstraints === "function") {
+      scannerControlsV29 = await scannerReaderV29.decodeFromConstraints(
+        constraints,
+        videoEl,
+        (result) => {
+          if (result) {
+            procesarCodigoV29(result.getText(), {
+              engine: "zxing",
+              format: result.getBarcodeFormat?.()?.toString?.() || "",
+            });
+          }
+        }
+      );
+    } else {
+      // Fallback para builds viejos de ZXing.
+      let selectedDeviceId;
+
+      try {
+        const devices =
+          await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+
+        const backCamera =
+          devices.find((d) =>
+            /back|rear|environment|trasera/i.test(d.label || "")
+          ) || devices[devices.length - 1];
+
+        selectedDeviceId = backCamera?.deviceId;
+      } catch {}
+
+      scannerControlsV29 = await scannerReaderV29.decodeFromVideoDevice(
+        selectedDeviceId,
+        videoEl,
+        (result) => {
+          if (result) {
+            procesarCodigoV29(result.getText(), {
+              engine: "zxing",
+              format: result.getBarcodeFormat?.()?.toString?.() || "",
+            });
+          }
+        }
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    await configurarTrackScannerVPro();
+
+    const nativeOk = await iniciarDetectorNativoVPro();
+
+    if (!nativeOk) {
+      actualizarEngineScannerVPro("ZXing");
+    }
+
+    iniciarAsistenciaScannerVPro();
 
     $("#scanner-status-v29").textContent =
-      "Cámara activa · acercá el código al centro";
+      "Cámara activa · mantené el código dentro del marco";
+
     setScannerAnimandoV29(true);
-  }catch(err){
+  } catch (err) {
     setScannerAnimandoV29(false);
-    console.error("Scanner",err);
-    $("#scanner-status-v29").textContent="No se pudo abrir la cámara. Revisá permisos o ingresá el código manualmente.";
+    detenerDetectorNativoVPro();
+    detenerAsistenciaScannerVPro();
+
+    console.error("[Scanner Pro]", err);
+
+    $("#scanner-status-v29").textContent =
+      "No se pudo abrir la cámara. Revisá permisos o ingresá el código manualmente.";
+
+    mostrarHintScannerVPro(
+      "Si el teléfono tiene varias cámaras, probá cerrar y volver a abrir el scanner.",
+      "warning"
+    );
   }
 }
 
 function cerrarScannerV29() {
   setScannerAnimandoV29(false);
-  try{scannerControlsV29?.stop?.();}catch{} scannerControlsV29=null;scannerReaderV29=null; scannerModeV29=null;
-  const v=$("#scanner-video-v29");
-  if(v?.srcObject){
-    v.srcObject.getTracks().forEach(t=>t.stop());
-    v.srcObject=null;
+  detenerDetectorNativoVPro();
+  detenerAsistenciaScannerVPro();
+
+  try {
+    scannerControlsV29?.stop?.();
+  } catch {}
+
+  scannerControlsV29 = null;
+  scannerReaderV29 = null;
+  scannerModeV29 = null;
+  scannerNativeDetectorVPro = null;
+  scannerTrackVPro = null;
+  scannerZoomCapsVPro = null;
+  scannerTorchOnVPro = false;
+  scannerTorchSupportedVPro = false;
+
+  const v = $("#scanner-video-v29");
+
+  if (v?.srcObject) {
+    v.srcObject.getTracks().forEach((t) => t.stop());
+    v.srcObject = null;
   }
+
   const scannerModal = $("#modal-scanner-v29");
   const ventaModal = $("#modal-venta");
 
   scannerModal?.classList.add("hidden");
-  if (scannerModal) scannerModal.style.zIndex = "";
+
+  if (scannerModal) {
+    scannerModal.style.zIndex = "";
+  }
 
   document.body.classList.remove("scanner-v29-open");
 
@@ -4396,6 +5074,10 @@ function cerrarScannerV29() {
     ventaModal.classList.remove("modal-behind-scanner");
     ventaModal.removeAttribute("aria-hidden");
   }
+
+  mostrarHintScannerVPro("");
+  $("#btn-scanner-torch-vpro")?.classList.remove("active");
+  $("#scanner-zoom-wrap-vpro")?.classList.add("hidden");
 
   setTimeout(() => {
     scannerClosingV29 = false;
@@ -4436,10 +5118,14 @@ function setupV29() {
   $("#btn-scan-producto")?.addEventListener("click",()=>abrirScannerV29("producto")); $("#btn-scan-venta")?.addEventListener("click",()=>abrirScannerV29("venta"));
   $("#btn-buscar-barcode")?.addEventListener("click",()=>buscarDatosBarcodeV29($("#codigo-barras").value));
   $("#btn-close-scanner-v29")?.addEventListener("click",cerrarScannerV29); $("#modal-scanner-v29 .modal-backdrop")?.addEventListener("click",cerrarScannerV29);
-  $("#btn-use-manual-code-v29")?.addEventListener("click",()=>procesarCodigoV29($("#scanner-manual-code-v29").value));
+  $("#btn-use-manual-code-v29")?.addEventListener("click",()=>procesarCodigoV29($("#scanner-manual-code-v29").value, { engine: "manual" }));
+  $("#btn-scanner-torch-vpro")?.addEventListener("click", toggleTorchScannerVPro);
+  $("#btn-scanner-zoom-out-vpro")?.addEventListener("click", () => cambiarZoomScannerVPro(-1));
+  $("#btn-scanner-zoom-in-vpro")?.addEventListener("click", () => cambiarZoomScannerVPro(1));
+  $("#btn-scanner-capture-vpro")?.addEventListener("click", capturarYAnalizarScannerVPro);
   $("#btn-register-scanned-v214")?.addEventListener("click", registrarProductoDesdeScannerV214);
   $("#btn-cancel-register-scanned-v214")?.addEventListener("click", cancelarRegistroDesdeScannerV214);
-  $("#scanner-manual-code-v29")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();procesarCodigoV29(e.target.value);}});
+  $("#scanner-manual-code-v29")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();procesarCodigoV29(e.target.value, { engine: "manual" });}});
   $("#btn-close-catalogo-v29")?.addEventListener("click",cerrarCatalogoV29);$("#btn-cancel-catalogo-v29")?.addEventListener("click",cerrarCatalogoV29);$("#modal-catalogo-v29 .modal-backdrop")?.addEventListener("click",cerrarCatalogoV29);
   $("#catalog-search-v29")?.addEventListener("input",renderCatalogoV29);
   document.querySelectorAll(".catalog-tab-v29").forEach(b=>b.addEventListener("click",()=>{catalogoTipoV29=b.dataset.catalog;catalogoSeleccionV29=new Set(catalogItemsV29().map(x=>x.nombre));renderCatalogoV29();}));
@@ -4452,7 +5138,7 @@ function setupV29() {
   document.addEventListener("keydown",e=>{
     const saleOpen=!$("#modal-venta")?.classList.contains("hidden"); const productOpen=!$("#modal")?.classList.contains("hidden"); if(!saleOpen&&!productOpen)return;
     const now=performance.now();
-    if(e.key==="Enter"){if(usbBufferV29.length>=6 && now-usbStartedAtV29<2500){e.preventDefault();const code=usbBufferV29;usbBufferV29="";scannerModeV29=saleOpen?"venta":"producto";procesarCodigoV29(code);if(productOpen)scannerModeV29=null;}else usbBufferV29="";return;}
+    if(e.key==="Enter"){if(usbBufferV29.length>=6 && now-usbStartedAtV29<2500){e.preventDefault();const code=usbBufferV29;usbBufferV29="";scannerModeV29=saleOpen?"venta":"producto";procesarCodigoV29(code, { engine: "usb" });if(productOpen)scannerModeV29=null;}else usbBufferV29="";return;}
     if(/^\d$/.test(e.key)){if(now-usbLastAtV29>180){usbBufferV29="";usbStartedAtV29=now;}if(!usbBufferV29)usbStartedAtV29=now;usbBufferV29+=e.key;usbLastAtV29=now;}
   },true);
 }

@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -146,7 +146,7 @@
   <!-- Onboarding primera vez -->
   <div id="onboarding" class="onboarding hidden">
     <div class="onboarding-card">
-      <div class="onboarding-logo">🏪</div>
+      <div class="onboarding-logo">V</div>
       <h1>Vendify</h1>
       <p class="onboarding-lead">Empezá a controlar ventas, stock y rendimiento de tu negocio.</p>
       <ul class="onboarding-list">
@@ -163,54 +163,19 @@
 
   <div class="app hidden">
     <!-- Header -->
-    <header class="header">
-      <div class="header-left">
-        <div class="logo">
-          <span class="logo-icon">🏪</span>
-          <div>
-            <h1>Vendify</h1>
-            <p class="subtitle">Ventas · Stock · Gestión</p>
-          </div>
-        </div>
-      </div>
-      <div class="header-actions">
-        <div class="contexto-negocio" title="Usuario activo">
-          <strong id="context-usuario">Usuario</strong>
-          <span id="context-rol">Rol</span>
-        </div>
-
-        <div class="branch-switcher-v226" title="Sucursal activa">
-          <span class="branch-switcher-icon-v226">⌂</span>
-          <div class="branch-switcher-copy-v226">
-            <small>Sucursal</small>
-            <select id="branch-selector-v226" aria-label="Sucursal activa">
-              <option value="">Cargando...</option>
-            </select>
+    <header class="header header-vpro">
+      <div class="header-top-vpro">
+        <div class="header-left">
+          <div class="logo logo-vpro">
+            <span class="logo-icon logo-icon-vpro" aria-label="Vendify">V</span>
+            <div class="brand-copy-vpro">
+              <h1>Vendify</h1>
+              <p class="subtitle">Ventas, stock y caja. Todo bajo control.</p>
+            </div>
           </div>
         </div>
 
-                <div class="cash-switcher-v227" title="Caja activa">
-          <span class="cash-switcher-icon-v227">▣</span>
-          <div class="cash-switcher-copy-v227"><small>Caja</small><select id="cash-selector-v227" aria-label="Caja activa"><option value="">Cargando...</option></select></div>
-        </div>
-        <button id="btn-caja-v227" class="btn btn-ghost cash-status-btn-v227" type="button" title="Abrir panel de caja">
-          <span id="cash-status-dot-v227" class="cash-status-dot-v227 closed"></span><span id="cash-status-label-v227">Caja cerrada</span>
-        </button>
-
-<button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
-          <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
-        </button>
-<button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
-          <span>▣</span><span>Vender</span>
-        </button>
-        <button id="btn-nuevo" class="btn btn-primary header-primary">
-          <span>＋</span><span>Producto</span>
-        </button>
-        <button id="btn-equipo" class="btn btn-secondary header-action" title="Administrar equipo y permisos">
-          <span class="header-action-icon">👥</span><span class="header-action-label">Equipo</span>
-        </button>
-
-        <div class="user-menu-wrap">
+        <div class="user-menu-wrap user-menu-top-vpro">
           <button id="btn-user-menu" class="user-menu-trigger" type="button" aria-expanded="false" aria-haspopup="menu">
             <span class="user-avatar" id="user-avatar">U</span>
             <span class="user-menu-copy">
@@ -233,6 +198,54 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="header-actions header-actions-vpro">
+        <div class="contexto-negocio" title="Usuario activo">
+          <strong id="context-usuario">Usuario</strong>
+          <span id="context-rol">Rol</span>
+        </div>
+
+        <div class="branch-switcher-v226" title="Sucursal activa">
+          <span class="branch-switcher-icon-v226">⌂</span>
+          <div class="branch-switcher-copy-v226">
+            <small>Sucursal</small>
+            <select id="branch-selector-v226" aria-label="Sucursal activa">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cash-switcher-v227" title="Caja activa">
+          <span class="cash-switcher-icon-v227">▣</span>
+          <div class="cash-switcher-copy-v227">
+            <small>Caja</small>
+            <select id="cash-selector-v227" aria-label="Caja activa">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="btn-caja-v227" class="btn btn-ghost cash-status-btn-v227" type="button" title="Abrir panel de caja">
+          <span id="cash-status-dot-v227" class="cash-status-dot-v227 closed"></span>
+          <span id="cash-status-label-v227">Caja cerrada</span>
+        </button>
+
+        <button id="btn-historial" class="btn btn-ghost header-action" title="Historial de ventas">
+          <span class="header-action-icon">▤</span><span class="header-action-label">Historial</span>
+        </button>
+
+        <button id="btn-vender" class="btn btn-primary btn-vender header-primary" title="Nueva venta (V)">
+          <span>▣</span><span>Vender</span>
+        </button>
+
+        <button id="btn-nuevo" class="btn btn-primary header-primary">
+          <span>＋</span><span>Producto</span>
+        </button>
+
+        <button id="btn-equipo" class="btn btn-secondary header-action" title="Administrar equipo y permisos">
+          <span class="header-action-icon">👥</span><span class="header-action-label">Equipo</span>
+        </button>
       </div>
     </header>
 <!-- Stats -->
@@ -657,17 +670,62 @@
   </div>
 
 
-  <!-- Scanner de código de barras -->
+  <!-- Scanner Pro -->
   <div id="modal-scanner-v29" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-backdrop"></div>
-    <div class="modal-content modal-scanner-v29">
-      <div class="modal-header">
-        <div><h2>Escanear código</h2><p class="hint" id="scanner-mode-label-v29">Apuntá la cámara al código de barras.</p></div>
+    <div class="modal-content modal-scanner-v29 scanner-pro-modal">
+      <div class="modal-header scanner-pro-header">
+        <div>
+          <div class="scanner-pro-title-row">
+            <h2>Scanner Pro</h2>
+            <span id="scanner-engine-vpro" class="scanner-engine-vpro">Auto</span>
+          </div>
+          <p class="hint" id="scanner-mode-label-v29">Apuntá la cámara al código de barras.</p>
+        </div>
         <button class="btn-icon" id="btn-close-scanner-v29" aria-label="Cerrar">✕</button>
       </div>
-      <div class="modal-body">
-        <div class="scanner-video-wrap-v29"><video id="scanner-video-v29" playsinline muted></video><div class="scanner-line-v29"></div></div>
-        <div class="scanner-status-v29" id="scanner-status-v29">Preparando cámara...</div>
+
+      <div class="modal-body scanner-pro-body">
+        <div class="scanner-video-wrap-v29 scanner-pro-video">
+          <video id="scanner-video-v29" playsinline muted autoplay></video>
+
+          <div class="scanner-focus-frame-vpro" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="scanner-line-v29"></div>
+
+          <div class="scanner-camera-badges-vpro">
+            <span id="scanner-focus-badge-vpro" class="scanner-camera-badge-vpro">AF</span>
+            <span id="scanner-resolution-badge-vpro" class="scanner-camera-badge-vpro">HD</span>
+          </div>
+        </div>
+
+        <div class="scanner-status-v29 scanner-status-pro" id="scanner-status-v29">
+          Preparando cámara...
+        </div>
+
+        <div id="scanner-hint-vpro" class="scanner-hint-vpro hidden"></div>
+
+        <div class="scanner-tools-vpro">
+          <button type="button" class="scanner-tool-vpro hidden" id="btn-scanner-torch-vpro" title="Linterna">
+            <span>🔦</span><small>Linterna</small>
+          </button>
+
+          <div class="scanner-zoom-vpro hidden" id="scanner-zoom-wrap-vpro">
+            <button type="button" id="btn-scanner-zoom-out-vpro" aria-label="Alejar">−</button>
+            <span id="scanner-zoom-value-vpro">1.0×</span>
+            <button type="button" id="btn-scanner-zoom-in-vpro" aria-label="Acercar">＋</button>
+          </div>
+
+          <button type="button" class="scanner-tool-vpro scanner-capture-vpro" id="btn-scanner-capture-vpro" title="Capturar un frame nítido y analizarlo">
+            <span>◉</span><small>Capturar</small>
+          </button>
+        </div>
+
+        <div class="scanner-adaptive-vpro">
+          <span class="scanner-adaptive-dot-vpro"></span>
+          <span id="scanner-adaptive-text-vpro">Optimizando para este dispositivo</span>
+        </div>
 
         <div id="scanner-not-found-actions-v214" class="scanner-not-found-actions-v214 hidden">
           <p id="scanner-not-found-text-v214" class="hint"></p>

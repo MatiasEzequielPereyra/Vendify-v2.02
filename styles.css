@@ -6111,3 +6111,456 @@ body.scanner-v29-open #modal-scanner-v29 {
     display: none !important;
   }
 }
+
+
+/* ============================================================
+   Vendify — Brand refresh + Scanner Pro
+   ============================================================ */
+
+:root {
+  --brand-font: "Manrope", "Inter", system-ui, sans-serif;
+}
+
+/* ---------- Header / Brand ---------- */
+
+.header-vpro {
+  display: block !important;
+  margin-bottom: 1.35rem !important;
+}
+
+.header-top-vpro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: .85rem;
+}
+
+.logo-vpro {
+  align-items: center !important;
+  gap: .8rem !important;
+}
+
+.logo-icon-vpro {
+  width: 46px !important;
+  height: 46px !important;
+  flex: 0 0 46px;
+  display: grid !important;
+  place-items: center;
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, #60a5fa 0%, #2563eb 48%, #1d4ed8 100%);
+  color: #fff;
+  font-family: var(--brand-font);
+  font-size: 24px !important;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.08em;
+  text-indent: -.05em;
+  box-shadow:
+    0 10px 25px rgba(37, 99, 235, .24),
+    inset 0 1px 0 rgba(255,255,255,.35);
+  border: 1px solid rgba(255,255,255,.18);
+}
+
+.brand-copy-vpro {
+  min-width: 0;
+}
+
+.header-vpro h1 {
+  margin: 0 !important;
+  font-family: var(--brand-font);
+  font-size: 1.58rem !important;
+  line-height: 1.02;
+  font-weight: 800 !important;
+  letter-spacing: -.055em !important;
+  color: var(--text);
+}
+
+.header-vpro .subtitle {
+  margin: .23rem 0 0 !important;
+  color: var(--text-muted);
+  font-size: .76rem !important;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+
+.user-menu-top-vpro {
+  margin-left: auto;
+  align-self: center;
+}
+
+.header-actions-vpro {
+  width: 100%;
+  padding-top: .72rem;
+  border-top: 1px solid var(--border);
+  justify-content: flex-start !important;
+}
+
+.header-actions-vpro > #btn-equipo {
+  margin-left: auto;
+}
+
+/* Logo in auth/onboarding */
+.onboarding-logo {
+  font-family: var(--brand-font) !important;
+  background: linear-gradient(145deg, #60a5fa, #2563eb 52%, #1d4ed8) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  letter-spacing: -.08em;
+  box-shadow: 0 12px 30px rgba(37,99,235,.24);
+}
+
+/* ---------- Scanner Pro ---------- */
+
+.scanner-pro-modal {
+  width: min(570px, 94vw) !important;
+  max-width: 570px !important;
+  overflow: hidden !important;
+}
+
+.scanner-pro-header {
+  background: var(--surface);
+}
+
+.scanner-pro-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scanner-pro-title-row h2 {
+  margin: 0;
+  font-family: var(--brand-font);
+  letter-spacing: -.035em;
+}
+
+.scanner-engine-vpro {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.scanner-pro-body {
+  padding-top: 12px !important;
+}
+
+.scanner-pro-video {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  min-height: 320px;
+  background: #030712;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.02),
+    0 12px 32px rgba(0,0,0,.16);
+}
+
+.scanner-pro-video video {
+  filter: contrast(1.04) saturate(.9);
+}
+
+.scanner-focus-frame-vpro {
+  position: absolute;
+  inset: 16% 10%;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.scanner-focus-frame-vpro span {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+}
+
+.scanner-focus-frame-vpro span:nth-child(1) {
+  top: 0; left: 0;
+  border-top: 3px solid rgba(255,255,255,.95);
+  border-left: 3px solid rgba(255,255,255,.95);
+  border-radius: 9px 0 0 0;
+}
+
+.scanner-focus-frame-vpro span:nth-child(2) {
+  top: 0; right: 0;
+  border-top: 3px solid rgba(255,255,255,.95);
+  border-right: 3px solid rgba(255,255,255,.95);
+  border-radius: 0 9px 0 0;
+}
+
+.scanner-focus-frame-vpro span:nth-child(3) {
+  bottom: 0; left: 0;
+  border-bottom: 3px solid rgba(255,255,255,.95);
+  border-left: 3px solid rgba(255,255,255,.95);
+  border-radius: 0 0 0 9px;
+}
+
+.scanner-focus-frame-vpro span:nth-child(4) {
+  bottom: 0; right: 0;
+  border-bottom: 3px solid rgba(255,255,255,.95);
+  border-right: 3px solid rgba(255,255,255,.95);
+  border-radius: 0 0 9px 0;
+}
+
+.scanner-camera-badges-vpro {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  display: flex;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.scanner-camera-badge-vpro {
+  padding: 4px 6px;
+  border-radius: 7px;
+  background: rgba(3,7,18,.68);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,.9);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.scanner-status-pro {
+  padding: 8px 6px 5px !important;
+  font-size: 11px !important;
+  min-height: 31px;
+}
+
+.scanner-hint-vpro {
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.scanner-hint-vpro[data-type="warning"] {
+  background: rgba(245, 158, 11, .12);
+  color: var(--warning);
+}
+
+.scanner-tools-vpro {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: stretch;
+  gap: 8px;
+  margin: 5px 0 9px;
+}
+
+.scanner-tool-vpro {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.scanner-tool-vpro:hover,
+.scanner-tool-vpro.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.scanner-tool-vpro span {
+  font-size: 16px;
+}
+
+.scanner-tool-vpro small {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.scanner-zoom-vpro {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 38px 58px 38px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.scanner-zoom-vpro button {
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.scanner-zoom-vpro button:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.scanner-zoom-vpro span {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.scanner-capture-vpro {
+  background: var(--surface) !important;
+}
+
+.scanner-adaptive-vpro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 23px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.scanner-adaptive-dot-vpro {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.1);
+}
+
+.scanner-video-wrap-v29.is-scanning .scanner-line-v29 {
+  animation-duration: 1.45s !important;
+}
+
+/* Scanner line focus band, tighter for retail barcodes */
+.scanner-line-v29 {
+  left: 12% !important;
+  right: 12% !important;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 760px) {
+  .header-vpro {
+    margin-bottom: 1rem !important;
+  }
+
+  .header-top-vpro {
+    margin-bottom: .65rem;
+  }
+
+  .logo-icon-vpro {
+    width: 42px !important;
+    height: 42px !important;
+    flex-basis: 42px;
+    border-radius: 13px;
+    font-size: 22px !important;
+  }
+
+  .header-vpro h1 {
+    font-size: 1.36rem !important;
+  }
+
+  .header-vpro .subtitle {
+    max-width: 215px;
+    font-size: .69rem !important;
+  }
+
+  .user-menu-top-vpro .user-menu-trigger {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 4px !important;
+  }
+
+  .header-actions-vpro {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding-top: .6rem;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .header-actions-vpro::-webkit-scrollbar {
+    display: none;
+  }
+
+  .header-actions-vpro > * {
+    flex: 0 0 auto;
+  }
+
+  .header-actions-vpro > #btn-equipo {
+    margin-left: 0;
+  }
+
+  .scanner-pro-modal {
+    width: 96vw !important;
+    max-height: 95dvh !important;
+  }
+
+  .scanner-pro-body {
+    padding: 10px !important;
+    max-height: calc(95dvh - 72px);
+    overflow-y: auto;
+  }
+
+  .scanner-pro-video {
+    min-height: 0 !important;
+    aspect-ratio: 4 / 3;
+  }
+
+  .scanner-tools-vpro {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .scanner-tool-vpro {
+    min-height: 50px;
+  }
+
+  .scanner-zoom-vpro {
+    grid-template-columns: 36px 54px 36px;
+    min-height: 50px;
+  }
+
+  .scanner-manual-v29 {
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 390px) {
+  .header-vpro .subtitle {
+    max-width: 175px;
+  }
+
+  .scanner-tools-vpro {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .scanner-zoom-vpro {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: 1fr 70px 1fr;
+  }
+}
