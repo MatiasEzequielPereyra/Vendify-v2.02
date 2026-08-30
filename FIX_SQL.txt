@@ -1,0 +1,33 @@
+VENDIFY v2.30.1 SECURITY — FIX SQL
+===================================
+
+ERROR CORREGIDO
+---------------
+42P10: invalid reference to FROM-clause entry for table "c"
+
+CAUSA
+-----
+El backfill de categorías intentaba correlacionar el alias objetivo del
+UPDATE dentro de un subquery de FROM. PostgreSQL no permite esa referencia
+en ese contexto.
+
+SOLUCIÓN
+--------
+- Se crea primero `membresia_preferida` con un CTE.
+- Se prioriza la membresía owner cuando un usuario tiene más de una.
+- El UPDATE se hace mediante JOIN normal.
+- Se eliminan duplicados legacy de categorías por negocio antes de crear
+  el índice único.
+
+QUÉ HACER
+---------
+1. No hace falta rollback manual: el archivo anterior comenzó con BEGIN;
+   y falló antes de COMMIT.
+
+2. Ejecutar DESDE CERO:
+   security_hardening.sql
+
+3. Después ejecutar:
+   security_verify.sql
+
+4. Si ambos terminan bien, subir el frontend del ZIP.

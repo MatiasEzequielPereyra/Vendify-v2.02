@@ -25,19 +25,42 @@ alter table public.categorias
         references public.negocios(id) on delete cascade;
 
 -- Backfill de categorías legacy basadas en user_id.
-update public.categorias c
-   set negocio_id = x.negocio_id
-  from lateral (
-      select nm.negocio_id
-      from public.negocio_miembros nm
-      where nm.user_id = c.user_id
-        and nm.activo = true
-      order by
+--
+-- Se resuelve primero una membresía activa preferida por usuario
+-- y luego se actualizan las categorías mediante un JOIN válido.
+with membresia_preferida as (
+    select distinct on (nm.user_id)
+        nm.user_id,
+        nm.negocio_id
+    from public.negocio_miembros nm
+    where nm.activo = true
+    order by
+        nm.user_id,
         case when nm.rol = 'owner' then 0 else 1 end,
-        nm.creado
-      limit 1
-  ) x
- where c.negocio_id is null;
+        nm.creado,
+        nm.negocio_id
+)
+update public.categorias c
+   set negocio_id = mp.negocio_id
+  from membresia_preferida mp
+ where c.negocio_id is null
+   and c.user_id = mp.user_id;
+
+-- Limpiar duplicados legacy dentro del mismo negocio antes del índice único.
+with categorias_duplicadas as (
+    select
+        c.id,
+        row_number() over (
+            partition by c.negocio_id, lower(trim(c.nombre))
+            order by c.id
+        ) as rn
+    from public.categorias c
+    where c.negocio_id is not null
+)
+delete from public.categorias c
+using categorias_duplicadas d
+where c.id = d.id
+  and d.rn > 1;
 
 create unique index if not exists categorias_negocio_nombre_uidx
     on public.categorias(negocio_id, lower(nombre))
