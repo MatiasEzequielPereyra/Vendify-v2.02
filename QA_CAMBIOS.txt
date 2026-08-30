@@ -1,0 +1,75 @@
+VENDIFY — QA ESTABLE
+===================
+
+Esta build fue revisada estáticamente y con smoke tests de navegador.
+
+ARREGLOS PRINCIPALES
+--------------------
+1. SQL CRÍTICO
+   - Corregido un paréntesis extra en establecer_stock_inicial_v1 que invalidaba
+     la migración completa de Carga inicial.
+   - El SQL QA es idempotente y también asegura las tablas relevantes dentro de
+     supabase_realtime.
+
+2. SINCRONIZACIÓN ENTRE DISPOSITIVOS
+   - Historial de ventas, movimientos, compras y proveedores ahora reciben señales
+     Realtime propias además del Realtime de stock.
+   - Al volver al teléfono/PC se recarga el catálogo completo, no solo cantidades
+     de productos que ya estaban en memoria.
+   - Watchdog: stock liviano cada 10 s y reconciliación completa cada 60 s.
+   - Al reconectar se actualizan las vistas que estén abiertas.
+
+3. ARRANQUE / SESIÓN
+   - Eliminada la doble inicialización provocada por getSession + INITIAL_SESSION.
+   - Al cerrar sesión se limpia estado local de productos/carrito/contexto.
+   - Se valida que todos los dispositivos apunten al proyecto Supabase correcto;
+     una configuración equivocada ahora muestra un error visible en vez de mezclar
+     bases de datos silenciosamente.
+
+4. COMPRAS / PROVEEDORES
+   - Corregida una condición de carrera que podía mostrar 0 proveedores en las
+     estadísticas aunque existieran.
+   - Corregido el alta/edición de proveedor: respuestas ok=false ya no se muestran
+     como éxito (por ejemplo, nombre duplicado).
+
+5. INVENTARIO
+   - El historial reconoce Compra y Carga inicial con nombres/colores correctos.
+   - Se agregaron esos filtros al selector de movimientos.
+
+6. STOCK RÁPIDO
+   - Los clics rápidos + / - se serializan por producto para evitar que respuestas
+     de red fuera de orden dejen un valor viejo en pantalla.
+   - El cálculo de stock inteligente se actualiza con debounce y ya no bloquea cada
+     +1 durante la carga inicial.
+
+7. MODALES
+   - Jerarquía de z-index normalizada.
+   - PIN de descuento queda sobre Venta.
+   - Editores secundarios quedan sobre Config/Compras/Caja.
+   - Toasts quedan visibles sobre modales operativos.
+   - Confirmaciones quedan por encima de todo lo anterior.
+
+8. CÓDIGO LEGACY
+   - Removidas 8 funciones duplicadas que estaban siendo pisadas por versiones más
+     nuevas (renderGrid, guardarProducto, abrirModal, etc.).
+   - Eliminado el selector Lista/Grid viejo que ya no tenía botones visibles y podía
+     dejar un dispositivo en una vista distinta por localStorage antiguo.
+
+9. PWA / ASSETS
+   - El paquete vuelve a incluir supabase-config.js correcto y manifest.json.
+   - El Service Worker ya no intercepta requests a Supabase/CDNs/APIs externas.
+
+INSTALACIÓN
+-----------
+1. Ejecutar qa_backend_fixes.sql en Supabase SQL Editor.
+2. Reemplazar/subir TODOS los archivos y la carpeta icons incluidos en este ZIP.
+3. Hacer una recarga completa en PC y teléfono.
+
+PRUEBAS RECOMENDADAS
+--------------------
+- PC y teléfono en la misma sucursal: cambiar stock en uno y verificar el otro.
+- Hacer una venta con Historial abierto en el otro dispositivo.
+- Crear/editar un proveedor y comprobar actualización en otro dispositivo.
+- Carga inicial: pulsar + varias veces rápido.
+- Venta con descuento: confirmar que el PIN aparece sobre Venta.
+- Conteo físico: confirmar que el diálogo aparece sobre Inventario.

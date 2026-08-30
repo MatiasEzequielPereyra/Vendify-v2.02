@@ -8498,3 +8498,77 @@ html[data-realtime-status="subscribed"] {
 .row-stock-actions-v29 [data-action="restar"] {
   touch-action: manipulation;
 }
+
+
+/* ============================================================
+   Vendify QA — jerarquía consistente de overlays
+   ============================================================ */
+#modal-config,
+#modal-historial,
+#modal-inventario,
+#modal-compras,
+#modal-caja-operativa-v227,
+#modal-venta {
+  z-index: 3000;
+}
+
+#modal-sucursal-v226,
+#modal-caja-v226,
+#modal-transferencia-v226,
+#modal-compra-editor,
+#modal-proveedor-editor,
+#modal-caja-movimiento-v227,
+#modal-cash-close-v227,
+#modal-config-discount-pin {
+  z-index: 6000;
+}
+
+/* El scanner sigue por encima del POS; la autorización debe quedar todavía más arriba. */
+#modal-discount-auth {
+  z-index: 16000 !important;
+}
+
+.toast-container {
+  z-index: 19000 !important;
+}
+
+#modal-confirm {
+  z-index: 20000 !important;
+}
+
+.vendify-environment-error-vqa {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #07101f;
+  color: #e5edf8;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.vendify-environment-error-vqa > div {
+  width: min(520px, 94vw);
+  padding: 22px;
+  border: 1px solid rgba(239,68,68,.45);
+  border-radius: 16px;
+  background: #101827;
+  box-shadow: 0 25px 80px rgba(0,0,0,.45);
+}
+
+.vendify-environment-error-vqa strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.vendify-environment-error-vqa p {
+  margin: 0 0 8px;
+  color: #fecaca;
+  line-height: 1.45;
+}
+
+.vendify-environment-error-vqa small {
+  color: #94a3b8;
+}

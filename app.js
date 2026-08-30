@@ -16,6 +16,73 @@ const MAX_IMG_SIZE = 400;
 
 
 // ============================================================
+// QA — Integridad de entorno / arranque único
+// ============================================================
+const VENDIFY_EXPECTED_SUPABASE_REF = "puhkmblnptntorwptvld";
+let appBootPromiseVQA = null;
+let appBootUserIdVQA = null;
+
+function mostrarErrorEntornoVQA(mensaje) {
+  let box = document.querySelector("#vendify-environment-error-vqa");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "vendify-environment-error-vqa";
+    box.className = "vendify-environment-error-vqa";
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `
+    <div>
+      <strong>Vendify no puede iniciar</strong>
+      <p>${escapeHtml(String(mensaje || "Configuración inválida"))}</p>
+      <small>Revisá supabase-config.js antes de continuar.</small>
+    </div>`;
+}
+
+function validarEntornoSupabaseVQA() {
+  if (typeof supabaseClient === "undefined") {
+    mostrarErrorEntornoVQA("No se cargó la configuración de Supabase.");
+    return false;
+  }
+
+  let url = "";
+  try {
+    if (typeof SUPABASE_URL !== "undefined") url = String(SUPABASE_URL || "");
+  } catch {}
+  if (!url) url = String(supabaseClient?.supabaseUrl || "");
+
+  if (!url.includes(VENDIFY_EXPECTED_SUPABASE_REF)) {
+    mostrarErrorEntornoVQA(
+      `El frontend está apuntando a otro proyecto de Supabase (${url || "URL desconocida"}).`
+    );
+    console.error("[Vendify QA] Supabase project mismatch", { url });
+    return false;
+  }
+
+  return true;
+}
+
+async function mostrarAppSeguroVQA(session) {
+  const uid = session?.user?.id || null;
+  if (!uid) return;
+
+  if (appBootPromiseVQA) return appBootPromiseVQA;
+  if (appBootUserIdVQA === uid && appContext?.ready) return;
+
+  appBootUserIdVQA = uid;
+  appBootPromiseVQA = mostrarApp()
+    .catch((error) => {
+      appBootUserIdVQA = null;
+      throw error;
+    })
+    .finally(() => {
+      appBootPromiseVQA = null;
+    });
+
+  return appBootPromiseVQA;
+}
+
+
+// ============================================================
 // VENDIFY V2.3 - HELPERS LOGIN DUAL / EMPLEADOS
 // ============================================================
 
@@ -652,9 +719,18 @@ async function initAuth() {
       return;
     }
 
+    // getSession() ya resuelve la sesión inicial. Evita una segunda carga
+    // completa cuando Supabase emite INITIAL_SESSION.
+    if (event === "INITIAL_SESSION") return;
+
     if (session && !flujoRecuperacionActivo) {
-      await mostrarApp();
+      await mostrarAppSeguroVQA(session);
     } else if (!session) {
+      appBootUserIdVQA = null;
+      appBootPromiseVQA = null;
+      limpiarContextoApp();
+      productos = [];
+      carrito = [];
       mostrarLogin();
       if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
@@ -663,8 +739,11 @@ async function initAuth() {
     }
   });
 
-  if (sesionActual && !flujoRecuperacionActivo) await mostrarApp();
-  else mostrarLogin();
+  if (sesionActual && !flujoRecuperacionActivo) {
+    await mostrarAppSeguroVQA(sesionActual);
+  } else {
+    mostrarLogin();
+  }
 }
 
 function mostrarLogin() {
@@ -1237,6 +1316,70 @@ let realtimeStatus = "IDLE";
 let realtimeFullRefreshTimer = null;
 let realtimeSyncInFlight = false;
 
+let realtimeFullSyncInFlightVQA = false;
+let realtimeDependentTimerVQA = null;
+let realtimeLastFullSyncVQA = 0;
+
+async function sincronizarCatalogoCompletoVQA({ silencioso = true } = {}) {
+  if (
+    realtimeFullSyncInFlightVQA ||
+    !appContext?.ready ||
+    !appContext?.branch?.id ||
+    document.visibilityState === "hidden"
+  ) return;
+
+  realtimeFullSyncInFlightVQA = true;
+  try {
+    await cargarProductos();
+    actualizarFiltroCategorias();
+    renderGrid();
+    aplicarPermisosV2();
+
+    if (!$("#modal-venta")?.classList.contains("hidden")) {
+      renderVentaProductos();
+      renderCarrito();
+    }
+
+    realtimeLastFullSyncVQA = Date.now();
+  } catch (error) {
+    console.warn("[Vendify QA] sync completo falló:", error?.message || error);
+    if (!silencioso) mostrarToast("No se pudieron resincronizar los datos", "error");
+  } finally {
+    realtimeFullSyncInFlightVQA = false;
+  }
+}
+
+function refrescarVistasDependientesRealtimeVQA(reason = "data") {
+  clearTimeout(realtimeDependentTimerVQA);
+
+  realtimeDependentTimerVQA = setTimeout(async () => {
+    try {
+      if (!$("#modal-historial")?.classList.contains("hidden")) {
+        await renderHistorial();
+      }
+
+      if (!$("#modal-inventario")?.classList.contains("hidden")) {
+        renderResumenInventario();
+        if (inventoryActiveTab === "movimientos") {
+          await cargarMovimientosInventario();
+        }
+      }
+
+      if (!$("#modal-compras")?.classList.contains("hidden")) {
+        await cargarProveedoresV230({ render: comprasActiveTabV230 === "proveedores" });
+        if (comprasActiveTabV230 === "compras") await cargarComprasV230();
+      }
+
+      if (!$("#modal-caja-operativa-v227")?.classList.contains("hidden")) {
+        await cargarEstadoCajaV227();
+        await renderPanelCajaV227();
+      }
+    } catch (error) {
+      console.debug("[Vendify QA] refresh dependiente:", reason, error?.message || error);
+    }
+  }, 260);
+}
+
 function actualizarEstadoRealtimeUI(status) {
   realtimeStatus = status || "UNKNOWN";
   document.documentElement.dataset.realtimeStatus = realtimeStatus.toLowerCase();
@@ -1350,6 +1493,7 @@ function recibirCambioStockRealtime(payload) {
 
   sincronizarStockLigero({ render: true });
   programarRefreshInteligenteRealtime();
+  refrescarVistasDependientesRealtimeVQA("stock");
 }
 
 function emitirCambioStockRealtime(reason = "stock") {
@@ -1430,6 +1574,46 @@ function suscribirRealtime() {
       recibirCambioStockRealtime
     )
     .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "ventas",
+        filter: `sucursal_id=eq.${branchId}`,
+      },
+      () => refrescarVistasDependientesRealtimeVQA("ventas")
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "movimientos",
+        filter: `sucursal_id=eq.${branchId}`,
+      },
+      () => refrescarVistasDependientesRealtimeVQA("movimientos")
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "compras",
+        filter: `sucursal_id=eq.${branchId}`,
+      },
+      () => refrescarVistasDependientesRealtimeVQA("compras")
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "proveedores",
+        filter: `negocio_id=eq.${businessId}`,
+      },
+      () => refrescarVistasDependientesRealtimeVQA("proveedores")
+    )
+    .on(
       "broadcast",
       { event: "stock_changed" },
       recibirCambioStockRealtime
@@ -1443,8 +1627,13 @@ function suscribirRealtime() {
 
         // Al reconectar no confiamos en la memoria local:
         // se compara inmediatamente contra PostgreSQL.
-        await sincronizarStockLigero({ render: true });
+        if (Date.now() - realtimeLastFullSyncVQA > 30000) {
+          await sincronizarCatalogoCompletoVQA();
+        } else {
+          await sincronizarStockLigero({ render: true });
+        }
         programarRefreshInteligenteRealtime();
+        refrescarVistasDependientesRealtimeVQA("reconnect");
         return;
       }
 
@@ -1472,7 +1661,11 @@ function iniciarWatchdogRealtime() {
       return;
     }
 
-    await sincronizarStockLigero({ render: true });
+    if (Date.now() - realtimeLastFullSyncVQA > 60000) {
+      await sincronizarCatalogoCompletoVQA();
+    } else {
+      await sincronizarStockLigero({ render: true });
+    }
 
     if (realtimeStatus !== "SUBSCRIBED") {
       programarReconexionRealtime();
@@ -1482,8 +1675,11 @@ function iniciarWatchdogRealtime() {
   const resincronizar = async () => {
     if (!appContext?.ready || !appContext?.branch?.id) return;
 
-    await sincronizarStockLigero({ render: true });
+    // Teléfonos suelen suspender WebSocket. Al volver a primer plano
+    // reconstruimos el catálogo completo, no solo las filas que ya estaban en memoria.
+    await sincronizarCatalogoCompletoVQA();
     programarRefreshInteligenteRealtime();
+    refrescarVistasDependientesRealtimeVQA("focus");
 
     if (realtimeStatus !== "SUBSCRIBED") {
       suscribirRealtime();
@@ -1519,19 +1715,8 @@ function aplicarCambioRemoto(payload) {
   if (!$("#modal-venta").classList.contains("hidden")) renderVentaProductos();
 }
 
-function mapearProductoDB(row) {
-  return {
-    id: row.id,
-    nombre: row.nombre,
-    categoria: row.categoria || "",
-    precioCompra: row.precio_compra || 0,
-    precioVenta: row.precio_venta || 0,
-    stock: row.stock || 0,
-    stockMinimo: row.stock_minimo ?? 5,
-    foto: row.foto || null,
-    creado: row.creado,
-  };
-}
+/* QA: implementación legacy removida (mapearProductoDB) */
+
 
 // =====================
 // Persistencia (Supabase)
@@ -2058,284 +2243,41 @@ function limpiarFiltroStockBajo() {
 // =====================
 // Productos de ejemplo
 // =====================
-async function cargarEjemplos() {
-  const nombresExistentes = new Set(productos.map((p) => p.nombre.toLowerCase()));
-  const aAgregar = PRODUCTOS_EJEMPLO.filter((p) => !nombresExistentes.has(p.nombre.toLowerCase()));
 
-  if (aAgregar.length === 0) {
-    mostrarToast("Los productos de ejemplo ya están cargados", "info");
-    return;
-  }
+/* QA: implementación legacy removida (cargarEjemplos) */
 
-  const catsFaltantes = [...new Set(aAgregar.map((p) => p.categoria))]
-    .filter((c) => c && !categorias.includes(c));
-  if (catsFaltantes.length > 0) {
-    const uid = sesionActual.user.id;
-    const { data } = await supabaseClient
-      .from("categorias")
-      .insert(catsFaltantes.map((nombre) => ({ user_id: uid, nombre })))
-      .select();
-    if (data) {
-      categorias.push(...data.map((c) => c.nombre));
-      categorias.sort((a, b) => a.localeCompare(b, "es"));
-    }
-  }
-
-  const uid = sesionActual.user.id;
-  const filas = aAgregar.map((p) => ({
-    user_id: uid,
-    nombre: p.nombre,
-    categoria: p.categoria,
-    precio_compra: p.precioCompra,
-    precio_venta: p.precioVenta,
-    stock: p.stock,
-    stock_minimo: p.stockMinimo,
-    foto: p.foto,
-  }));
-  const { data, error } = await supabaseClient.from("productos").insert(filas).select();
-  if (error) {
-    mostrarToast("No se pudieron cargar los ejemplos", "error");
-    return;
-  }
-  productos.push(...data.map(mapearProductoDB));
-  actualizarFiltroCategorias();
-  renderGrid();
-  mostrarToast(`${data.length} productos de ejemplo agregados`);
-}
 
 // =====================
 // Render grid
 // =====================
-function filtrarYOrdenar() {
-  const texto = $("#buscador").value.trim().toLowerCase();
-  const cat = $("#filtro-categoria").value;
-  const [campo, dir] = ($("#orden").value || "nombre-asc").split("-");
 
-  let lista = productos.filter((p) => {
-    const matchTexto =
-      !texto ||
-      p.nombre.toLowerCase().includes(texto) ||
-      (p.categoria && p.categoria.toLowerCase().includes(texto));
-    const matchCat = !cat || p.categoria === cat;
-    const matchBajo = !filtroStockBajo || p.stock <= (p.stockMinimo ?? 5);
-    return matchTexto && matchCat && matchBajo;
-  });
-
-  lista.sort((a, b) => {
-    let va = a[campo] ?? "";
-    let vb = b[campo] ?? "";
-    if (typeof va === "string") {
-      va = va.toLowerCase();
-      vb = (vb + "").toLowerCase();
-    }
-    if (va < vb) return dir === "asc" ? -1 : 1;
-    if (va > vb) return dir === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  return lista;
-}
+/* QA: implementación legacy removida (filtrarYOrdenar) */
 
 
-const PRODUCT_VIEW_KEY = "vendify_product_view";
 
-function obtenerVistaProductos() {
-  return localStorage.getItem(PRODUCT_VIEW_KEY) || "list";
-}
-
-function aplicarVistaProductos(vista) {
+// QA: la vista actual es una lista compacta única.
+// Limpiamos preferencias antiguas para que PC y teléfono no difieran por localStorage.
+function normalizarVistaProductosVQA() {
   const cont = $("#productos-grid");
-  const btnLista = $("#btn-vista-lista");
-  const btnGrid = $("#btn-vista-grid");
-
-  if (!cont) return;
-
-  const modo = vista === "grid" ? "grid" : "list";
-
-  cont.classList.toggle("vista-lista", modo === "list");
-  cont.classList.toggle("vista-grid", modo === "grid");
-
-  btnLista?.classList.toggle("active", modo === "list");
-  btnGrid?.classList.toggle("active", modo === "grid");
-
-  localStorage.setItem(PRODUCT_VIEW_KEY, modo);
+  if (cont) {
+    cont.classList.remove("vista-grid");
+    cont.classList.add("vista-lista");
+  }
+  try { localStorage.removeItem("vendify_product_view"); } catch {}
 }
 
-function inicializarSelectorVistaProductos() {
-  aplicarVistaProductos(obtenerVistaProductos());
+/* QA: implementación legacy removida (renderGrid) */
 
-  $("#btn-vista-lista")?.addEventListener("click", () => {
-    aplicarVistaProductos("list");
-  });
-
-  $("#btn-vista-grid")?.addEventListener("click", () => {
-    aplicarVistaProductos("grid");
-  });
-}
-
-
-
-function renderGrid() {
-  const cont = $("#productos-grid");
-  if (!cont) return;
-
-  aplicarVistaProductos(obtenerVistaProductos());
-
-  const texto = ($("#buscar")?.value || "").trim().toLowerCase();
-  const categoria = $("#filtro-categoria")?.value || "todas";
-  const stockFiltro = $("#filtro-stock")?.value || "todos";
-  const orden = $("#orden-productos")?.value || "nombre-asc";
-
-  let lista = [...productos];
-
-  if (texto) {
-    lista = lista.filter((p) => {
-      const haystack = [
-        p.nombre,
-        p.marca,
-        p.presentacion,
-        p.codigo_barras,
-        p.categoria_nombre,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(texto);
-    });
-  }
-
-  if (categoria !== "todas") {
-    lista = lista.filter((p) => String(p.categoria_id ?? "") === String(categoria));
-  }
-
-  if (stockFiltro === "bajo") {
-    lista = lista.filter((p) => Number(p.stock) <= Number(p.stock_minimo ?? 0));
-  } else if (stockFiltro === "sin-stock") {
-    lista = lista.filter((p) => Number(p.stock) <= 0);
-  } else if (stockFiltro === "con-stock") {
-    lista = lista.filter((p) => Number(p.stock) > 0);
-  }
-
-  lista.sort((a, b) => {
-    if (orden === "nombre-desc") return String(b.nombre || "").localeCompare(String(a.nombre || ""));
-    if (orden === "stock-asc") return Number(a.stock || 0) - Number(b.stock || 0);
-    if (orden === "stock-desc") return Number(b.stock || 0) - Number(a.stock || 0);
-    if (orden === "precio-asc") return Number(a.precio || 0) - Number(b.precio || 0);
-    if (orden === "precio-desc") return Number(b.precio || 0) - Number(a.precio || 0);
-    return String(a.nombre || "").localeCompare(String(b.nombre || ""));
-  });
-
-  if (!lista.length) {
-    cont.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-illustration">📦</div>
-        <h3>No encontramos productos</h3>
-        <p>Probá cambiar la búsqueda o los filtros.</p>
-      </div>
-    `;
-    return;
-  }
-
-  const role = appContext.membership?.role || "cashier";
-  const puedeGestionar = ["owner", "admin", "manager"].includes(role);
-  const puedeAjustarStock = ["owner", "admin", "manager"].includes(role);
-  const puedeVerCostos = ["owner", "admin", "manager"].includes(role);
-
-  cont.innerHTML = lista
-    .map((p) => {
-      const catObj = categorias.find((c) => String(c.id) === String(p.categoria_id));
-      const cat = catObj?.nombre || p.categoria_nombre || "Sin categoría";
-      const nombre = nombreCompletoProducto(p);
-      const inicial = (nombre || "?").charAt(0).toUpperCase();
-      const stockBajo = Number(p.stock) <= Number(p.stock_minimo ?? 0);
-
-      return `
-        <article class="producto-card ${stockBajo ? "stock-bajo-card" : ""}" data-id="${p.id}">
-          <div class="producto-row-media">
-            ${
-              p.foto
-                ? `<img src="${p.foto}" alt="" class="producto-row-img" />`
-                : `<div class="producto-row-icon">${escapeHtml(inicial)}</div>`
-            }
-          </div>
-
-          <div class="producto-row-info">
-            <div class="card-nombre">${escapeHtml(nombre)}</div>
-            <div class="producto-row-meta">${escapeHtml(cat)}</div>
-          </div>
-
-          <div class="producto-row-stock">
-            ${
-              puedeAjustarStock
-                ? `<div class="card-stock-controls">
-                    <button class="btn-stock" data-action="restar" data-id="${p.id}" aria-label="Restar stock">−</button>
-                    <span class="card-stock-number">${Number(p.stock || 0)}</span>
-                    <button class="btn-stock" data-action="sumar" data-id="${p.id}" aria-label="Sumar stock">+</button>
-                  </div>`
-                : `<span class="stock-solo">${Number(p.stock || 0)}</span>`
-            }
-          </div>
-
-          <div class="producto-row-price">
-            <strong>${formatearPrecio(Number(p.precio || 0))}</strong>
-            ${
-              puedeVerCostos
-                ? `<small>Costo ${formatearPrecio(Number(p.costo || 0))}</small>`
-                : ""
-            }
-          </div>
-
-          <div class="producto-row-actions">
-            ${
-              puedeGestionar
-                ? `<button class="btn btn-secondary btn-sm" data-action="editar" data-id="${p.id}">Editar</button>
-                   <button class="btn-icon danger" data-action="eliminar" data-id="${p.id}" aria-label="Eliminar">🗑</button>`
-                : ""
-            }
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  aplicarPermisosV2();
-}
 
 // =====================
 // Modal Producto
 // =====================
-function abrirModal(producto = null) {
-  if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
-  productoEditandoId = producto ? producto.id : null;
-  fotoActualBase64 = producto?.foto || null;
 
-  $("#modal-titulo").textContent = producto ? "Editar producto" : "Nuevo producto";
-  $("#producto-id").value = producto?.id || "";
-  $("#nombre").value = producto?.nombre || "";
-  $("#precio-compra").value = producto?.precioCompra ?? "";
-  $("#precio-venta").value = producto?.precioVenta ?? "";
-  $("#stock").value = producto?.stock ?? 0;
-  $("#stock-minimo").value = producto?.stockMinimo ?? 5;
-  $("#error-nombre").textContent = "";
-  $("#nombre").classList.remove("error");
-  $("#foto-input").value = "";
-  $("#foto-camara").value = "";
+/* QA: implementación legacy removida (abrirModal) */
 
-  renderSelectCategorias(producto?.categoria || "");
-  mostrarPreviewFoto(fotoActualBase64);
 
-  $("#modal").classList.remove("hidden");
-  setTimeout(() => $("#nombre").focus(), 50);
-}
+/* QA: implementación legacy removida (cerrarModal) */
 
-function cerrarModal() {
-  $("#modal").classList.add("hidden");
-  $("#form-producto").reset();
-  productoEditandoId = null;
-  fotoActualBase64 = null;
-  mostrarPreviewFoto(null);
-}
 
 // =====================
 // Modal Config
@@ -2463,67 +2405,9 @@ async function confirmarAjusteStock() {
 // =====================
 // CRUD de productos
 // =====================
-async function guardarProducto(e) {
-  e.preventDefault();
-  if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
-  const nombre = $("#nombre").value.trim();
 
-  if (!nombre) {
-    $("#error-nombre").textContent = "El nombre es obligatorio";
-    $("#nombre").classList.add("error");
-    $("#nombre").focus();
-    return;
-  }
-  $("#error-nombre").textContent = "";
-  $("#nombre").classList.remove("error");
+/* QA: implementación legacy removida (guardarProducto) */
 
-  const btnGuardar = $("#btn-guardar");
-  btnGuardar.disabled = true;
-
-  const datosDB = {
-    nombre,
-    categoria: $("#categoria").value.trim(),
-    precio_compra: parseFloat($("#precio-compra").value) || 0,
-    precio_venta: parseFloat($("#precio-venta").value) || 0,
-    stock: parseInt($("#stock").value, 10) || 0,
-    stock_minimo: parseInt($("#stock-minimo").value, 10) || 0,
-    foto: fotoActualBase64,
-  };
-
-  if (productoEditandoId) {
-    const { data, error } = await supabaseClient
-      .from("productos")
-      .update({ ...datosDB, actualizado: new Date().toISOString() })
-      .eq("id", productoEditandoId)
-      .select()
-      .single();
-    btnGuardar.disabled = false;
-    if (error) {
-      mostrarToast("No se pudo actualizar el producto", "error");
-      return;
-    }
-    const idx = productos.findIndex((p) => p.id === productoEditandoId);
-    if (idx !== -1) productos[idx] = mapearProductoDB(data);
-    mostrarToast("Producto actualizado");
-  } else {
-    const { data, error } = await supabaseClient
-      .from("productos")
-      .insert({ ...datosDB, user_id: sesionActual.user.id })
-      .select()
-      .single();
-    btnGuardar.disabled = false;
-    if (error) {
-      mostrarToast("No se pudo guardar el producto", "error");
-      return;
-    }
-    productos.push(mapearProductoDB(data));
-    mostrarToast("Producto agregado");
-  }
-
-  actualizarFiltroCategorias();
-  renderGrid();
-  cerrarModal();
-}
 
 
 async function eliminarTodosLosProductosV222() {
@@ -2617,8 +2501,26 @@ async function eliminarProducto(id) {
   mostrarToast("Producto eliminado");
 }
 
+// QA: cola por producto para evitar respuestas fuera de orden al tocar + / - rápido.
+const stockQuickQueueVQA = new Map();
+
 // "sumar" = reposición de mercadería (ingreso) · "restar" = venta
-async function cambiarStock(id, delta) {
+function cambiarStock(id, delta) {
+  const anterior = stockQuickQueueVQA.get(id) || Promise.resolve();
+  const siguiente = anterior
+    .catch(() => {})
+    .then(() => cambiarStockEjecutarVQA(id, delta))
+    .finally(() => {
+      if (stockQuickQueueVQA.get(id) === siguiente) {
+        stockQuickQueueVQA.delete(id);
+      }
+    });
+
+  stockQuickQueueVQA.set(id, siguiente);
+  return siguiente;
+}
+
+async function cambiarStockEjecutarVQA(id, delta) {
   const role = appContext.membership?.role;
   if (!["owner", "admin", "manager"].includes(role)) {
     mostrarToast("Tu rol no permite modificar stock", "error");
@@ -2661,8 +2563,8 @@ async function cambiarStock(id, delta) {
   p.stock = Number(data?.stock ?? (Number(p.stock || 0) + delta));
 
   emitirCambioStockRealtime("stock_inicial");
-  await cargarStockInteligente();
   renderGrid();
+  programarRefreshInteligenteRealtime();
 
   if (!$("#modal-venta")?.classList.contains("hidden")) {
     renderVentaProductos();
@@ -2768,6 +2670,8 @@ function puedeGestionarInventario() {
 function inventoryMovementLabel(tipo) {
   const labels = {
     venta: "Venta",
+    compra: "Compra",
+    stock_inicial: "Carga inicial",
     ingreso: "Ingreso",
     ajuste: "Corrección",
     rotura: "Rotura",
@@ -2782,7 +2686,7 @@ function inventoryMovementLabel(tipo) {
 }
 
 function inventoryMovementClass(tipo) {
-  if (["ingreso", "transferencia_entrada", "devolucion"].includes(tipo)) return "positive";
+  if (["ingreso", "compra", "stock_inicial", "transferencia_entrada", "devolucion"].includes(tipo)) return "positive";
   if (["rotura", "vencimiento", "perdida", "transferencia_salida", "venta"].includes(tipo)) return "negative";
   return "neutral";
 }
@@ -3479,10 +3383,9 @@ async function abrirComprasV230(tab = "compras") {
   $("#modal-compras").classList.remove("hidden");
   activarTabComprasV230(tab);
 
-  await Promise.all([
-    cargarProveedoresV230({ render: tab === "proveedores" }),
-    cargarComprasV230({ render: tab === "compras" }),
-  ]);
+  // Primero proveedores: las estadísticas de compras usan ese total.
+  await cargarProveedoresV230({ render: tab === "proveedores" });
+  await cargarComprasV230({ render: tab === "compras" });
 }
 
 function cerrarComprasV230() {
@@ -3640,8 +3543,9 @@ async function guardarProveedorV230(e) {
     }
   );
 
-  if (error) {
-    errorEl.textContent = error.message;
+  if (error || !data?.ok) {
+    errorEl.textContent =
+      error?.message || data?.message || "No se pudo guardar el proveedor.";
     return;
   }
 
@@ -4720,6 +4624,8 @@ async function registrarVentaV3(items, pagos, totales, observacion) {
   });
 
   if (error) throw new Error(error.message || "No se pudo registrar la venta");
+  emitirCambioStockRealtime("venta_profesional");
+  refrescarVistasDependientesRealtimeVQA("venta_local");
   return data;
 }
 
@@ -5111,37 +5017,8 @@ function cerrarVenta() {
   carrito = [];
 }
 
-function renderVentaProductos() {
-  const texto = $("#venta-buscador").value.trim().toLowerCase();
-  const lista = productos
-    .filter((p) => !texto || p.nombre.toLowerCase().includes(texto) || (p.categoria && p.categoria.toLowerCase().includes(texto)))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+/* QA: implementación legacy removida (renderVentaProductos) */
 
-  const cont = $("#venta-productos-lista");
-  if (lista.length === 0) {
-    cont.innerHTML = `<p class="carrito-vacio">Sin resultados</p>`;
-    return;
-  }
-
-  cont.innerHTML = lista
-    .map((p) => {
-      const enCarrito = carrito.find((c) => c.id === p.id);
-      const disponible = p.stock - (enCarrito?.cantidad || 0);
-      const sinStock = disponible <= 0;
-      const thumb = p.foto
-        ? `<img class="venta-producto-thumb" src="${p.foto}" alt="" />`
-        : `<div class="venta-producto-thumb">📦</div>`;
-      return `
-        <div class="venta-producto-item ${sinStock ? "sin-stock" : ""}" data-id="${p.id}">
-          ${thumb}
-          <div class="venta-producto-info">
-            <div class="venta-producto-nombre">${escapeHtml(p.nombre)}</div>
-            <div class="venta-producto-meta">${formatearPrecio(p.precioVenta)} · quedan ${disponible}</div>
-          </div>
-        </div>`;
-    })
-    .join("");
-}
 
 function agregarAlCarrito(id) {
   invalidarAutorizacionDescuento({ recalcular: false });
@@ -8171,9 +8048,11 @@ function setupSucursalesV226() {
 }
 
 function init() {
+  if (!validarEntornoSupabaseVQA()) return;
+
   registrarServiceWorker();
   cargarTema();
-  inicializarSelectorVistaProductos();
+  normalizarVistaProductosVQA();
   inicializarEventos();
   setupV29();
   setupSucursalesV226();
