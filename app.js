@@ -1497,19 +1497,11 @@ function recibirCambioStockRealtime(payload) {
 }
 
 function emitirCambioStockRealtime(reason = "stock") {
-  if (!realtimeChannel || realtimeStatus !== "SUBSCRIBED") return;
-
-  realtimeChannel
-    .send({
-      type: "broadcast",
-      event: "stock_changed",
-      payload: {
-        branch_id: appContext?.branch?.id || null,
-        reason,
-        at: Date.now(),
-      },
-    })
-    .catch?.(() => {});
+  // Security hardening:
+  // no enviamos broadcasts públicos. PostgreSQL Realtime es la fuente
+  // autoritativa y el watchdog reconcilia cualquier evento perdido.
+  programarRefreshInteligenteRealtime();
+  refrescarVistasDependientesRealtimeVQA(reason);
 }
 
 function programarReconexionRealtime() {
@@ -1548,11 +1540,7 @@ function suscribirRealtime() {
   actualizarEstadoRealtimeUI("CONNECTING");
 
   realtimeChannel = supabaseClient
-    .channel(`vendify-${businessId}-${branchId}`, {
-      config: {
-        broadcast: { self: false },
-      },
-    })
+    .channel(`vendify-${businessId}-${branchId}`)
     .on(
       "postgres_changes",
       {
@@ -1612,11 +1600,6 @@ function suscribirRealtime() {
         filter: `negocio_id=eq.${businessId}`,
       },
       () => refrescarVistasDependientesRealtimeVQA("proveedores")
-    )
-    .on(
-      "broadcast",
-      { event: "stock_changed" },
-      recibirCambioStockRealtime
     )
     .subscribe(async (status) => {
       console.info("[Vendify Realtime]", status);
@@ -1728,7 +1711,7 @@ async function cargarProductos() {
   }
 
   const { data, error } = await supabaseClient.rpc(
-    "listar_productos_sucursal_v1",
+    "listar_productos_sucursal_seguro_v1",
     { p_sucursal_id: appContext.branch.id }
   );
 
@@ -1744,26 +1727,39 @@ async function cargarProductos() {
 }
 
 async function cargarCategorias() {
-  const { data, error } = await supabaseClient
-    .from("categorias")
-    .select("*")
-    .order("nombre", { ascending: true });
+  const { data, error } = await supabaseClient.rpc(
+    "listar_categorias_seguras_v1"
+  );
+
   if (error) {
+    console.error("[Security] categorías:", error);
     categorias = [...CATEGORIAS_DEFAULT];
     return;
   }
-  if (!data || data.length === 0) {
+
+  const nombres = (data || []).map((c) => c.nombre).filter(Boolean);
+
+  if (!nombres.length) {
     await crearCategoriasIniciales();
   } else {
-    categorias = data.map((c) => c.nombre);
+    categorias = nombres;
   }
 }
 
 async function crearCategoriasIniciales() {
-  const uid = sesionActual.user.id;
-  const filas = CATEGORIAS_DEFAULT.map((nombre) => ({ user_id: uid, nombre }));
-  const { data, error } = await supabaseClient.from("categorias").insert(filas).select();
-  categorias = error ? [...CATEGORIAS_DEFAULT] : data.map((c) => c.nombre);
+  const { data, error } = await supabaseClient.rpc(
+    "inicializar_categorias_seguras_v1",
+    { p_nombres: CATEGORIAS_DEFAULT }
+  );
+
+  if (error) {
+    console.error("[Security] categorías iniciales:", error);
+    categorias = [...CATEGORIAS_DEFAULT];
+    return;
+  }
+
+  categorias = (data || []).map((c) => c.nombre).filter(Boolean);
+  if (!categorias.length) categorias = [...CATEGORIAS_DEFAULT];
 }
 
 // =====================
@@ -2164,13 +2160,19 @@ async function agregarCategoria() {
     mostrarToast("Esa categoría ya existe", "error");
     return;
   }
-  const { error } = await supabaseClient
-    .from("categorias")
-    .insert({ user_id: sesionActual.user.id, nombre });
-  if (error) {
-    mostrarToast("No se pudo guardar la categoría", "error");
+  const { data, error } = await supabaseClient.rpc(
+    "guardar_categoria_segura_v1",
+    { p_nombre: nombre }
+  );
+
+  if (error || !data?.ok) {
+    mostrarToast(
+      error?.message || data?.message || "No se pudo guardar la categoría",
+      "error"
+    );
     return;
   }
+
   categorias.push(nombre);
   categorias.sort((a, b) => a.localeCompare(b, "es"));
   renderListaCategoriasConfig();
@@ -2191,20 +2193,23 @@ async function eliminarCategoria(index) {
   const ok = await confirmar("Eliminar categoría", msg);
   if (!ok) return;
 
-  const { error } = await supabaseClient
-    .from("categorias")
-    .delete()
-    .eq("user_id", sesionActual.user.id)
-    .eq("nombre", nombre);
-  if (error) {
-    mostrarToast("No se pudo eliminar la categoría", "error");
+  const { data, error } = await supabaseClient.rpc(
+    "eliminar_categoria_segura_v1",
+    { p_nombre: nombre }
+  );
+
+  if (error || !data?.ok) {
+    mostrarToast(
+      error?.message || data?.message || "No se pudo eliminar la categoría",
+      "error"
+    );
     return;
   }
 
   if (enUso) {
-    const idsAfectados = productos.filter((p) => p.categoria === nombre).map((p) => p.id);
-    await supabaseClient.from("productos").update({ categoria: "" }).in("id", idsAfectados);
-    productos.forEach((p) => { if (p.categoria === nombre) p.categoria = ""; });
+    productos.forEach((p) => {
+      if (p.categoria === nombre) p.categoria = "";
+    });
   }
   categorias.splice(index, 1);
   renderListaCategoriasConfig();
@@ -2452,19 +2457,21 @@ async function eliminarTodosLosProductosV222() {
     btn.textContent = "Eliminando...";
   }
 
-  const { error } = await supabaseClient
-    .from("productos")
-    .delete()
-    .eq("negocio_id", businessId);
+  const { data, error } = await supabaseClient.rpc(
+    "eliminar_todos_productos_seguro_v1"
+  );
 
   if (btn) {
     btn.disabled = false;
     btn.innerHTML = "🗑 Eliminar todos";
   }
 
-  if (error) {
-    console.error("[Vendify] Error eliminando productos:", error);
-    mostrarToast(error.message || "No se pudieron eliminar los productos", "error");
+  if (error || !data?.ok) {
+    console.error("[Vendify Security] Error eliminando productos:", error || data);
+    mostrarToast(
+      error?.message || data?.message || "No se pudieron eliminar los productos",
+      "error"
+    );
     return;
   }
 
@@ -2490,9 +2497,16 @@ async function eliminarProducto(id) {
   );
   if (!ok) return;
 
-  const { error } = await supabaseClient.from("productos").delete().eq("id", id);
-  if (error) {
-    mostrarToast("No se pudo eliminar el producto", "error");
+  const { data, error } = await supabaseClient.rpc(
+    "eliminar_producto_seguro_v1",
+    { p_producto_id: id }
+  );
+
+  if (error || !data?.ok) {
+    mostrarToast(
+      error?.message || data?.message || "No se pudo eliminar el producto",
+      "error"
+    );
     return;
   }
   productos = productos.filter((x) => x.id !== id);
@@ -2574,6 +2588,79 @@ async function cambiarStockEjecutarVQA(id, delta) {
 
 
 
+
+
+
+// ============================================================
+// Security v2.30.1 — sesión inactiva
+// ============================================================
+
+const SECURITY_IDLE_TIMEOUT_MS_V2301 = 8 * 60 * 60 * 1000;
+const SECURITY_ACTIVITY_KEY_V2301 = "vendify_last_activity_v2301";
+let securityLastPersistV2301 = 0;
+let securityIdleTimerV2301 = null;
+let securityLogoutRunningV2301 = false;
+
+function registrarActividadSeguraV2301() {
+  const now = Date.now();
+
+  // Evitar escribir localStorage por cada mousemove/touch.
+  if (now - securityLastPersistV2301 < 30000) return;
+
+  securityLastPersistV2301 = now;
+  localStorage.setItem(SECURITY_ACTIVITY_KEY_V2301, String(now));
+}
+
+async function verificarSesionInactivaV2301() {
+  if (securityLogoutRunningV2301 || !sesionActual?.user) return;
+
+  const last = Number(
+    localStorage.getItem(SECURITY_ACTIVITY_KEY_V2301) || Date.now()
+  );
+
+  if (Date.now() - last < SECURITY_IDLE_TIMEOUT_MS_V2301) return;
+
+  securityLogoutRunningV2301 = true;
+
+  try {
+    mostrarToast(
+      "La sesión se cerró por inactividad. Volvé a ingresar para continuar.",
+      "info"
+    );
+    await cerrarSesion();
+  } finally {
+    securityLogoutRunningV2301 = false;
+  }
+}
+
+function setupSecuritySessionGuardV2301() {
+  registrarActividadSeguraV2301();
+
+  ["pointerdown", "keydown", "touchstart"].forEach((eventName) => {
+    window.addEventListener(
+      eventName,
+      registrarActividadSeguraV2301,
+      { passive: true, capture: true }
+    );
+  });
+
+  window.addEventListener("focus", () => {
+    verificarSesionInactivaV2301();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      verificarSesionInactivaV2301();
+    }
+  });
+
+  if (!securityIdleTimerV2301) {
+    securityIdleTimerV2301 = setInterval(
+      verificarSesionInactivaV2301,
+      60000
+    );
+  }
+}
 
 
 // ============================================================
@@ -3210,7 +3297,7 @@ async function cargarProductosTransferenciaInventario() {
   if (!originId) return;
 
   const { data, error } = await supabaseClient.rpc(
-    "listar_productos_sucursal_v1",
+    "listar_productos_sucursal_seguro_v1",
     { p_sucursal_id: originId }
   );
 
@@ -6874,6 +6961,7 @@ async function guardarProducto(e) {
   e.preventDefault();
 
   if (!exigirPermisoV2("manageProducts", "No tenés permiso para modificar productos")) return;
+
   if (!appContext?.branch?.id) {
     mostrarToast("Seleccioná una sucursal antes de guardar", "error");
     return;
@@ -6882,7 +6970,6 @@ async function guardarProducto(e) {
   const nombre = $("#nombre").value.trim();
   const codigo = $("#codigo-barras").value.trim();
   const stockSucursal = Math.max(0, parseInt($("#stock").value, 10) || 0);
-  const stockMinimoSucursal = 0;
 
   if (!nombre) {
     $("#error-nombre").textContent = "El nombre es obligatorio";
@@ -6900,89 +6987,39 @@ async function guardarProducto(e) {
     return;
   }
 
-  const datosDB = {
-    nombre,
-    marca: $("#marca").value.trim(),
-    presentacion: $("#presentacion").value.trim(),
-    codigo_barras: codigo || null,
-    categoria: $("#categoria").value.trim(),
-    precio_compra: parseFloat($("#precio-compra").value) || 0,
-    precio_venta: parseFloat($("#precio-venta").value) || 0,
-    // stock global es derivado del stock de todas las sucursales.
-    stock_minimo: stockMinimoSucursal,
-  };
-
   const eraEdicion = Boolean(productoEditandoId);
   const btn = $("#btn-guardar");
   btn.disabled = true;
 
-  let query;
-
-  if (eraEdicion) {
-    query = supabaseClient
-      .from("productos")
-      .update({
-        ...datosDB,
-        actualizado: new Date().toISOString(),
-      })
-      .eq("id", productoEditandoId);
-  } else {
-    // Siempre 0 al insertar: luego establecemos stock de la sucursal activa.
-    query = supabaseClient.from("productos").insert({
-      ...datosDB,
-      stock: 0,
-      user_id: sesionActual.user.id,
-    });
-  }
-
-  const { data, error } = await query.select().single();
-
-  if (error) {
-    btn.disabled = false;
-    mostrarToast(
-      error.code === "23505"
-        ? "Ese código de barras ya está cargado"
-        : "No se pudo guardar el producto",
-      "error"
-    );
-    return;
-  }
-
-  const stockRpc = eraEdicion
-    ? "establecer_stock_sucursal_v1"
-    : "establecer_stock_inicial_v1";
-
-  const { data: stockData, error: stockError } = await supabaseClient.rpc(
-    stockRpc,
+  const { data, error } = await supabaseClient.rpc(
+    "guardar_producto_seguro_v1",
     {
-      p_producto_id: data.id,
+      p_producto_id: productoEditandoId || null,
       p_sucursal_id: appContext.branch.id,
+      p_nombre: nombre,
+      p_marca: $("#marca").value.trim() || null,
+      p_presentacion: $("#presentacion").value.trim() || null,
+      p_codigo_barras: codigo || null,
+      p_categoria: $("#categoria").value.trim() || null,
+      p_precio_compra: Math.max(0, parseFloat($("#precio-compra").value) || 0),
+      p_precio_venta: Math.max(0, parseFloat($("#precio-venta").value) || 0),
       p_stock: stockSucursal,
-      p_stock_minimo: stockMinimoSucursal,
     }
   );
 
   btn.disabled = false;
 
-  if (stockError) {
-    console.error("[V2.26] Error guardando stock de sucursal:", stockError);
-
-    if (!eraEdicion) {
-      await supabaseClient.from("productos").delete().eq("id", data.id);
-    }
-
+  if (error || !data?.ok || !data?.producto) {
     mostrarToast(
-      "No se pudo guardar el stock de la sucursal: " + stockError.message,
+      error?.message ||
+        data?.message ||
+        "No se pudo guardar el producto",
       "error"
     );
     return;
   }
 
-  const mapped = mapearProductoDB({
-    ...data,
-    stock: stockData?.stock ?? stockSucursal,
-    stock_minimo: stockData?.stock_minimo ?? stockMinimoSucursal,
-  });
+  const mapped = mapearProductoDB(data.producto);
 
   if (eraEdicion) {
     const i = productos.findIndex((p) => p.id === productoEditandoId);
@@ -6991,11 +7028,14 @@ async function guardarProducto(e) {
     productos.push(mapped);
   }
 
+  await cargarStockInteligente();
   actualizarFiltroCategorias();
   renderGrid();
 
   const volverAVentaTrasAlta =
-    !eraEdicion && pendingReturnToSaleV214 && pendingAddAfterCreateV214;
+    !eraEdicion &&
+    pendingReturnToSaleV214 &&
+    pendingAddAfterCreateV214;
 
   cerrarModal({ preservarFlujoScanner: volverAVentaTrasAlta });
 
@@ -7006,9 +7046,11 @@ async function guardarProducto(e) {
 
     $("#modal-venta")?.classList.remove("hidden");
     restaurarVentaDetrasProducto({ enfocar: false });
+
     agregarAlCarrito(mapped.id);
     renderVentaProductos();
     renderCarrito();
+
     setTimeout(() => $("#venta-buscador")?.focus(), 80);
 
     mostrarToast(
@@ -7050,7 +7092,18 @@ async function buscarDatosBarcodeV29(code) {
 }
 
 async function asegurarCategoriaV29(nombre) {
-  if(!nombre||categorias.includes(nombre))return; const {data,error}=await supabaseClient.from("categorias").insert({user_id:sesionActual.user.id,nombre}).select().single(); if(!error&&data){categorias.push(data.nombre);categorias.sort((a,b)=>a.localeCompare(b,"es"));actualizarFiltroCategorias();}
+  if (!nombre || categorias.includes(nombre)) return;
+
+  const { data, error } = await supabaseClient.rpc(
+    "guardar_categoria_segura_v1",
+    { p_nombre: nombre }
+  );
+
+  if (!error && data?.ok) {
+    categorias.push(nombre);
+    categorias.sort((a, b) => a.localeCompare(b, "es"));
+    actualizarFiltroCategorias();
+  }
 }
 
 
@@ -7144,7 +7197,7 @@ async function asegurarUnidadFisicaEscaneadaV230(producto) {
   if (disponible >= requerido) return true;
 
   const { data, error } = await supabaseClient.rpc(
-    "confirmar_stock_por_scanner_v1",
+    "confirmar_stock_por_scanner_v2",
     {
       p_producto_id: producto.id,
       p_sucursal_id: appContext.branch.id,
@@ -7453,12 +7506,51 @@ function renderCatalogoV29() {
   $("#catalog-selected-count-v29").textContent=[...catalogoSeleccionV29].filter(n=>!existing.has(n.toLowerCase())).length;
 }
 async function importarCatalogoV29() {
-  const existing=new Set(productos.map(p=>p.nombre.toLowerCase())); const sel=CATALOGO_BASE_V29.filter(x=>catalogoSeleccionV29.has(x.nombre)&&!existing.has(x.nombre.toLowerCase()));
-  if(!sel.length){mostrarToast("No hay productos nuevos seleccionados","info");return;}
-  const cats=[...new Set(sel.map(x=>x.categoria))];for(const c of cats)await asegurarCategoriaV29(c);
-  const rows=sel.map(x=>({user_id:sesionActual.user.id,nombre:x.nombre,marca:x.marca,presentacion:x.presentacion,codigo_barras:null,categoria:x.categoria,precio_compra:0,precio_venta:0,stock:0,stock_minimo:x.stockMinimo||5}));
-  const {data,error}=await supabaseClient.from("productos").insert(rows).select(); if(error){mostrarToast("No se pudo importar el catálogo","error");console.error(error);return;}
-  productos.push(...(data||[]).map(mapearProductoDB));actualizarFiltroCategorias();renderGrid();cerrarCatalogoV29();mostrarToast(`${data.length} productos importados. Ahora cargá precios y stock.`,`success`);
+  const existing = new Set(productos.map((p) => p.nombre.toLowerCase()));
+
+  const sel = CATALOGO_BASE_V29.filter(
+    (x) =>
+      catalogoSeleccionV29.has(x.nombre) &&
+      !existing.has(x.nombre.toLowerCase())
+  );
+
+  if (!sel.length) {
+    mostrarToast("No hay productos nuevos seleccionados", "info");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "importar_productos_seguro_v1",
+    {
+      p_sucursal_id: appContext.branch.id,
+      p_items: sel.map((x) => ({
+        nombre: x.nombre,
+        marca: x.marca,
+        presentacion: x.presentacion,
+        categoria: x.categoria,
+      })),
+    }
+  );
+
+  if (error || !data?.ok) {
+    mostrarToast(
+      error?.message || data?.message || "No se pudo importar el catálogo",
+      "error"
+    );
+    console.error(error || data);
+    return;
+  }
+
+  await cargarCategorias();
+  await cargarProductos();
+  actualizarFiltroCategorias();
+  renderGrid();
+  cerrarCatalogoV29();
+
+  mostrarToast(
+    `${Number(data.importados || 0)} productos importados. Ahora cargá precios y stock.`,
+    "success"
+  );
 }
 
 async function cargarEjemplos() {abrirCatalogoV29();}
@@ -8060,6 +8152,7 @@ function init() {
   setupInventarioProfesional();
   setupGestionMenuV230();
   setupComprasV230();
+  setupSecuritySessionGuardV2301();
   iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();

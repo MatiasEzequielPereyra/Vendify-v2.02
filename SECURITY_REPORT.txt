@@ -1,0 +1,142 @@
+VENDIFY v2.30.1 — SECURITY HARDENING
+=====================================
+
+ORDEN DE INSTALACIÓN
+--------------------
+1. Supabase > SQL Editor
+   Ejecutar:
+   security_hardening.sql
+
+2. Opcional pero recomendado:
+   ejecutar security_verify.sql
+
+3. Subir TODO el contenido de este ZIP a Vercel.
+   Es importante incluir vercel.json.
+
+CAMBIOS DE SEGURIDAD
+--------------------
+
+1. AISLAMIENTO MULTIEMPRESA
+- Categorías ahora tienen negocio_id.
+- Se reconstruyen las políticas RLS de las tablas críticas.
+- Productos, ventas, costos, compras, proveedores e inventario se filtran
+  por negocio y rol en PostgreSQL.
+
+2. CASHIER NO VE COSTOS
+- La app usa listar_productos_sucursal_seguro_v1.
+- Owner/Admin/Manager reciben precio_compra real.
+- Cashier recibe precio_compra = 0.
+- El acceso directo a productos queda limitado por RLS.
+
+3. SIN ESCRITURAS CRÍTICAS DIRECTAS
+Se eliminaron del frontend:
+- INSERT/UPDATE/DELETE directo de productos.
+- DELETE masivo directo.
+- INSERT/DELETE directo de categorías.
+- importación directa del catálogo.
+
+Ahora pasan por RPCs SECURITY DEFINER que verifican:
+- auth.uid()
+- negocio actual
+- rol
+- sucursal
+- datos
+
+Además se revocan INSERT/UPDATE/DELETE directos a authenticated en las tablas
+críticas.
+
+4. PRODUCTOS
+Nuevo RPC:
+guardar_producto_seguro_v1
+
+Alta:
+- asigna negocio_id en backend
+- usuario actual
+- sucursal válida
+- código de barras único
+- stock inicial auditado
+
+Edición:
+- verifica pertenencia al negocio
+- cambio de stock queda auditado como corrección
+
+Eliminación:
+- negocio + rol verificados en servidor.
+
+5. CATEGORÍAS
+Se corrigió la arquitectura antigua basada en user_id.
+Ahora son del negocio, no de una cuenta individual.
+
+6. SCANNER STOCK 0
+Nuevo:
+confirmar_stock_por_scanner_v2
+
+Exige:
+- usuario autenticado
+- miembro del negocio
+- SU PROPIA caja abierta
+- sucursal correcta
+- producto del negocio
+- solamente +1 por lectura
+- máximo 30 correcciones automáticas cada 5 minutos por usuario/sucursal
+
+Cada corrección deja:
+- movimiento
+- audit_log
+
+La versión scanner v1 queda sin EXECUTE para authenticated.
+
+7. REALTIME
+Se eliminó el broadcast público stock_changed.
+Vendify usa:
+- Postgres Changes con RLS
+- watchdog
+- reconciliación autoritativa contra PostgreSQL
+
+8. SESIONES
+Después de 8 horas SIN actividad:
+- Vendify cierra la sesión automáticamente.
+
+Actividad real reinicia el contador.
+
+9. HEADERS VERCEL
+vercel.json agrega:
+- Content-Security-Policy
+- X-Content-Type-Options
+- X-Frame-Options
+- Referrer-Policy
+- Permissions-Policy
+- HSTS
+
+CSP limita:
+- scripts al propio sitio + jsDelivr
+- conexiones al proyecto Supabase correcto
+- Open Food Facts
+- cámara solamente al propio sitio
+- frames bloqueados
+- object/embed bloqueados
+
+10. CACHE
+index.html, sw.js y supabase-config.js no quedan cacheados agresivamente.
+Esto reduce el riesgo de que teléfono y PC sigan usando configuraciones viejas.
+
+PENDIENTE ANTES DE LANZAMIENTO PÚBLICO
+--------------------------------------
+Estas partes requieren trabajo adicional o configuración fuera de este ZIP:
+
+A. MFA/TOTP para Owner/Admin.
+   Recomendado antes de clientes externos.
+
+B. Edge Functions:
+   crear-empleado
+   gestionar-empleado
+   Deben revisarse desde el código desplegado en Supabase porque no forman
+   parte del frontend de este paquete.
+
+C. Test real Empresa A vs Empresa B.
+   Hace falta crear dos cuentas/negocios distintos y probar con sus JWT reales.
+   security_verify.sql comprueba configuración, pero no reemplaza un test
+   de aislamiento con dos identidades reales.
+
+D. Backups / recuperación / monitoreo.
+   Corresponde al bloque de confiabilidad del roadmap.

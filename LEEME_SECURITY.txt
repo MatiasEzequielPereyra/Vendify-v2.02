@@ -1,0 +1,41 @@
+VENDIFY v2.30.1 SECURITY — INSTALACIÓN RÁPIDA
+=================================================
+
+1) Supabase SQL Editor:
+   security_hardening.sql
+
+2) Recomendado:
+   security_verify.sql
+   La consulta de escrituras directas debe devolver 0 filas.
+
+3) Vercel:
+   subir TODO el ZIP, incluido:
+   vercel.json
+   supabase-config.js
+   manifest.json
+   icons/
+
+4) Cerrar sesión y volver a ingresar en PC y teléfono.
+
+PRUEBAS MÍNIMAS
+---------------
+Owner/Admin:
+- crear/editar/eliminar producto
+- crear/eliminar categoría
+- importar catálogo
+- compras/inventario/historial
+
+Cashier:
+- vender
+- scanner
+- NO debería tener Historial/Inventario/Compras/Equipo
+- no debería ver costos
+
+Scanner stock 0:
+- abrir caja
+- escanear producto stock 0
+- vender
+- debe quedar 0 nuevamente
+
+Sin caja abierta:
+- scanner de producto stock 0 debe rechazar la corrección automática.
