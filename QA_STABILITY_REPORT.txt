@@ -1,0 +1,83 @@
+VENDIFY v2.30.1.1 — STABILITY & UI QA
+========================================
+
+CAMBIOS PRINCIPALES
+-------------------
+1. Venta idempotente:
+   - nuevo registrar_venta_v4
+   - cada venta lleva request_id único
+   - reintentar la misma operación no genera otra venta
+
+2. Doble click / operaciones críticas:
+   - Cobrar bloqueado mientras procesa
+   - Conteo físico bloqueado mientras procesa
+   - Transferencia de inventario bloqueada
+   - Compras protegidas contra doble ejecución
+   - Apertura/cierre/movimientos de caja protegidos
+
+3. El frontend ya no descuenta stock "a mano" después de vender:
+   - después del cobro vuelve a consultar Supabase
+   - evita diferencias si una respuesta se reintenta
+
+4. Diagnóstico:
+   Gestión > Diagnóstico
+   - conexión
+   - sucursal
+   - caja
+   - versión
+   - sincronización manual
+   - controles PostgreSQL:
+       stock negativo
+       stock vs último movimiento
+       códigos de barras duplicados
+       múltiples sesiones abiertas por caja
+       cobros vs total de ventas
+       categorías legacy
+
+5. Sincronización:
+   - indicador Online / Sin conexión / Sincronizando
+   - tocar el indicador fuerza reconciliación
+   - al recuperar internet sincroniza automáticamente
+
+6. CSS / modales:
+   - .hidden tiene prioridad final
+   - jerarquía completa de z-index
+   - confirmaciones arriba de todos los modales
+   - scanner > modales operativos
+   - subeditores > pantallas principales
+   - scroll de body bloqueado con modal abierto
+   - safe-area móvil
+   - acciones con flex-wrap para evitar desbordes
+
+7. Apertura / cierre:
+   - auditoría estática de todos los botones cerrar/cancelar
+   - todos los candidatos tienen handler JS
+   - Escape cierra menús flotantes y modales seguros
+   - no cierra editores con datos sensibles/venta por Escape
+
+8. Iconos:
+   - sistema SVG interno
+   - mismo tamaño, stroke y alineación
+   - header, Gestión, stats, sucursal, caja y Equipo normalizados
+   - se elimina dependencia de emojis del SO en componentes principales
+
+QA AUTOMÁTICO REALIZADO
+-----------------------
+- node --check app.js: OK
+- IDs HTML duplicados: 0
+- funciones JS duplicadas: 0
+- errores de parseo CSS: 0
+- botones close/cancel sin handler: 0
+- recursos principales: verificados
+
+INSTALACIÓN RECOMENDADA
+-----------------------
+Por las migraciones que anteriormente faltaban en tu Supabase, la opción
+más segura es ejecutar:
+
+Vendify-v2.30.1.1-ALL-IN-ONE.sql
+
+Después subir todo el frontend del ZIP a Vercel.
+
+Si Security FIX3 ya está 100% aplicado, también podés ejecutar solamente:
+01_stability_data_integrity.sql

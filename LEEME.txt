@@ -1,112 +1,52 @@
-VENDIFY v2.29 — INVENTARIO PROFESIONAL
-======================================
+VENDIFY v2.30.1.1
+====================
 
-ANTES DE SUBIR EL FRONTEND
---------------------------
-Supabase > SQL Editor > ejecutar completo:
-
-inventario_profesional.sql
-
-DESPUÉS REEMPLAZAR EN VERCEL
-----------------------------
-index.html
-app.js
-styles.css
-sw.js
-
-CONFIGURACIÓN EN PC
--------------------
-Se rearmó el layout desktop:
-- modal más ancho y alto
-- sidebar fija
-- contenido con scroll independiente
-- General aprovecha el ancho
-- Resumen en 4 columnas
-- accesos rápidos en 4 columnas
-- Equipo / PIN quedan equilibrados
-- Sucursales usa grilla de 2 tarjetas y scroll propio
-- Catálogo distribuye mejor sus tarjetas
-- teléfono conserva el layout compacto anterior
-
-INVENTARIO PROFESIONAL
-----------------------
-Nuevo botón "Inventario" en el header.
-
-Secciones:
-1. Resumen
-   - productos
-   - unidades
-   - stock bajo inteligente
-   - sin stock
-   - productos que requieren atención
-   - movimientos recientes
-
-2. Movimientos
-   - venta
-   - ingreso
-   - corrección
-   - rotura
-   - vencimiento
-   - pérdida / merma
-   - conteo físico
-   - transferencias
-   - usuario, fecha, delta y stock resultante
-
-3. Ajustar
-   - sumar
-   - restar
-   - establecer stock exacto
-   - motivo obligatorio
-   - observación opcional
-
-4. Conteo físico
-   - se puede contar una parte o todo el catálogo
-   - muestra stock del sistema
-   - cantidad real contada
-   - diferencia
-   - al confirmar aplica todas las diferencias en una transacción
-   - guarda el conteo y sus items
-
-5. Transferencias
-   - origen
-   - destino
-   - producto
-   - cantidad
-   - motivo/referencia
-   - dos movimientos auditados: salida + entrada
-
-CAMBIO IMPORTANTE
------------------
-Los botones + / - de stock ya NO modifican silenciosamente el stock.
-Ahora abren Inventario > Ajustar para registrar el motivo.
-
-El modal de ajuste exacto existente también pide:
-- motivo
-- observación
-
-PERMISOS
---------
-Owner / Admin / Manager:
-- inventario
-- ajustes
-- conteos
-- transferencias
-
-Cashier:
-- no administra inventario
-
-PRUEBA RECOMENDADA
+INSTALACIÓN SEGURA
 ------------------
-1. Ejecutar SQL.
-2. Abrir Inventario.
-3. Ajustar +5 como "Reposición".
-4. Revisar Movimientos.
-5. Ajustar -1 como "Rotura".
-6. Revisar Movimientos.
-7. Conteo físico:
-   sistema 10
-   contado 8
-   aplicar
-   debe quedar 8 y registrar -2.
-8. Transferir 2 unidades entre sucursales.
-9. Revisar historial en origen y destino.
+1. Supabase > SQL Editor
+2. Ejecutar:
+   Vendify-v2.30.1.1-ALL-IN-ONE.sql
+
+   Este archivo incluye:
+   - Compras/Proveedores
+   - Security FIX3
+   - Stability v2.30.1.1
+
+3. Subir TODO el contenido del ZIP a Vercel.
+
+SI SECURITY FIX3 YA ESTÁ APLICADO
+---------------------------------
+Podés ejecutar solamente:
+01_stability_data_integrity.sql
+
+PRUEBAS
+-------
+A. Doble click rápido en Cobrar:
+   debe existir una sola venta.
+
+B. PC + teléfono:
+   vender simultáneamente últimas unidades.
+   ninguna venta debe dejar stock negativo.
+
+C. Gestión > Diagnóstico:
+   ejecutar diagnóstico.
+
+D. Desconectar Wi-Fi:
+   indicador cambia a Sin conexión.
+   reconectar:
+   debe pasar por Sincronizando y terminar Online.
+
+E. Abrir/cerrar:
+   Configuración
+   Gestión
+   Inventario
+   Compras
+   Equipo
+   Historial
+   Caja
+   Scanner
+   Confirmaciones
+
+F. Teléfono:
+   comprobar que ningún modal salga de pantalla
+   y que los botones mantengan tamaño/alineación.

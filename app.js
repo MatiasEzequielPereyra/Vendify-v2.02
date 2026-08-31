@@ -560,6 +560,7 @@ function aplicarPermisosV2() {
   setHidden("#btn-historial", !puedeVerHistorial);
   setHidden("#btn-inventario", !(esOwner || esAdmin || esManager));
   setHidden("#btn-compras", !(esOwner || esAdmin || esManager));
+  setHidden("#btn-diagnostico-v23011", !(esOwner || esAdmin));
 
   const gestionVisible =
     puedeVerHistorial ||
@@ -2663,6 +2664,328 @@ function setupSecuritySessionGuardV2301() {
 }
 
 
+
+// ============================================================
+// Vendify v2.30.1.1 — Stability & Data Integrity
+// ============================================================
+
+const VENDIFY_VERSION_V23011 = "2.30.1.1";
+let ventaRequestIdV23011 = null;
+let ventaConfirmandoV23011 = false;
+let compraOperacionEnCursoV23011 = false;
+let conteoOperacionEnCursoV23011 = false;
+let transferenciaOperacionEnCursoV23011 = false;
+let cajaOperacionEnCursoV23011 = false;
+let syncInFlightV23011 = null;
+
+function nuevaRequestIdV23011() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function asegurarVentaRequestIdV23011() {
+  if (!ventaRequestIdV23011) ventaRequestIdV23011 = nuevaRequestIdV23011();
+  return ventaRequestIdV23011;
+}
+
+function setConnectionStateV23011(state = "online", label = null) {
+  const el = $("#connection-status-v23011");
+  const text = $("#connection-label-v23011");
+  if (!el || !text) return;
+
+  el.classList.remove("online", "offline", "syncing", "error");
+  el.classList.add(state);
+
+  const labels = {
+    online: "Online",
+    offline: "Sin conexión",
+    syncing: "Sincronizando",
+    error: "Error de sync",
+  };
+
+  text.textContent = label || labels[state] || state;
+
+  const icon = el.querySelector("use");
+  if (icon) {
+    icon.setAttribute(
+      "href",
+      state === "offline" || state === "error" ? "#vi-wifi-off" : "#vi-wifi"
+    );
+  }
+}
+
+function actualizarEstadoConexionV23011() {
+  setConnectionStateV23011(navigator.onLine ? "online" : "offline");
+}
+
+async function sincronizarTodoV23011({ toast = false } = {}) {
+  if (syncInFlightV23011) return syncInFlightV23011;
+
+  syncInFlightV23011 = (async () => {
+    if (!navigator.onLine) {
+      setConnectionStateV23011("offline");
+      if (toast) mostrarToast("No hay conexión a internet", "info");
+      return false;
+    }
+
+    setConnectionStateV23011("syncing");
+
+    try {
+      await cargarProductos();
+      renderGrid();
+
+      if (appContext?.cashRegister?.id) {
+        await cargarEstadoCajaV227();
+      }
+
+      if (!$("#modal-historial")?.classList.contains("hidden")) {
+        await renderHistorial();
+      }
+
+      if (!$("#modal-inventario")?.classList.contains("hidden")) {
+        await refrescarInventarioProfesional();
+      }
+
+      if (!$("#modal-compras")?.classList.contains("hidden")) {
+        await Promise.all([
+          cargarComprasV230(),
+          cargarProveedoresV230({
+            render: comprasActiveTabV230 === "proveedores",
+          }),
+        ]);
+      }
+
+      setConnectionStateV23011("online");
+      if (toast) mostrarToast("Datos sincronizados", "success");
+      return true;
+    } catch (error) {
+      console.error("[Vendify Stability] sync:", error);
+      setConnectionStateV23011("error");
+      if (toast) mostrarToast(error.message || "No se pudo sincronizar", "error");
+      return false;
+    }
+  })().finally(() => {
+    syncInFlightV23011 = null;
+  });
+
+  return syncInFlightV23011;
+}
+
+function modalVisibleV23011(modal) {
+  return Boolean(modal && !modal.classList.contains("hidden") && !modal.hidden);
+}
+
+function cerrarMenusFlotantesV23011() {
+  abrirCerrarMenuUsuarioV224?.(false);
+  abrirCerrarGestionV230?.(false);
+}
+
+function sincronizarEstadoOverlaysV23011() {
+  const visibles = Array.from(document.querySelectorAll(".modal"))
+    .filter(modalVisibleV23011);
+
+  document.body.classList.toggle("vendify-modal-open-v23011", visibles.length > 0);
+
+  document.querySelectorAll(".modal").forEach((modal) => {
+    modal.setAttribute(
+      "aria-hidden",
+      modalVisibleV23011(modal) ? "false" : "true"
+    );
+  });
+
+  if (visibles.length) cerrarMenusFlotantesV23011();
+}
+
+function setupOverlayStabilityV23011() {
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.some((m) => m.type === "attributes")) {
+      sincronizarEstadoOverlaysV23011();
+    }
+  });
+
+  document.querySelectorAll(".modal").forEach((modal) => {
+    observer.observe(modal, {
+      attributes: true,
+      attributeFilter: ["class", "hidden"],
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+
+    if (!$("#gestion-menu-v230")?.classList.contains("hidden")) {
+      abrirCerrarGestionV230(false);
+      return;
+    }
+
+    if (!$("#user-menu")?.classList.contains("hidden")) {
+      abrirCerrarMenuUsuarioV224(false);
+      return;
+    }
+
+    const closable = [
+      ["modal-confirm", "btn-confirm-cancel"],
+      ["modal-discount-auth", "btn-cancel-discount-auth"],
+      ["modal-scanner-v29", "btn-close-scanner-v29"],
+      ["modal-ticket-v228", "btn-close-ticket-v228"],
+      ["modal-diagnostico-v23011", "btn-close-diagnostic-v23011"],
+      ["modal-inventario", "btn-close-inventory"],
+      ["modal-compras", "btn-close-compras"],
+      ["modal-historial", "btn-cerrar-historial"],
+      ["modal-caja-operativa-v227", "btn-cerrar-caja-panel-v227"],
+      ["modal-config", "btn-cerrar-config"],
+      ["modal-equipo", "btn-cerrar-equipo"],
+    ];
+
+    for (const [modalId, closeId] of closable) {
+      const modal = document.getElementById(modalId);
+      if (modalVisibleV23011(modal)) {
+        e.preventDefault();
+        document.getElementById(closeId)?.click();
+        break;
+      }
+    }
+  });
+
+  sincronizarEstadoOverlaysV23011();
+}
+
+async function abrirDiagnosticoV23011() {
+  const role = appContext.membership?.role;
+  if (!["owner", "admin"].includes(role)) {
+    mostrarToast("Solo Propietario o Administrador pueden ejecutar diagnósticos", "error");
+    return;
+  }
+
+  $("#diag-connection-v23011").textContent = navigator.onLine ? "Online" : "Sin conexión";
+  $("#diag-branch-v23011").textContent = appContext.branch?.nombre || "Sin sucursal";
+  $("#diag-cash-v23011").textContent = appContext.cashRegister?.nombre || "Sin caja";
+  $("#diagnostic-summary-v23011").textContent =
+    "Ejecutá el diagnóstico para revisar la integridad.";
+  $("#diagnostic-issues-v23011").innerHTML = "";
+
+  $("#modal-diagnostico-v23011").classList.remove("hidden");
+}
+
+function cerrarDiagnosticoV23011() {
+  $("#modal-diagnostico-v23011")?.classList.add("hidden");
+}
+
+function renderDiagnosticoV23011(data) {
+  const summary = $("#diagnostic-summary-v23011");
+  const issues = $("#diagnostic-issues-v23011");
+  if (!summary || !issues) return;
+
+  const rows = Array.isArray(data?.issues) ? data.issues : [];
+  const critical = rows.filter((x) => x.severity === "critical").length;
+  const warning = rows.filter((x) => x.severity === "warning").length;
+
+  summary.className =
+    `diagnostic-summary-v23011 ${critical ? "critical" : warning ? "warning" : "ok"}`;
+
+  summary.innerHTML = critical
+    ? `<strong>${critical} problema(s) crítico(s)</strong><span>Revisalos antes de continuar operando.</span>`
+    : warning
+      ? `<strong>${warning} advertencia(s)</strong><span>No bloquean la operación, pero conviene revisarlas.</span>`
+      : `<strong>Integridad OK</strong><span>No se detectaron inconsistencias en los controles automáticos.</span>`;
+
+  if (!rows.length) {
+    issues.innerHTML = `
+      <div class="diagnostic-empty-v23011">
+        <svg class="vendify-icon"><use href="#vi-check"></use></svg>
+        <span>Sin problemas detectados.</span>
+      </div>`;
+    return;
+  }
+
+  issues.innerHTML = rows.map((issue) => `
+    <article class="diagnostic-issue-v23011 ${escapeHtml(issue.severity || "warning")}">
+      <div class="diagnostic-issue-icon-v23011">
+        <svg class="vendify-icon"><use href="#vi-${issue.severity === "critical" ? "alert" : "diagnostic"}"></use></svg>
+      </div>
+      <div>
+        <strong>${escapeHtml(issue.title || "Control")}</strong>
+        <p>${escapeHtml(issue.detail || "")}</p>
+      </div>
+      <span>${Number(issue.count || 0)}</span>
+    </article>
+  `).join("");
+}
+
+async function ejecutarDiagnosticoV23011() {
+  const btn = $("#btn-run-diagnostic-v23011");
+  const original = btn?.innerHTML;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = "Ejecutando...";
+  }
+
+  try {
+    const { data, error } = await supabaseClient.rpc(
+      "diagnostico_integridad_v1"
+    );
+
+    if (error) throw error;
+    renderDiagnosticoV23011(data || {});
+  } catch (error) {
+    $("#diagnostic-summary-v23011").className =
+      "diagnostic-summary-v23011 critical";
+    $("#diagnostic-summary-v23011").innerHTML =
+      `<strong>No se pudo ejecutar el diagnóstico</strong><span>${escapeHtml(error.message || "Error desconocido")}</span>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
+}
+
+function setupStabilityV23011() {
+  actualizarEstadoConexionV23011();
+
+  window.addEventListener("online", () => {
+    setConnectionStateV23011("syncing");
+    sincronizarTodoV23011();
+  });
+
+  window.addEventListener("offline", actualizarEstadoConexionV23011);
+
+  $("#connection-status-v23011")?.addEventListener(
+    "click",
+    () => sincronizarTodoV23011({ toast: true })
+  );
+
+  $("#btn-diagnostico-v23011")?.addEventListener(
+    "click",
+    abrirDiagnosticoV23011
+  );
+
+  $("#btn-close-diagnostic-v23011")?.addEventListener(
+    "click",
+    cerrarDiagnosticoV23011
+  );
+
+  $("#modal-diagnostico-v23011 .modal-backdrop")?.addEventListener(
+    "click",
+    cerrarDiagnosticoV23011
+  );
+
+  $("#btn-sync-now-v23011")?.addEventListener(
+    "click",
+    () => sincronizarTodoV23011({ toast: true })
+  );
+
+  $("#btn-run-diagnostic-v23011")?.addEventListener(
+    "click",
+    ejecutarDiagnosticoV23011
+  );
+
+  setupOverlayStabilityV23011();
+}
+
 // ============================================================
 // Vendify v2.30 — Menú Gestión compacto
 // ============================================================
@@ -3199,6 +3522,8 @@ function actualizarProgresoConteo() {
 }
 
 async function aplicarConteoFisico() {
+  if (conteoOperacionEnCursoV23011) return;
+
   if (!inventoryCountDraft.size) {
     mostrarToast("Ingresá al menos un producto contado", "info");
     return;
@@ -3223,6 +3548,7 @@ async function aplicarConteoFisico() {
 
   if (!ok) return;
 
+  conteoOperacionEnCursoV23011 = true;
   const btn = $("#btn-apply-count");
   btn.disabled = true;
   btn.textContent = "Aplicando...";
@@ -3240,6 +3566,7 @@ async function aplicarConteoFisico() {
   btn.textContent = "Aplicar diferencias";
 
   if (error) {
+    conteoOperacionEnCursoV23011 = false;
     mostrarToast(error.message, "error");
     return;
   }
@@ -3257,6 +3584,7 @@ async function aplicarConteoFisico() {
     `Conteo guardado · ${Number(data?.productos_ajustados || 0)} ajustes`,
     "success"
   );
+  conteoOperacionEnCursoV23011 = false;
 }
 
 function limpiarConteoFisico() {
@@ -3327,6 +3655,7 @@ function actualizarDisponibleTransferenciaInventario() {
 
 async function transferirStockInventario(e) {
   e.preventDefault();
+  if (transferenciaOperacionEnCursoV23011) return;
 
   const origin = $("#inventory-transfer-origin").value;
   const destination = $("#inventory-transfer-destination").value;
@@ -3342,6 +3671,11 @@ async function transferirStockInventario(e) {
     return;
   }
 
+  transferenciaOperacionEnCursoV23011 = true;
+
+  const submitBtn = e.submitter;
+  if (submitBtn) submitBtn.disabled = true;
+
   const { data, error } = await supabaseClient.rpc(
     "transferir_stock_v2",
     {
@@ -3354,6 +3688,8 @@ async function transferirStockInventario(e) {
   );
 
   if (error) {
+    transferenciaOperacionEnCursoV23011 = false;
+    if (submitBtn) submitBtn.disabled = false;
     errorEl.textContent = error.message;
     return;
   }
@@ -3374,6 +3710,9 @@ async function transferirStockInventario(e) {
     `Transferencia realizada · ${Number(amount)} unidades`,
     "success"
   );
+
+  transferenciaOperacionEnCursoV23011 = false;
+  if (submitBtn) submitBtn.disabled = false;
 }
 
 function abrirAjusteInventarioDesdeProducto(id, delta = null) {
@@ -4024,21 +4363,27 @@ function renderCompraItemsV230() {
 }
 
 async function guardarCompraV230({ recibir = false } = {}) {
+  if (compraOperacionEnCursoV23011) return;
+  compraOperacionEnCursoV23011 = true;
+
   const errorEl = $("#compra-editor-error");
   errorEl.textContent = "";
 
   if (!$("#compra-proveedor").value) {
     errorEl.textContent = "Seleccioná un proveedor.";
+    compraOperacionEnCursoV23011 = false;
     return;
   }
 
   if (!$("#compra-sucursal").value) {
     errorEl.textContent = "Seleccioná una sucursal.";
+    compraOperacionEnCursoV23011 = false;
     return;
   }
 
   if (!compraItemsV230.length) {
     errorEl.textContent = "Agregá al menos un producto.";
+    compraOperacionEnCursoV23011 = false;
     return;
   }
 
@@ -4067,6 +4412,7 @@ async function guardarCompraV230({ recibir = false } = {}) {
     btn.disabled = false;
     btn.textContent = original;
     errorEl.textContent = error?.message || data?.message || "No se pudo guardar la compra.";
+    compraOperacionEnCursoV23011 = false;
     return;
   }
 
@@ -4085,7 +4431,8 @@ async function guardarCompraV230({ recibir = false } = {}) {
         receive.error?.message ||
         receive.data?.message ||
         "La compra quedó guardada como borrador, pero no se pudo recibir.";
-      return;
+      compraOperacionEnCursoV23011 = false;
+    return;
     }
 
     emitirCambioStockRealtime("compra_recibida");
@@ -4108,6 +4455,8 @@ async function guardarCompraV230({ recibir = false } = {}) {
     cargarComprasV230(),
     cargarProveedoresV230({ render: comprasActiveTabV230 === "proveedores" }),
   ]);
+
+  compraOperacionEnCursoV23011 = false;
 }
 
 async function anularCompraBorradorV230(id) {
@@ -4700,7 +5049,7 @@ async function registrarVentaV3(items, pagos, totales, observacion) {
     cantidad: Number(item.cantidad),
   }));
 
-  const { data, error } = await supabaseClient.rpc("registrar_venta_v3", {
+  const { data, error } = await supabaseClient.rpc("registrar_venta_v4", {
     p_items: payload,
     p_pagos: pagos,
     p_descuento_tipo: totales.tipo,
@@ -4708,6 +5057,7 @@ async function registrarVentaV3(items, pagos, totales, observacion) {
     p_observacion: observacion || null,
     p_sucursal_id: appContext.branch.id,
     p_caja_id: appContext.cashRegister.id,
+    p_request_id: asegurarVentaRequestIdV23011(),
   });
 
   if (error) throw new Error(error.message || "No se pudo registrar la venta");
@@ -5074,6 +5424,9 @@ async function guardarGestionVentaV228(e) {
 // Venta (POS) — carrito y cobro
 // =====================
 function abrirVenta() {
+  ventaRequestIdV23011 = nuevaRequestIdV23011();
+  ventaConfirmandoV23011 = false;
+
   if (!appContext?.cashRegister?.id) {
     mostrarToast("Seleccioná una caja antes de vender", "error");
     return;
@@ -5198,7 +5551,7 @@ function renderCarrito() {
 }
 
 async function confirmarVenta() {
-  if (carrito.length === 0) return;
+  if (carrito.length === 0 || ventaConfirmandoV23011) return;
 
   const btn = $("#btn-cobrar");
 
@@ -5223,46 +5576,43 @@ async function confirmarVenta() {
     return;
   }
 
+  ventaConfirmandoV23011 = true;
   btn.disabled = true;
   btn.textContent = "Cobrando...";
 
-  let data;
-
   try {
-    data = await registrarVentaV3(
+    const data = await registrarVentaV3(
       carrito,
       pagos,
       totales,
       $("#venta-observacion-v228").value.trim()
     );
+
+    if (!data) return;
+
+    // El servidor es la autoridad. Reconciliamos el catálogo completo,
+    // evitando restar dos veces localmente si la respuesta fue un retry.
+    await cargarProductos();
+    renderGrid();
+    await cargarEstadoCajaV227();
+
+    const total = Number(data?.venta?.total ?? totales.total);
+    mostrarToast(`Venta cobrada: ${formatearPrecio(total)}`, "success");
+
+    descuentoAutorizacion = null;
+    ventaRequestIdV23011 = null;
+
+    cerrarVenta();
+    mostrarTicketV228(data);
   } catch (error) {
-    btn.textContent = "Cobrar";
-    btn.disabled = false;
     mostrarToast(error.message || "No se pudo registrar la venta", "error");
-    return;
+  } finally {
+    ventaConfirmandoV23011 = false;
+    if (btn) {
+      btn.textContent = "Cobrar";
+      btn.disabled = carrito.length === 0;
+    }
   }
-
-  btn.textContent = "Cobrar";
-
-  if (!data) {
-    btn.disabled = false;
-    return;
-  }
-
-  carrito.forEach((c) => {
-    const p = productos.find((x) => x.id === c.id);
-    if (p) p.stock = Math.max(0, p.stock - c.cantidad);
-  });
-
-  renderGrid();
-  await cargarEstadoCajaV227();
-
-  const total = Number(data?.venta?.total ?? totales.total);
-  mostrarToast(`Venta cobrada: ${formatearPrecio(total)}`, "success");
-
-  descuentoAutorizacion = null;
-  cerrarVenta();
-  mostrarTicketV228(data);
 }
 
 // =====================
@@ -7608,15 +7958,95 @@ function renderEstadoCajaHeaderV227(){const btn=$("#btn-caja-v227"),dot=$("#cash
 async function abrirPanelCajaV227(){if(!appContext?.cashRegister?.id){mostrarToast("Esta sucursal no tiene una caja activa","error");return;}await cargarEstadoCajaV227();await renderPanelCajaV227();await renderHistorialCajaV227();$("#cash-context-v227").textContent=`${appContext.branch?.nombre||"Sucursal"} · ${appContext.cashRegister?.nombre||"Caja"}`;$("#modal-caja-operativa-v227").classList.remove("hidden");}
 function cerrarPanelCajaV227(){$("#modal-caja-operativa-v227")?.classList.add("hidden");}
 async function renderPanelCajaV227(){const cont=$("#cash-current-v227");if(!cont)return;if(!appContext?.cashRegister?.id){cont.innerHTML=`<div class="cash-empty-v227">No hay una caja activa.</div>`;return;}if(!cajaEstadoV227?.sesion){cont.innerHTML=`<section class="cash-status-card-v227 closed"><div class="cash-status-title-v227"><span class="cash-big-dot-v227 closed"></span><div><strong>Caja cerrada</strong><small>${escapeHtml(appContext.cashRegister.nombre)}</small></div></div><form id="form-open-cash-v227" class="cash-open-form-v227"><div class="form-group"><label for="cash-opening-fund-v227">Fondo inicial</label><input type="number" id="cash-opening-fund-v227" value="0" min="0" step="0.01" required/><small class="hint">Efectivo físico antes de empezar.</small></div><div class="form-group"><label for="cash-opening-note-v227">Nota</label><input id="cash-opening-note-v227" maxlength="200" placeholder="Opcional"/></div><span class="field-error" id="cash-opening-error-v227"></span><button type="submit" class="btn btn-primary btn-lg">Abrir caja</button></form></section>`;$("#form-open-cash-v227")?.addEventListener("submit",abrirCajaV227);return;}const s=cajaEstadoV227.sesion;if(!cajaEstadoV227.es_mia){cont.innerHTML=`<section class="cash-status-card-v227 busy"><div class="cash-status-title-v227"><span class="cash-big-dot-v227 busy"></span><div><strong>Caja en uso</strong><small>Abierta por ${escapeHtml(s.usuario_nombre||"otro usuario")}</small></div></div><p class="cash-busy-copy-v227">Seleccioná otra caja o esperá el cierre del turno.</p>${cajaEstadoV227.puede_supervisar?`<button type="button" class="btn btn-secondary" id="btn-supervisor-close-v227">Cerrar como supervisor</button>`:""}</section>`;$("#btn-supervisor-close-v227")?.addEventListener("click",abrirCierreCajaV227);return;}cont.innerHTML=`<section class="cash-status-card-v227 open"><div class="cash-open-head-v227"><div class="cash-status-title-v227"><span class="cash-big-dot-v227 open"></span><div><strong>Turno abierto</strong><small>Desde ${escapeHtml(formatearFechaHoraV227(s.abierta_en))}</small></div></div><button type="button" class="btn btn-danger btn-sm" id="btn-open-cash-close-v227">Cerrar caja</button></div><div class="cash-summary-grid-v227"><div class="cash-summary-item-v227"><span>Ventas</span><strong>${formatearPrecio(Number(s.ventas_total||0))}</strong><small>${Number(s.tickets||0)} tickets</small></div><div class="cash-summary-item-v227"><span>Efectivo vendido</span><strong>${formatearPrecio(Number(s.ventas_efectivo||0))}</strong><small>Ventas en efectivo</small></div><div class="cash-summary-item-v227"><span>Ingresos</span><strong class="positive">${formatearPrecio(Number(s.ingresos_total||0))}</strong><small>Movimientos manuales</small></div><div class="cash-summary-item-v227"><span>Retiros</span><strong class="negative">${formatearPrecio(Number(s.retiros_total||0))}</strong><small>Salidas manuales</small></div><div class="cash-summary-item-v227 featured"><span>Efectivo esperado</span><strong>${formatearPrecio(Number(s.efectivo_esperado||0))}</strong><small>Incluye fondo inicial</small></div></div><div class="cash-actions-v227"><button type="button" class="btn btn-secondary" data-cash-movement="ingreso">＋ Ingreso</button><button type="button" class="btn btn-secondary" data-cash-movement="retiro">− Retiro</button></div><div class="cash-movements-section-v227"><div class="cash-section-head-v227"><div><h3>Movimientos</h3><p>Ingresos y retiros del turno.</p></div></div><div id="cash-movements-v227" class="cash-movements-v227"></div></div></section>`;$("#btn-open-cash-close-v227")?.addEventListener("click",abrirCierreCajaV227);cont.querySelectorAll("[data-cash-movement]").forEach(btn=>btn.addEventListener("click",()=>abrirMovimientoCajaV227(btn.dataset.cashMovement)));await renderMovimientosCajaV227();}
-async function abrirCajaV227(e){e.preventDefault();const er=$("#cash-opening-error-v227");er.textContent="";const{data,error}=await supabaseClient.rpc("abrir_caja_v1",{p_caja_id:appContext.cashRegister.id,p_fondo_inicial:Number($("#cash-opening-fund-v227").value||0),p_nota:$("#cash-opening-note-v227").value.trim()||null});if(error){er.textContent=error.message;return;}cajaEstadoV227=data;renderEstadoCajaHeaderV227();await renderPanelCajaV227();await renderHistorialCajaV227();mostrarToast("Caja abierta","success");}
+async function abrirCajaV227(e){
+  e.preventDefault();
+  if(cajaOperacionEnCursoV23011)return;
+  cajaOperacionEnCursoV23011=true;
+  const er=$("#cash-opening-error-v227");
+  er.textContent="";
+  const btn=e.submitter;
+  if(btn){btn.disabled=true;btn.textContent="Abriendo...";}
+  try{
+    const{data,error}=await supabaseClient.rpc("abrir_caja_v1",{
+      p_caja_id:appContext.cashRegister.id,
+      p_fondo_inicial:Number($("#cash-opening-fund-v227").value||0),
+      p_nota:$("#cash-opening-note-v227").value.trim()||null
+    });
+    if(error){er.textContent=error.message;return;}
+    cajaEstadoV227=data;
+    renderEstadoCajaHeaderV227();
+    await renderPanelCajaV227();
+    await renderHistorialCajaV227();
+    mostrarToast("Caja abierta","success");
+  }finally{
+    cajaOperacionEnCursoV23011=false;
+    if(btn){btn.disabled=false;btn.textContent="Abrir caja";}
+  }
+}
 function abrirMovimientoCajaV227(tipo){cashMovementTypeV227=tipo;$("#cash-movement-type-v227").value=tipo;$("#cash-movement-title-v227").textContent=tipo==="ingreso"?"Registrar ingreso":"Registrar retiro";$("#cash-movement-amount-v227").value="";$("#cash-movement-reason-v227").value="";$("#cash-movement-error-v227").textContent="";$("#modal-caja-movimiento-v227").classList.remove("hidden");}
 function cerrarMovimientoCajaV227(){$("#modal-caja-movimiento-v227")?.classList.add("hidden");}
-async function guardarMovimientoCajaV227(e){e.preventDefault();const er=$("#cash-movement-error-v227");er.textContent="";const{data,error}=await supabaseClient.rpc("registrar_movimiento_caja_v1",{p_caja_id:appContext.cashRegister.id,p_tipo:$("#cash-movement-type-v227").value,p_monto:Number($("#cash-movement-amount-v227").value),p_motivo:$("#cash-movement-reason-v227").value.trim()});if(error){er.textContent=error.message;return;}cajaEstadoV227=data;cerrarMovimientoCajaV227();renderEstadoCajaHeaderV227();await renderPanelCajaV227();mostrarToast(cashMovementTypeV227==="ingreso"?"Ingreso registrado":"Retiro registrado","success");}
+async function guardarMovimientoCajaV227(e){
+  e.preventDefault();
+  if(cajaOperacionEnCursoV23011)return;
+  cajaOperacionEnCursoV23011=true;
+  const er=$("#cash-movement-error-v227");
+  er.textContent="";
+  const btn=e.submitter;
+  if(btn){btn.disabled=true;btn.textContent="Registrando...";}
+  try{
+    const{data,error}=await supabaseClient.rpc("registrar_movimiento_caja_v1",{
+      p_caja_id:appContext.cashRegister.id,
+      p_tipo:$("#cash-movement-type-v227").value,
+      p_monto:Number($("#cash-movement-amount-v227").value),
+      p_motivo:$("#cash-movement-reason-v227").value.trim()
+    });
+    if(error){er.textContent=error.message;return;}
+    cajaEstadoV227=data;
+    cerrarMovimientoCajaV227();
+    renderEstadoCajaHeaderV227();
+    await renderPanelCajaV227();
+    mostrarToast(cashMovementTypeV227==="ingreso"?"Ingreso registrado":"Retiro registrado","success");
+  }finally{
+    cajaOperacionEnCursoV23011=false;
+    if(btn){btn.disabled=false;btn.textContent="Registrar";}
+  }
+}
 async function renderMovimientosCajaV227(){const cont=$("#cash-movements-v227");if(!cont||!cajaEstadoV227?.sesion)return;const{data,error}=await supabaseClient.rpc("listar_movimientos_caja_abierta_v1",{p_caja_id:appContext.cashRegister.id});if(error){cont.innerHTML=`<p class="hint">No se pudieron cargar los movimientos.</p>`;return;}cajaMovimientosV227=data||[];if(!cajaMovimientosV227.length){cont.innerHTML=`<p class="cash-no-movements-v227">Todavía no hay movimientos manuales.</p>`;return;}cont.innerHTML=cajaMovimientosV227.map(m=>`<div class="cash-movement-row-v227 ${m.tipo}"><div><strong>${m.tipo==="ingreso"?"Ingreso":"Retiro"}</strong><small>${escapeHtml(m.motivo)} · ${escapeHtml(formatearFechaHoraV227(m.creado))}</small></div><strong>${m.tipo==="ingreso"?"+":"−"}${formatearPrecio(Number(m.monto||0))}</strong></div>`).join("");}
 function abrirCierreCajaV227(){if(!cajaEstadoV227?.sesion)return;const esperado=Number(cajaEstadoV227.sesion.efectivo_esperado||0);$("#cash-close-expected-v227").textContent=formatearPrecio(esperado);$("#cash-close-declared-v227").value=esperado.toFixed(2);$("#cash-close-note-v227").value="";$("#cash-close-error-v227").textContent="";actualizarPreviewCierreV227();$("#modal-cash-close-v227").classList.remove("hidden");}
 function cerrarCierreCajaV227(){$("#modal-cash-close-v227")?.classList.add("hidden");}
 function actualizarPreviewCierreV227(){const esperado=Number(cajaEstadoV227?.sesion?.efectivo_esperado||0),declarado=Number($("#cash-close-declared-v227")?.value||0),dif=declarado-esperado,el=$("#cash-difference-preview-v227");if(!el)return;el.classList.remove("positive","negative","neutral");el.classList.add(Math.abs(dif)<.005?"neutral":dif>0?"positive":"negative");el.textContent=`Diferencia: ${dif>0?"+":""}${formatearPrecio(dif)}`;}
-async function cerrarCajaV227(e){e.preventDefault();const er=$("#cash-close-error-v227");er.textContent="";const{data,error}=await supabaseClient.rpc("cerrar_caja_v1",{p_caja_id:appContext.cashRegister.id,p_efectivo_declarado:Number($("#cash-close-declared-v227").value),p_nota:$("#cash-close-note-v227").value.trim()||null});if(error){er.textContent=error.message;return;}const s=data?.sesion;cerrarCierreCajaV227();await cargarEstadoCajaV227();await renderPanelCajaV227();await renderHistorialCajaV227();const dif=Number(s?.diferencia||0);mostrarToast(Math.abs(dif)<.005?"Caja cerrada sin diferencias":`Caja cerrada · diferencia ${dif>0?"+":""}${formatearPrecio(dif)}`,Math.abs(dif)<.005?"success":"info");}
+async function cerrarCajaV227(e){
+  e.preventDefault();
+  if(cajaOperacionEnCursoV23011)return;
+  cajaOperacionEnCursoV23011=true;
+  const er=$("#cash-close-error-v227");
+  er.textContent="";
+  const btn=e.submitter;
+  if(btn){btn.disabled=true;btn.textContent="Cerrando...";}
+  try{
+    const{data,error}=await supabaseClient.rpc("cerrar_caja_v1",{
+      p_caja_id:appContext.cashRegister.id,
+      p_efectivo_declarado:Number($("#cash-close-declared-v227").value),
+      p_nota:$("#cash-close-note-v227").value.trim()||null
+    });
+    if(error){er.textContent=error.message;return;}
+    const s=data?.sesion;
+    cerrarCierreCajaV227();
+    await cargarEstadoCajaV227();
+    await renderPanelCajaV227();
+    await renderHistorialCajaV227();
+    const dif=Number(s?.diferencia||0);
+    mostrarToast(
+      Math.abs(dif)<.005
+        ?"Caja cerrada sin diferencias"
+        :`Caja cerrada · diferencia ${dif>0?"+":""}${formatearPrecio(dif)}`,
+      Math.abs(dif)<.005?"success":"info"
+    );
+  }finally{
+    cajaOperacionEnCursoV23011=false;
+    if(btn){btn.disabled=false;btn.textContent="Cerrar caja";}
+  }
+}
 async function renderHistorialCajaV227(){const cont=$("#cash-history-v227");if(!cont||!appContext?.branch?.id)return;const{data,error}=await supabaseClient.rpc("listar_historial_cajas_v1",{p_sucursal_id:appContext.branch.id,p_limit:12});if(error){cont.innerHTML=`<p class="hint">No se pudo cargar el historial.</p>`;return;}const list=data||[];if(!list.length){cont.innerHTML=`<p class="cash-no-movements-v227">Todavía no hay cierres registrados.</p>`;return;}cont.innerHTML=list.map(s=>{const d=Number(s.diferencia||0);return`<div class="cash-history-row-v227"><div class="cash-history-main-v227"><strong>${escapeHtml(s.caja_nombre)} · ${escapeHtml(s.usuario_nombre)}</strong><small>${escapeHtml(formatearFechaHoraV227(s.cerrada_en))} · ${Number(s.tickets||0)} tickets</small></div><div class="cash-history-sales-v227"><span>Ventas</span><strong>${formatearPrecio(Number(s.ventas_total||0))}</strong></div><div class="cash-history-diff-v227 ${Math.abs(d)<.005?"zero":d>0?"positive":"negative"}"><span>Diferencia</span><strong>${d>0?"+":""}${formatearPrecio(d)}</strong></div></div>`;}).join("");}
 function formatearFechaHoraV227(v){if(!v)return"—";try{return new Intl.DateTimeFormat("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(new Date(v));}catch{return String(v);}}
 async function inicializarCajaV227(){await cargarCajasSucursalV227();}
@@ -8153,6 +8583,7 @@ function init() {
   setupGestionMenuV230();
   setupComprasV230();
   setupSecuritySessionGuardV2301();
+  setupStabilityV23011();
   iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();
