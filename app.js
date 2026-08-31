@@ -492,7 +492,10 @@ function actualizarContextoUI() {
   if (userMenuName) userMenuName.textContent = visibleName;
   if (userMenuNamePopover) userMenuNamePopover.textContent = visibleName;
   if (userMenuRole) userMenuRole.textContent = roleName;
-  if (userAvatar) userAvatar.textContent = visibleName.slice(0, 1).toUpperCase();
+  if (userAvatar) {
+    userAvatar.title = visibleName;
+    userAvatar.setAttribute("aria-label", `Cuenta de ${visibleName}`);
+  }
 
   const cn = $("#config-negocio");
   const cs = $("#config-sucursal");
@@ -915,59 +918,68 @@ async function guardarNuevaPassword(e) {
 function togglePassword(inputId, button) {
   const input = $("#" + inputId);
   if (!input) return;
+
   const mostrar = input.type === "password";
   input.type = mostrar ? "text" : "password";
-  button.textContent = mostrar ? "🙈" : "👁";
-  button.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
+
+  button.innerHTML = iconV23011(mostrar ? "eye-off" : "eye");
+  button.setAttribute(
+    "aria-label",
+    mostrar ? "Ocultar contraseña" : "Mostrar contraseña"
+  );
+  button.title = mostrar ? "Ocultar contraseña" : "Mostrar contraseña";
 }
 
 
-function posicionarMenuUsuarioMobile() {
-  const menu = $("#user-menu");
-  const trigger = $("#btn-user-menu");
+function posicionarPopoverAncladoV23012(
+  menu,
+  trigger,
+  { minWidth = 230, maxWidth = 290, gap = 8, margin = 10 } = {}
+) {
   if (!menu || !trigger || menu.classList.contains("hidden")) return;
 
-  if (window.innerWidth > 760) {
-    menu.style.position = "";
-    menu.style.left = "";
-    menu.style.right = "";
-    menu.style.top = "";
-    menu.style.width = "";
-    menu.style.maxWidth = "";
-    return;
-  }
-
-  const margin = 10;
   const rect = trigger.getBoundingClientRect();
-  const width = Math.min(280, Math.max(220, window.innerWidth - margin * 2));
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const maxAvailableWidth = Math.max(180, viewportWidth - margin * 2);
+  const width = Math.min(maxWidth, maxAvailableWidth);
 
   let left = rect.right - width;
-  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+  left = Math.max(margin, Math.min(left, viewportWidth - width - margin));
 
   menu.style.position = "fixed";
   menu.style.left = `${left}px`;
   menu.style.right = "auto";
-  menu.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - 70)}px`;
-  menu.style.width = `${width}px`;
+  menu.style.width = `${Math.max(Math.min(minWidth, maxAvailableWidth), width)}px`;
   menu.style.maxWidth = `calc(100vw - ${margin * 2}px)`;
 
-  requestAnimationFrame(() => {
-    const menuRect = menu.getBoundingClientRect();
+  const measuredHeight = Math.min(
+    menu.scrollHeight || 240,
+    viewportHeight - margin * 2
+  );
 
-    if (menuRect.bottom > window.innerHeight - margin) {
-      const top = Math.max(
-        margin,
-        rect.top - menuRect.height - 8
-      );
-      menu.style.top = `${top}px`;
-    }
+  const below = viewportHeight - rect.bottom - margin;
+  const above = rect.top - margin;
+  const openAbove = below < Math.min(measuredHeight, 250) && above > below;
 
-    const finalRect = menu.getBoundingClientRect();
-    if (finalRect.left < margin) menu.style.left = `${margin}px`;
-    if (finalRect.right > window.innerWidth - margin) {
-      menu.style.left = `${window.innerWidth - finalRect.width - margin}px`;
-    }
-  });
+  if (openAbove) {
+    menu.style.top = `${Math.max(margin, rect.top - measuredHeight - gap)}px`;
+    menu.dataset.placement = "top";
+  } else {
+    menu.style.top = `${Math.min(
+      rect.bottom + gap,
+      Math.max(margin, viewportHeight - measuredHeight - margin)
+    )}px`;
+    menu.dataset.placement = "bottom";
+  }
+}
+
+function posicionarMenuUsuarioMobile() {
+  posicionarPopoverAncladoV23012(
+    $("#user-menu"),
+    $("#btn-user-menu"),
+    { minWidth: 230, maxWidth: 270 }
+  );
 }
 
 function limpiarPosicionMenuUsuario() {
@@ -979,6 +991,7 @@ function limpiarPosicionMenuUsuario() {
   menu.style.top = "";
   menu.style.width = "";
   menu.style.maxWidth = "";
+  delete menu.dataset.placement;
 }
 
 function abrirCerrarMenuUsuarioV224(force) {
@@ -995,6 +1008,9 @@ function abrirCerrarMenuUsuarioV224(force) {
   trigger.setAttribute("aria-expanded", abrir ? "true" : "false");
 
   if (abrir) {
+    if (typeof abrirCerrarGestionV230 === "function") {
+      abrirCerrarGestionV230(false);
+    }
     requestAnimationFrame(posicionarMenuUsuarioMobile);
   } else {
     limpiarPosicionMenuUsuario();
@@ -2669,7 +2685,7 @@ function setupSecuritySessionGuardV2301() {
 // Vendify v2.30.1.1 — Stability & Data Integrity
 // ============================================================
 
-const VENDIFY_VERSION_V23011 = "2.30.1.1";
+const VENDIFY_VERSION_V23011 = "2.30.1.2";
 let ventaRequestIdV23011 = null;
 let ventaConfirmandoV23011 = false;
 let compraOperacionEnCursoV23011 = false;
@@ -2991,31 +3007,11 @@ function setupStabilityV23011() {
 // ============================================================
 
 function posicionarGestionMenuV230() {
-  const menu = $("#gestion-menu-v230");
-  const trigger = $("#btn-gestion-v230");
-  if (!menu || !trigger || menu.classList.contains("hidden")) return;
-
-  const margin = 10;
-  const rect = trigger.getBoundingClientRect();
-  const width = Math.min(290, Math.max(240, window.innerWidth - margin * 2));
-
-  let left = rect.right - width;
-  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-
-  menu.style.position = "fixed";
-  menu.style.left = `${left}px`;
-  menu.style.right = "auto";
-  menu.style.top = `${rect.bottom + 8}px`;
-  menu.style.width = `${width}px`;
-  menu.style.maxWidth = `calc(100vw - ${margin * 2}px)`;
-
-  requestAnimationFrame(() => {
-    const r = menu.getBoundingClientRect();
-    if (r.bottom > window.innerHeight - margin) {
-      menu.style.top =
-        `${Math.max(margin, rect.top - r.height - 8)}px`;
-    }
-  });
+  posicionarPopoverAncladoV23012(
+    $("#gestion-menu-v230"),
+    $("#btn-gestion-v230"),
+    { minWidth: 252, maxWidth: 292 }
+  );
 }
 
 function abrirCerrarGestionV230(force) {
@@ -3032,6 +3028,7 @@ function abrirCerrarGestionV230(force) {
   trigger.setAttribute("aria-expanded", open ? "true" : "false");
 
   if (open) {
+    abrirCerrarMenuUsuarioV224(false);
     requestAnimationFrame(posicionarGestionMenuV230);
   } else {
     menu.style.position = "";
@@ -3040,6 +3037,7 @@ function abrirCerrarGestionV230(force) {
     menu.style.top = "";
     menu.style.width = "";
     menu.style.maxWidth = "";
+    delete menu.dataset.placement;
   }
 }
 
@@ -3061,6 +3059,18 @@ function setupGestionMenuV230() {
       posicionarGestionMenuV230();
     }
   });
+
+  window.addEventListener(
+    "scroll",
+    () => abrirCerrarGestionV230(false),
+    { passive: true }
+  );
+
+  $(".header-actions-vpro")?.addEventListener(
+    "scroll",
+    () => abrirCerrarGestionV230(false),
+    { passive: true }
+  );
 }
 
 
@@ -4569,7 +4579,9 @@ function actualizarUIAutorizacionDescuento() {
 
   if (btn) {
     btn.disabled = !tieneSolicitud || autorizada;
-    btn.innerHTML = autorizada ? "✓ Autorizado" : "🔒 Autorizar";
+    btn.innerHTML = autorizada
+    ? `${iconV23011("check")}<span>Autorizado</span>`
+    : `${iconV23011("lock")}<span>Autorizar</span>`;
   }
 
   if (status) {
@@ -6076,6 +6088,12 @@ function inicializarEventos() {
       posicionarMenuUsuarioMobile();
     }
   });
+
+  window.addEventListener(
+    "scroll",
+    () => abrirCerrarMenuUsuarioV224(false),
+    { passive: true }
+  );
 
   $("#btn-user-settings")?.addEventListener("click", () => {
     abrirCerrarMenuUsuarioV224(false);

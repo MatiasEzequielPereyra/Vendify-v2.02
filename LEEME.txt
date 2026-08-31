@@ -1,52 +1,50 @@
-VENDIFY v2.30.1.1
-====================
+VENDIFY v2.30.1.2 — HEADER UX/UI
+=================================
 
-INSTALACIÓN SEGURA
-------------------
-1. Supabase > SQL Editor
-2. Ejecutar:
-   Vendify-v2.30.1.1-ALL-IN-ONE.sql
+NO HAY SQL NUEVO.
 
-   Este archivo incluye:
-   - Compras/Proveedores
-   - Security FIX3
-   - Stability v2.30.1.1
+REEMPLAZAR EN VERCEL
+--------------------
+index.html
+app.js
+styles.css
+sw.js
 
-3. Subir TODO el contenido del ZIP a Vercel.
+MEJORAS
+-------
+USUARIO
+- icono SVG de cuenta en vez de una letra
+- desktop: icono + nombre + rol
+- móvil: botón de cuenta 44x44
+- chevron animado al abrir/cerrar
 
-SI SECURITY FIX3 YA ESTÁ APLICADO
----------------------------------
-Podés ejecutar solamente:
-01_stability_data_integrity.sql
+GESTIÓN
+- icono de cuadrícula/apps, más claro para un conjunto de herramientas
+- menú dividido visualmente en:
+  Operación: Historial / Inventario / Compras
+  Administración: Equipo / Diagnóstico
+- iconos del mismo tamaño y grosor
+
+SCROLL / POPOVERS
+- Usuario y Gestión usan el mismo sistema de posicionamiento
+- se anclan al botón con coordenadas del viewport
+- abren arriba o abajo según espacio disponible
+- al hacer scroll vertical se cierran
+- al hacer scroll horizontal del header Gestión se cierra
+- en resize/orientación se reposicionan
+- abrir Usuario cierra Gestión y viceversa
+
+HEADER
+- se elimina visualmente la duplicación Usuario/Rol del segundo nivel
+- Sucursal/Caja quedan como contexto
+- Vender/Producto/Gestión quedan como acciones
+- en desktop las acciones frecuentes se separan a la derecha
+- tablet/móvil mantiene scroll horizontal seguro
 
 PRUEBAS
 -------
-A. Doble click rápido en Cobrar:
-   debe existir una sola venta.
-
-B. PC + teléfono:
-   vender simultáneamente últimas unidades.
-   ninguna venta debe dejar stock negativo.
-
-C. Gestión > Diagnóstico:
-   ejecutar diagnóstico.
-
-D. Desconectar Wi-Fi:
-   indicador cambia a Sin conexión.
-   reconectar:
-   debe pasar por Sincronizando y terminar Online.
-
-E. Abrir/cerrar:
-   Configuración
-   Gestión
-   Inventario
-   Compras
-   Equipo
-   Historial
-   Caja
-   Scanner
-   Confirmaciones
-
-F. Teléfono:
-   comprobar que ningún modal salga de pantalla
-   y que los botones mantengan tamaño/alineación.
+1. Abrir Gestión y scrollear la página: debe cerrarse.
+2. Abrir Gestión y mover horizontalmente el header en móvil: debe cerrarse.
+3. Abrir Usuario, luego Gestión: Usuario debe cerrarse.
+4. Abrir Gestión, luego Usuario: Gestión debe cerrarse.
+5. Probar orientación vertical/horizontal del teléfono.

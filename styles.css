@@ -9098,3 +9098,318 @@ button {
     margin: 0;
   }
 }
+
+
+/* v2.30.1.1 — final icon consistency */
+.install-banner-content > span,
+.onboarding-list li,
+.modal-header h2 {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.onboarding-list li .ui-icon {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+  color: var(--primary);
+}
+
+.empty-state-svg-v23011 {
+  width: 42px !important;
+  height: 42px !important;
+  color: var(--primary);
+}
+
+.title-icon-v23011 {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+  color: var(--primary);
+}
+
+
+/* ============================================================
+   Vendify v2.30.1.2 — Navigation & Icon UX stabilization
+   ============================================================ */
+
+/* Account already communicates the active user; avoid duplicate identity. */
+.header-actions-vpro > .contexto-negocio {
+  display: none !important;
+}
+
+.header-actions-vpro {
+  gap: 8px !important;
+}
+
+/* On roomy desktop, context remains left and frequent actions form a right group. */
+#btn-vender {
+  margin-left: auto;
+}
+
+/* User/account control */
+.user-menu-trigger {
+  min-width: 176px;
+  min-height: 44px !important;
+  height: 44px !important;
+  grid-template-columns: 34px minmax(0,1fr) 16px !important;
+  gap: 8px !important;
+  padding: 5px 9px 5px 5px !important;
+  border-radius: 11px !important;
+  background: var(--surface) !important;
+}
+
+.user-menu-trigger:hover,
+.user-menu-trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--primary) 44%, var(--border)) !important;
+  background: var(--primary-soft) !important;
+}
+
+.user-avatar-icon-v23012 {
+  width: 34px !important;
+  height: 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  background: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
+.user-avatar-icon-v23012 .vendify-icon {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 1.9;
+}
+
+.user-menu-copy strong {
+  font-size: 11px !important;
+}
+
+.user-menu-copy small {
+  font-size: 8px !important;
+}
+
+.user-menu-trigger .vendify-chevron,
+.gestion-trigger-v230 .gestion-chevron-v230 {
+  transition: transform .16s ease;
+}
+
+.user-menu-trigger[aria-expanded="true"] .vendify-chevron,
+.gestion-trigger-v230[aria-expanded="true"] .gestion-chevron-v230 {
+  transform: rotate(180deg);
+}
+
+/* Shared popover behavior */
+.user-menu,
+.gestion-menu-v230 {
+  z-index: 15000 !important;
+  border-radius: 14px !important;
+  padding: 8px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  box-shadow:
+    0 24px 65px rgba(15,23,42,.18),
+    0 3px 12px rgba(15,23,42,.07) !important;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.user-menu::before,
+.gestion-menu-v230::before {
+  content: "";
+  position: absolute;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.user-menu[data-placement="bottom"]::before,
+.gestion-menu-v230[data-placement="bottom"]::before {
+  top: -6px;
+  transform: rotate(45deg);
+}
+
+.user-menu[data-placement="top"]::before,
+.gestion-menu-v230[data-placement="top"]::before {
+  bottom: -6px;
+  transform: rotate(225deg);
+}
+
+/* Gestión: apps/grid visually means a collection of tools. */
+.gestion-trigger-v230 {
+  min-width: 112px;
+  min-height: 44px !important;
+  height: 44px !important;
+  padding: 0 11px !important;
+  gap: 7px !important;
+  border-radius: 11px !important;
+}
+
+.gestion-trigger-v230 .gestion-icon-v230 {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.gestion-trigger-v230[aria-expanded="true"] {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: var(--primary-soft);
+}
+
+.gestion-menu-section-v23012 {
+  padding: 6px 9px 5px;
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.gestion-menu-divider-v23012 {
+  height: 1px;
+  margin: 6px 5px;
+  background: var(--border);
+}
+
+.gestion-menu-item-v230 {
+  min-height: 52px !important;
+  grid-template-columns: 38px minmax(0,1fr) !important;
+  gap: 9px !important;
+  padding: 7px 8px !important;
+  border-radius: 10px !important;
+}
+
+.gestion-menu-item-v230:hover,
+.gestion-menu-item-v230:focus-visible {
+  background: var(--primary-soft) !important;
+  outline: none;
+}
+
+.gestion-item-icon-v230 {
+  width: 36px !important;
+  height: 36px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  color: var(--primary) !important;
+  background: var(--primary-soft) !important;
+}
+
+.gestion-item-icon-v230 .vendify-icon {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 1.85;
+}
+
+.gestion-menu-item-v230 strong {
+  font-size: 10px !important;
+  line-height: 1.15;
+}
+
+.gestion-menu-item-v230 small {
+  margin-top: 3px !important;
+  font-size: 8px !important;
+  line-height: 1.25;
+}
+
+/* Account popover uses the same rhythm. */
+.user-menu-head {
+  padding: 8px 9px 10px !important;
+}
+
+.user-menu-item {
+  min-height: 44px !important;
+  gap: 10px !important;
+  padding: 8px 9px !important;
+  border-radius: 9px !important;
+  font-size: 10px !important;
+  font-weight: 650;
+}
+
+.user-menu-item .vendify-icon {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  background: var(--primary-soft) !important;
+  outline: none;
+}
+
+/* Primary controls share the same 44px baseline. */
+.header-primary,
+.cash-status-btn-v227,
+.connection-status-v23011 {
+  min-height: 44px !important;
+  height: 44px !important;
+}
+
+.header-primary {
+  padding-inline: 12px !important;
+}
+
+.header-primary .vendify-icon {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.branch-switcher-v226,
+.cash-switcher-v227 {
+  min-height: 44px;
+}
+
+@media (max-width: 1100px) {
+  #btn-vender {
+    margin-left: 0;
+  }
+}
+
+/* Mobile keeps two unmistakable icon buttons for Account and Management. */
+@media (max-width: 760px) {
+  .user-menu-trigger {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    place-items: center !important;
+    padding: 4px !important;
+  }
+
+  .user-menu-trigger .user-menu-copy,
+  .user-menu-trigger .vendify-chevron {
+    display: none !important;
+  }
+
+  .gestion-trigger-v230 {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 0 !important;
+  }
+
+  .gestion-trigger-v230 .header-action-label,
+  .gestion-trigger-v230 .gestion-chevron-v230 {
+    display: none !important;
+  }
+
+  .user-menu::before,
+  .gestion-menu-v230::before {
+    display: none !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .header-actions-vpro > * {
+    align-self: center;
+  }
+}
