@@ -1,85 +1,40 @@
-VENDIFY v2.30.1.3 — UI SYSTEM UNIFICATION
-==========================================
+VENDIFY v2.30.1.3 — ICON HOTFIX 1
+====================================
 
-NO HAY SQL NUEVO.
+ERROR CORREGIDO
+---------------
+Uncaught ReferenceError: iconV23011 is not defined
+en actualizarUIAutorizacionDescuento()
 
-REEMPLAZAR EN VERCEL
---------------------
-index.html
-app.js
-styles.css
-sw.js
+CAUSA
+-----
+El navegador/Vercel estaba ejecutando una combinación donde el flujo de
+Venta llamaba al helper de iconos pero ese helper no estaba disponible en
+el app.js efectivamente cargado.
 
-CAMBIOS
--------
-1. INPUTS / FORMULARIOS
-- diseño global consistente
-- 44px de alto
-- radio 11px
-- hover/focus/error/disabled
-- labels y hints normalizados
-- textarea y selects modernizados
-- selects con flecha propia
-- checkbox/radio unificados
-- móvil usa 16px para evitar zoom automático de iPhone
+CORRECCIÓN
+----------
+- iconV23011() ahora se define al comienzo absoluto de app.js.
+- existe una sola definición.
+- el botón de autorización de descuento tiene fallback defensivo y no puede
+  romper la apertura de Venta por un icono.
+- index.html solicita:
+    app.js?v=23013-hotfix1
+    styles.css?v=23013-hotfix1
+  para evitar reutilizar una copia vieja del navegador/CDN.
 
-2. SUCURSAL / CAJA
-- se eliminó visualmente el dropdown nativo del navegador
-- ahora ambos usan popovers propios de Vendify
-- mismo diseño que Usuario/Gestión
-- opción activa marcada
-- iconos consistentes
-- al hacer scroll se cierran
-- en móvil quedan como botones 44x44
-- los <select> viejos siguen ocultos para compatibilidad interna
+INSTALACIÓN
+-----------
+Reemplazar EN CONJUNTO en Vercel:
+- index.html
+- app.js
+- styles.css
+- sw.js
 
-3. SCROLLS
-- scrollbar visual unificada
-- overscroll contenido en modales/listas
-- scrollbar-gutter estable
-- scroll horizontal de tabs/header aislado
-- modales no arrastran la página de fondo
-- popovers se cierran al desplazar la página
+Después:
+1. Esperar a que termine el deployment.
+2. Cerrar todas las pestañas de Vendify.
+3. Abrir nuevamente la URL.
+4. Si está instalada como PWA, cerrarla completamente y volverla a abrir.
 
-4. NUEVO PRODUCTO
-- ya NO enfoca Nombre
-- enfoca Marca
-- usa focus({preventScroll:true})
-- fuerza el modal a comenzar arriba
-- evita el salto visual que bajaba el formulario
-- Editar producto sigue enfocando Nombre
-
-5. MODAL PRODUCTO
-- scroll único y estable
-- header y acciones sticky
-- campos enfocados tienen scroll-margin
-- formularios móviles pasan a una columna en pantallas pequeñas
-
-6. ICONOS
-- se agregaron SVG faltantes:
-  eye / eye-off / lock / search / scan / database / palette / transfer / count
-- se corrigió el helper iconV23011 que estaba siendo usado pero no definido
-- Scanner, Configuración, Inventario y Compras usan más iconos del mismo sistema
-
-QA
---
-- JavaScript syntax: OK
-- IDs HTML duplicados: 0
-- funciones JS duplicadas: 0
-- parseo CSS: OK
-
-PRUEBAS RECOMENDADAS
---------------------
-A. Nuevo Producto:
-   debe abrir arriba y dejar el cursor en Marca.
-
-B. Sucursal/Caja:
-   abrir, cambiar opción, scrollear página y header.
-   El popover debe cerrarse y nunca quedar flotando.
-
-C. Formularios:
-   probar Configuración, Caja, Compras, Inventario, Equipo y login.
-
-D. Móvil:
-   escribir en inputs sin zoom automático,
-   abrir selects y modales sin scroll doble.
+No hay SQL nuevo.

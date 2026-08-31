@@ -1,4 +1,11 @@
 console.log("[Vendify] app loaded");
+
+// Vendify UI icon helper — must exist before any application flow runs.
+function iconV23011(name, className = "vendify-icon") {
+  const safe = String(name || "").replace(/[^a-z0-9-]/gi, "");
+  return `<svg class="${className}" aria-hidden="true"><use href="#vi-${safe}"></use></svg>`;
+}
+
 /**
  * Vendify v2.28 — Login dual y empleados internos
  * Basado en Stock Kiosco v6 — Fase 2: multi-dispositivo en vivo
@@ -918,10 +925,6 @@ async function guardarNuevaPassword(e) {
   await mostrarApp();
 }
 
-function iconV23011(name, className = "vendify-icon") {
-  const safe = String(name || "").replace(/[^a-z0-9-]/gi, "");
-  return `<svg class="${className}" aria-hidden="true"><use href="#vi-${safe}"></use></svg>`;
-}
 
 function togglePassword(inputId, button) {
   const input = $("#" + inputId);
@@ -4828,9 +4831,19 @@ function actualizarUIAutorizacionDescuento() {
 
   if (btn) {
     btn.disabled = !tieneSolicitud || autorizada;
+    const checkIcon =
+      typeof iconV23011 === "function"
+        ? iconV23011("check")
+        : '<span aria-hidden="true">✓</span>';
+
+    const lockIcon =
+      typeof iconV23011 === "function"
+        ? iconV23011("lock")
+        : '<span aria-hidden="true">•</span>';
+
     btn.innerHTML = autorizada
-    ? `${iconV23011("check")}<span>Autorizado</span>`
-    : `${iconV23011("lock")}<span>Autorizar</span>`;
+      ? `${checkIcon}<span>Autorizado</span>`
+      : `${lockIcon}<span>Autorizar</span>`;
   }
 
   if (status) {
