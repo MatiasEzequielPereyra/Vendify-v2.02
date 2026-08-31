@@ -619,6 +619,9 @@ async function cambiarSucursalV2(sucursalId, { recargar = true } = {}) {
   actualizarContextoUI();
 
   await cargarCajasSucursalV227({ mantener: true });
+  renderBranchOptionsV23013();
+  renderCashOptionsV23013();
+  actualizarContextSelectorLabelsV23013();
 
   if (recargar) {
     carrito = [];
@@ -913,6 +916,11 @@ async function guardarNuevaPassword(e) {
   flujoRecuperacionActivo = false;
   mostrarToast("Contraseña actualizada", "success");
   await mostrarApp();
+}
+
+function iconV23011(name, className = "vendify-icon") {
+  const safe = String(name || "").replace(/[^a-z0-9-]/gi, "");
+  return `<svg class="${className}" aria-hidden="true"><use href="#vi-${safe}"></use></svg>`;
 }
 
 function togglePassword(inputId, button) {
@@ -2685,7 +2693,7 @@ function setupSecuritySessionGuardV2301() {
 // Vendify v2.30.1.1 — Stability & Data Integrity
 // ============================================================
 
-const VENDIFY_VERSION_V23011 = "2.30.1.2";
+const VENDIFY_VERSION_V23011 = "2.30.1.3";
 let ventaRequestIdV23011 = null;
 let ventaConfirmandoV23011 = false;
 let compraOperacionEnCursoV23011 = false;
@@ -2796,6 +2804,7 @@ function modalVisibleV23011(modal) {
 function cerrarMenusFlotantesV23011() {
   abrirCerrarMenuUsuarioV224?.(false);
   abrirCerrarGestionV230?.(false);
+  cerrarContextPickersV23013?.();
 }
 
 function sincronizarEstadoOverlaysV23011() {
@@ -3000,6 +3009,246 @@ function setupStabilityV23011() {
   );
 
   setupOverlayStabilityV23011();
+}
+
+
+// ============================================================
+// Vendify v2.30.1.3 — Context pickers (Sucursal / Caja)
+// ============================================================
+
+function cerrarContextPickersV23013(except = null) {
+  [
+    ["branch-menu-v23013", "branch-trigger-v23013"],
+    ["cash-menu-v23013", "cash-trigger-v23013"],
+  ].forEach(([menuId, triggerId]) => {
+    if (except === menuId) return;
+    const menu = document.getElementById(menuId);
+    const trigger = document.getElementById(triggerId);
+    menu?.classList.add("hidden");
+    trigger?.setAttribute("aria-expanded", "false");
+  });
+}
+
+function abrirCerrarContextPickerV23013(kind, force) {
+  const isBranch = kind === "branch";
+  const menu = document.getElementById(
+    isBranch ? "branch-menu-v23013" : "cash-menu-v23013"
+  );
+  const trigger = document.getElementById(
+    isBranch ? "branch-trigger-v23013" : "cash-trigger-v23013"
+  );
+
+  if (!menu || !trigger) return;
+
+  const open =
+    typeof force === "boolean"
+      ? force
+      : menu.classList.contains("hidden");
+
+  if (!open) {
+    menu.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+    return;
+  }
+
+  cerrarContextPickersV23013(menu.id);
+  abrirCerrarMenuUsuarioV224?.(false);
+  abrirCerrarGestionV230?.(false);
+
+  menu.classList.remove("hidden");
+  trigger.setAttribute("aria-expanded", "true");
+
+  requestAnimationFrame(() => {
+    posicionarPopoverAncladoV23012(menu, trigger, {
+      minWidth: 248,
+      maxWidth: 300,
+      gap: 8,
+      margin: 10,
+    });
+  });
+}
+
+function actualizarContextSelectorLabelsV23013() {
+  const branchLabel = $("#branch-current-label-v23013");
+  const cashLabel = $("#cash-current-label-v23013");
+
+  if (branchLabel) {
+    branchLabel.textContent = appContext.branch?.nombre || "Sin sucursal";
+    branchLabel.title = appContext.branch?.nombre || "";
+  }
+
+  if (cashLabel) {
+    cashLabel.textContent = appContext.cashRegister?.nombre || "Sin caja";
+    cashLabel.title = appContext.cashRegister?.nombre || "";
+  }
+}
+
+function renderBranchOptionsV23013() {
+  const cont = $("#branch-options-v23013");
+  if (!cont) return;
+
+  if (!sucursalesV226.length) {
+    cont.innerHTML = `
+      <div class="context-picker-empty-v23013">
+        No hay sucursales disponibles.
+      </div>`;
+    actualizarContextSelectorLabelsV23013();
+    return;
+  }
+
+  cont.innerHTML = sucursalesV226
+    .map((s) => {
+      const active = s.id === appContext.branch?.id;
+      return `
+        <button type="button"
+                class="context-picker-option-v23013 ${active ? "active" : ""}"
+                role="option"
+                aria-selected="${active ? "true" : "false"}"
+                data-context-branch="${s.id}">
+          <span class="context-option-icon-v23013">
+            ${iconV23011("store")}
+          </span>
+          <span class="context-option-copy-v23013">
+            <strong>${escapeHtml(s.nombre)}</strong>
+            <small>${active ? "Sucursal actual" : "Cambiar a esta sucursal"}</small>
+          </span>
+          <span class="context-option-check-v23013">
+            ${active ? iconV23011("check") : ""}
+          </span>
+        </button>`;
+    })
+    .join("");
+
+  actualizarContextSelectorLabelsV23013();
+}
+
+function renderCashOptionsV23013() {
+  const cont = $("#cash-options-v23013");
+  if (!cont) return;
+
+  if (!cajasSucursalV227.length) {
+    cont.innerHTML = `
+      <div class="context-picker-empty-v23013">
+        Esta sucursal no tiene cajas disponibles.
+      </div>`;
+    actualizarContextSelectorLabelsV23013();
+    return;
+  }
+
+  cont.innerHTML = cajasSucursalV227
+    .map((c) => {
+      const active = c.id === appContext.cashRegister?.id;
+      return `
+        <button type="button"
+                class="context-picker-option-v23013 ${active ? "active" : ""}"
+                role="option"
+                aria-selected="${active ? "true" : "false"}"
+                data-context-cash="${c.id}">
+          <span class="context-option-icon-v23013">
+            ${iconV23011("register")}
+          </span>
+          <span class="context-option-copy-v23013">
+            <strong>${escapeHtml(c.nombre)}</strong>
+            <small>${active ? "Caja actual" : "Cambiar a esta caja"}</small>
+          </span>
+          <span class="context-option-check-v23013">
+            ${active ? iconV23011("check") : ""}
+          </span>
+        </button>`;
+    })
+    .join("");
+
+  actualizarContextSelectorLabelsV23013();
+}
+
+async function seleccionarSucursalV23013(id) {
+  const selector = $("#branch-selector-v226");
+  if (!selector || !id || id === appContext.branch?.id) {
+    abrirCerrarContextPickerV23013("branch", false);
+    return;
+  }
+
+  selector.value = id;
+  await cambiarSucursalDesdeSelectorV226({ target: selector });
+  renderBranchOptionsV23013();
+  renderCashOptionsV23013();
+  actualizarContextSelectorLabelsV23013();
+  abrirCerrarContextPickerV23013("branch", false);
+}
+
+async function seleccionarCajaV23013(id) {
+  const selector = $("#cash-selector-v227");
+  if (!selector || !id || id === appContext.cashRegister?.id) {
+    abrirCerrarContextPickerV23013("cash", false);
+    return;
+  }
+
+  selector.value = id;
+  await cambiarCajaDesdeSelectorV227({ target: selector });
+  renderCashOptionsV23013();
+  actualizarContextSelectorLabelsV23013();
+  abrirCerrarContextPickerV23013("cash", false);
+}
+
+function setupContextPickersV23013() {
+  $("#branch-trigger-v23013")?.addEventListener("click", () => {
+    abrirCerrarContextPickerV23013("branch");
+  });
+
+  $("#cash-trigger-v23013")?.addEventListener("click", () => {
+    abrirCerrarContextPickerV23013("cash");
+  });
+
+  $("#branch-options-v23013")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-context-branch]");
+    if (btn) seleccionarSucursalV23013(btn.dataset.contextBranch);
+  });
+
+  $("#cash-options-v23013")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-context-cash]");
+    if (btn) seleccionarCajaV23013(btn.dataset.contextCash);
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".context-picker-v23013")) {
+      cerrarContextPickersV23013();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") cerrarContextPickersV23013();
+  });
+
+  const closeOnScroll = () => cerrarContextPickersV23013();
+
+  window.addEventListener("scroll", closeOnScroll, { passive: true });
+  $(".header-actions-vpro")?.addEventListener("scroll", closeOnScroll, {
+    passive: true,
+  });
+
+  window.addEventListener("resize", () => {
+    const branchMenu = $("#branch-menu-v23013");
+    const cashMenu = $("#cash-menu-v23013");
+
+    if (branchMenu && !branchMenu.classList.contains("hidden")) {
+      posicionarPopoverAncladoV23012(
+        branchMenu,
+        $("#branch-trigger-v23013"),
+        { minWidth: 248, maxWidth: 300 }
+      );
+    }
+
+    if (cashMenu && !cashMenu.classList.contains("hidden")) {
+      posicionarPopoverAncladoV23012(
+        cashMenu,
+        $("#cash-trigger-v23013"),
+        { minWidth: 248, maxWidth: 300 }
+      );
+    }
+  });
+
+  renderBranchOptionsV23013();
+  renderCashOptionsV23013();
 }
 
 // ============================================================
@@ -7306,8 +7555,29 @@ function abrirModal(producto=null) {
   $("#stock").value=producto?.stock??0;
   $("#stock-minimo").value=0;
   actualizarStockSmartForm(producto || null);
-  $("#error-nombre").textContent=""; $("#barcode-status-v29").textContent="";
-  renderSelectCategorias(producto?.categoria||""); $("#modal").classList.remove("hidden"); setTimeout(()=>$("#nombre").focus(),50);
+  $("#error-nombre").textContent="";
+  $("#barcode-status-v29").textContent="";
+  renderSelectCategorias(producto?.categoria || "");
+
+  const modal = $("#modal");
+  const modalContent = modal?.querySelector(".modal-content");
+  modal?.classList.remove("hidden");
+
+  requestAnimationFrame(() => {
+    // Always start at the top. Focusing a lower field used to make the
+    // product modal jump down on smaller screens.
+    if (modalContent) modalContent.scrollTop = 0;
+
+    const initialField = producto ? $("#nombre") : $("#marca");
+
+    try {
+      initialField?.focus({ preventScroll: true });
+    } catch {
+      initialField?.focus();
+    }
+
+    if (modalContent) modalContent.scrollTop = 0;
+  });
 }
 
 function cerrarModal({ preservarFlujoScanner = false } = {}) {
@@ -7968,8 +8238,106 @@ function setupV29() {
 // Vendify v2.28 — Caja profesional
 // ============================================================
 let cajasSucursalV227=[]; let cajaEstadoV227=null; let cajaMovimientosV227=[]; let cashMovementTypeV227=null;
-async function cargarCajasSucursalV227({mantener=true}={}){const selector=$("#cash-selector-v227");if(!appContext?.branch?.id){cajasSucursalV227=[];if(selector)selector.innerHTML=`<option value="">Sin sucursal</option>`;appContext.cashRegister=null;await cargarEstadoCajaV227();return;}const{data,error}=await supabaseClient.rpc("listar_cajas_sucursal_v1",{p_sucursal_id:appContext.branch.id});if(error){console.error("[V2.27] cajas",error);cajasSucursalV227=[];if(selector)selector.innerHTML=`<option value="">Sin cajas</option>`;appContext.cashRegister=null;await cargarEstadoCajaV227();return;}cajasSucursalV227=data||[];if(selector)selector.innerHTML=cajasSucursalV227.map(c=>`<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join("");const key=appContext.business?.id&&appContext.branch?.id?`vendify_cash_${appContext.business.id}_${appContext.branch.id}`:null;const saved=mantener&&key?localStorage.getItem(key):null;const current=appContext.cashRegister?.id;const chosen=cajasSucursalV227.find(c=>c.id===saved)||cajasSucursalV227.find(c=>c.id===current)||cajasSucursalV227[0]||null;appContext.cashRegister=chosen?{id:chosen.id,nombre:chosen.nombre}:null;if(selector&&chosen)selector.value=chosen.id;if(key&&chosen)localStorage.setItem(key,chosen.id);await cargarEstadoCajaV227();}
-async function cambiarCajaDesdeSelectorV227(e){const id=e.target.value,c=cajasSucursalV227.find(x=>x.id===id);if(!c)return;if(carrito.length){const ok=await confirmar("Cambiar de caja","El carrito actual se vaciará al cambiar de caja.");if(!ok){e.target.value=appContext.cashRegister?.id||"";return;}carrito=[];renderCarrito();}appContext.cashRegister={id:c.id,nombre:c.nombre};localStorage.setItem(`vendify_cash_${appContext.business.id}_${appContext.branch.id}`,c.id);await cargarEstadoCajaV227();}
+async function cargarCajasSucursalV227({ mantener = true } = {}) {
+  const selector = $("#cash-selector-v227");
+
+  if (!appContext?.branch?.id) {
+    cajasSucursalV227 = [];
+    if (selector) selector.innerHTML = `<option value="">Sin sucursal</option>`;
+    appContext.cashRegister = null;
+    renderCashOptionsV23013();
+    actualizarContextSelectorLabelsV23013();
+    await cargarEstadoCajaV227();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "listar_cajas_sucursal_v1",
+    { p_sucursal_id: appContext.branch.id }
+  );
+
+  if (error) {
+    console.error("[V2.27] cajas", error);
+    cajasSucursalV227 = [];
+    if (selector) selector.innerHTML = `<option value="">Sin cajas</option>`;
+    appContext.cashRegister = null;
+    renderCashOptionsV23013();
+    actualizarContextSelectorLabelsV23013();
+    await cargarEstadoCajaV227();
+    return;
+  }
+
+  cajasSucursalV227 = data || [];
+
+  if (selector) {
+    selector.innerHTML = cajasSucursalV227
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`)
+      .join("");
+  }
+
+  const key =
+    appContext.business?.id && appContext.branch?.id
+      ? `vendify_cash_${appContext.business.id}_${appContext.branch.id}`
+      : null;
+
+  const saved = mantener && key ? localStorage.getItem(key) : null;
+  const current = appContext.cashRegister?.id;
+
+  const chosen =
+    cajasSucursalV227.find((c) => c.id === saved) ||
+    cajasSucursalV227.find((c) => c.id === current) ||
+    cajasSucursalV227[0] ||
+    null;
+
+  appContext.cashRegister = chosen
+    ? { id: chosen.id, nombre: chosen.nombre }
+    : null;
+
+  if (selector && chosen) selector.value = chosen.id;
+  if (key && chosen) localStorage.setItem(key, chosen.id);
+
+  renderCashOptionsV23013();
+  actualizarContextSelectorLabelsV23013();
+  await cargarEstadoCajaV227();
+}
+
+async function cambiarCajaDesdeSelectorV227(e) {
+  const id = e.target.value;
+  const c = cajasSucursalV227.find((x) => x.id === id);
+
+  if (!c) {
+    e.target.value = appContext.cashRegister?.id || "";
+    return;
+  }
+
+  if (carrito.length) {
+    const ok = await confirmar(
+      "Cambiar de caja",
+      "El carrito actual se vaciará al cambiar de caja."
+    );
+
+    if (!ok) {
+      e.target.value = appContext.cashRegister?.id || "";
+      renderCashOptionsV23013();
+      return;
+    }
+
+    carrito = [];
+    renderCarrito();
+  }
+
+  appContext.cashRegister = { id: c.id, nombre: c.nombre };
+
+  localStorage.setItem(
+    `vendify_cash_${appContext.business.id}_${appContext.branch.id}`,
+    c.id
+  );
+
+  actualizarContextSelectorLabelsV23013();
+  renderCashOptionsV23013();
+  await cargarEstadoCajaV227();
+}
+
 async function cargarEstadoCajaV227(){if(!appContext?.cashRegister?.id){cajaEstadoV227=null;renderEstadoCajaHeaderV227();return;}const{data,error}=await supabaseClient.rpc("obtener_estado_caja_v1",{p_caja_id:appContext.cashRegister.id});if(error){console.error("[V2.27] estado",error);cajaEstadoV227=null;renderEstadoCajaHeaderV227();return;}cajaEstadoV227=data;renderEstadoCajaHeaderV227();}
 function cajaAbiertaMiaV227(){return Boolean(cajaEstadoV227?.sesion&&cajaEstadoV227?.es_mia);}
 function renderEstadoCajaHeaderV227(){const btn=$("#btn-caja-v227"),dot=$("#cash-status-dot-v227"),label=$("#cash-status-label-v227");if(!btn||!dot||!label)return;dot.classList.remove("open","closed","busy");if(!appContext?.cashRegister?.id){dot.classList.add("closed");label.textContent="Sin caja";return;}if(!cajaEstadoV227?.sesion){dot.classList.add("closed");label.textContent="Caja cerrada";return;}if(cajaEstadoV227.es_mia){dot.classList.add("open");label.textContent="Caja abierta";}else{dot.classList.add("busy");label.textContent="Caja ocupada";}}
@@ -8121,6 +8489,8 @@ function renderSelectorSucursalesV226() {
     .join("");
 
   if (appContext.branch?.id) selector.value = appContext.branch.id;
+  renderBranchOptionsV23013();
+  actualizarContextSelectorLabelsV23013();
 }
 
 async function cambiarSucursalDesdeSelectorV226(e) {
@@ -8597,6 +8967,7 @@ function init() {
   setupV29();
   setupSucursalesV226();
   setupCajaV227();
+  setupContextPickersV23013();
   setupInventarioProfesional();
   setupGestionMenuV230();
   setupComprasV230();

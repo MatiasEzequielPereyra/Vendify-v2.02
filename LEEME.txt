@@ -1,5 +1,5 @@
-VENDIFY v2.30.1.2 — HEADER UX/UI
-=================================
+VENDIFY v2.30.1.3 — UI SYSTEM UNIFICATION
+==========================================
 
 NO HAY SQL NUEVO.
 
@@ -10,41 +10,76 @@ app.js
 styles.css
 sw.js
 
-MEJORAS
+CAMBIOS
 -------
-USUARIO
-- icono SVG de cuenta en vez de una letra
-- desktop: icono + nombre + rol
-- móvil: botón de cuenta 44x44
-- chevron animado al abrir/cerrar
+1. INPUTS / FORMULARIOS
+- diseño global consistente
+- 44px de alto
+- radio 11px
+- hover/focus/error/disabled
+- labels y hints normalizados
+- textarea y selects modernizados
+- selects con flecha propia
+- checkbox/radio unificados
+- móvil usa 16px para evitar zoom automático de iPhone
 
-GESTIÓN
-- icono de cuadrícula/apps, más claro para un conjunto de herramientas
-- menú dividido visualmente en:
-  Operación: Historial / Inventario / Compras
-  Administración: Equipo / Diagnóstico
-- iconos del mismo tamaño y grosor
+2. SUCURSAL / CAJA
+- se eliminó visualmente el dropdown nativo del navegador
+- ahora ambos usan popovers propios de Vendify
+- mismo diseño que Usuario/Gestión
+- opción activa marcada
+- iconos consistentes
+- al hacer scroll se cierran
+- en móvil quedan como botones 44x44
+- los <select> viejos siguen ocultos para compatibilidad interna
 
-SCROLL / POPOVERS
-- Usuario y Gestión usan el mismo sistema de posicionamiento
-- se anclan al botón con coordenadas del viewport
-- abren arriba o abajo según espacio disponible
-- al hacer scroll vertical se cierran
-- al hacer scroll horizontal del header Gestión se cierra
-- en resize/orientación se reposicionan
-- abrir Usuario cierra Gestión y viceversa
+3. SCROLLS
+- scrollbar visual unificada
+- overscroll contenido en modales/listas
+- scrollbar-gutter estable
+- scroll horizontal de tabs/header aislado
+- modales no arrastran la página de fondo
+- popovers se cierran al desplazar la página
 
-HEADER
-- se elimina visualmente la duplicación Usuario/Rol del segundo nivel
-- Sucursal/Caja quedan como contexto
-- Vender/Producto/Gestión quedan como acciones
-- en desktop las acciones frecuentes se separan a la derecha
-- tablet/móvil mantiene scroll horizontal seguro
+4. NUEVO PRODUCTO
+- ya NO enfoca Nombre
+- enfoca Marca
+- usa focus({preventScroll:true})
+- fuerza el modal a comenzar arriba
+- evita el salto visual que bajaba el formulario
+- Editar producto sigue enfocando Nombre
 
-PRUEBAS
--------
-1. Abrir Gestión y scrollear la página: debe cerrarse.
-2. Abrir Gestión y mover horizontalmente el header en móvil: debe cerrarse.
-3. Abrir Usuario, luego Gestión: Usuario debe cerrarse.
-4. Abrir Gestión, luego Usuario: Gestión debe cerrarse.
-5. Probar orientación vertical/horizontal del teléfono.
+5. MODAL PRODUCTO
+- scroll único y estable
+- header y acciones sticky
+- campos enfocados tienen scroll-margin
+- formularios móviles pasan a una columna en pantallas pequeñas
+
+6. ICONOS
+- se agregaron SVG faltantes:
+  eye / eye-off / lock / search / scan / database / palette / transfer / count
+- se corrigió el helper iconV23011 que estaba siendo usado pero no definido
+- Scanner, Configuración, Inventario y Compras usan más iconos del mismo sistema
+
+QA
+--
+- JavaScript syntax: OK
+- IDs HTML duplicados: 0
+- funciones JS duplicadas: 0
+- parseo CSS: OK
+
+PRUEBAS RECOMENDADAS
+--------------------
+A. Nuevo Producto:
+   debe abrir arriba y dejar el cursor en Marca.
+
+B. Sucursal/Caja:
+   abrir, cambiar opción, scrollear página y header.
+   El popover debe cerrarse y nunca quedar flotando.
+
+C. Formularios:
+   probar Configuración, Caja, Compras, Inventario, Equipo y login.
+
+D. Móvil:
+   escribir en inputs sin zoom automático,
+   abrir selects y modales sin scroll doble.

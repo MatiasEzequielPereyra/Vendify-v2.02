@@ -20,7 +20,7 @@
 </head>
 <body>
 
-  <!-- Vendify v2.30.1.2 — iconos internos consistentes -->
+  <!-- Vendify v2.30.1.3 — iconos internos consistentes -->
   <svg class="vendify-icon-sprite" aria-hidden="true" focusable="false">
     <symbol id="vi-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="vi-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.52-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.05V3h4v.05a1.7 1.7 0 0 0 1.03 1.52 1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></symbol>
@@ -47,6 +47,15 @@
     <symbol id="vi-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></symbol>
     <symbol id="vi-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
     <symbol id="vi-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="vi-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="vi-eye-off" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.8"/><path d="M6.4 6.4C3.9 8.1 2.5 12 2.5 12s3.5 6 9.5 6a9.4 9.4 0 0 0 4-.9"/><path d="M10.2 10.2a2.5 2.5 0 0 0 3.6 3.6"/></symbol>
+    <symbol id="vi-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="vi-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="vi-scan" viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><path d="M7 12h10M9 9v6M12 9v6M15 9v6"/></symbol>
+    <symbol id="vi-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="vi-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1.5a1.5 1.5 0 0 0 0-3H12a2 2 0 0 1 0-4h3a6 6 0 0 0 0-12h-3Z"/><circle cx="7.5" cy="10" r=".8"/><circle cx="9.5" cy="6.5" r=".8"/><circle cx="14" cy="6.5" r=".8"/></symbol>
+    <symbol id="vi-transfer" viewBox="0 0 24 24"><path d="M7 7h12l-3-3M17 17H5l3 3"/><path d="m19 7-3 3M5 17l3-3"/></symbol>
+    <symbol id="vi-count" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/><path d="m17 17 2 2 3-4"/></symbol>
   </svg>
 
   <!-- Autenticación Vendify -->
@@ -71,7 +80,7 @@
             <label for="login-password">Contraseña</label>
             <div class="password-wrap">
               <input type="password" id="login-password" required minlength="6" placeholder="Tu contraseña" autocomplete="current-password" />
-              <button type="button" class="password-toggle" data-toggle-password="login-password">👁</button>
+              <button type="button" class="password-toggle" data-toggle-password="login-password"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-eye"></use></svg></button>
             </div>
           </div>
           <span class="field-error" id="login-error"></span>
@@ -97,7 +106,7 @@
             <label for="employee-password">Contraseña</label>
             <div class="password-wrap">
               <input type="password" id="employee-password" required minlength="8" placeholder="Tu contraseña" autocomplete="current-password" />
-              <button type="button" class="password-toggle" data-toggle-password="employee-password">👁</button>
+              <button type="button" class="password-toggle" data-toggle-password="employee-password"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-eye"></use></svg></button>
             </div>
           </div>
           <span class="field-error" id="employee-login-error"></span>
@@ -119,7 +128,7 @@
           <label for="register-password">Contraseña</label>
           <div class="password-wrap">
             <input type="password" id="register-password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
-            <button type="button" class="password-toggle" data-toggle-password="register-password">👁</button>
+            <button type="button" class="password-toggle" data-toggle-password="register-password"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-eye"></use></svg></button>
           </div>
         </div>
         <span class="field-error" id="register-error"></span>
@@ -147,7 +156,7 @@
           <label for="new-password">Nueva contraseña</label>
           <div class="password-wrap">
             <input type="password" id="new-password" required minlength="8" autocomplete="new-password" />
-            <button type="button" class="password-toggle" data-toggle-password="new-password">👁</button>
+            <button type="button" class="password-toggle" data-toggle-password="new-password"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-eye"></use></svg></button>
           </div>
         </div>
         <div class="form-group">
@@ -201,7 +210,7 @@
             <div class="brand-copy-vpro">
               <h1>Vendify</h1>
               <p class="subtitle">Ventas, stock y caja. Todo bajo control.</p>
-            </div><span class="app-version-v23011" title="Versión de Vendify">v2.30.1.2</span>
+            </div><span class="app-version-v23011" title="Versión de Vendify">v2.30.1.3</span>
           </div>
         </div>
 
@@ -238,23 +247,73 @@
           <span id="context-rol">Rol</span>
         </div>
 
-        <div class="branch-switcher-v226" title="Sucursal activa">
-          <svg class="vendify-context-icon" aria-hidden="true"><use href="#vi-store"></use></svg>
-          <div class="branch-switcher-copy-v226">
-            <small>Sucursal</small>
-            <select id="branch-selector-v226" aria-label="Sucursal activa">
-              <option value="">Cargando...</option>
-            </select>
+        <div class="branch-switcher-v226 context-picker-v23013" title="Sucursal activa">
+          <button id="branch-trigger-v23013"
+                  class="context-picker-trigger-v23013"
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded="false">
+            <span class="context-picker-icon-v23013">
+              <svg class="vendify-context-icon" aria-hidden="true"><use href="#vi-store"></use></svg>
+            </span>
+            <span class="context-picker-copy-v23013">
+              <small>Sucursal</small>
+              <strong id="branch-current-label-v23013">Cargando...</strong>
+            </span>
+            <svg class="vendify-icon context-picker-chevron-v23013" aria-hidden="true"><use href="#vi-chevron-down"></use></svg>
+          </button>
+
+          <select id="branch-selector-v226"
+                  class="context-native-select-v23013"
+                  aria-hidden="true"
+                  tabindex="-1">
+            <option value="">Cargando...</option>
+          </select>
+
+          <div id="branch-menu-v23013"
+               class="context-picker-menu-v23013 hidden"
+               role="listbox"
+               aria-label="Cambiar sucursal">
+            <div class="context-picker-menu-head-v23013">
+              <span>Sucursal activa</span>
+              <small>Elegí dónde estás trabajando</small>
+            </div>
+            <div id="branch-options-v23013" class="context-picker-options-v23013"></div>
           </div>
         </div>
 
-        <div class="cash-switcher-v227" title="Caja activa">
-          <svg class="vendify-context-icon" aria-hidden="true"><use href="#vi-register"></use></svg>
-          <div class="cash-switcher-copy-v227">
-            <small>Caja</small>
-            <select id="cash-selector-v227" aria-label="Caja activa">
-              <option value="">Cargando...</option>
-            </select>
+        <div class="cash-switcher-v227 context-picker-v23013" title="Caja activa">
+          <button id="cash-trigger-v23013"
+                  class="context-picker-trigger-v23013"
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded="false">
+            <span class="context-picker-icon-v23013">
+              <svg class="vendify-context-icon" aria-hidden="true"><use href="#vi-register"></use></svg>
+            </span>
+            <span class="context-picker-copy-v23013">
+              <small>Caja</small>
+              <strong id="cash-current-label-v23013">Cargando...</strong>
+            </span>
+            <svg class="vendify-icon context-picker-chevron-v23013" aria-hidden="true"><use href="#vi-chevron-down"></use></svg>
+          </button>
+
+          <select id="cash-selector-v227"
+                  class="context-native-select-v23013"
+                  aria-hidden="true"
+                  tabindex="-1">
+            <option value="">Cargando...</option>
+          </select>
+
+          <div id="cash-menu-v23013"
+               class="context-picker-menu-v23013 hidden"
+               role="listbox"
+               aria-label="Cambiar caja">
+            <div class="context-picker-menu-head-v23013">
+              <span>Caja activa</span>
+              <small>Elegí la caja de este turno</small>
+            </div>
+            <div id="cash-options-v23013" class="context-picker-options-v23013"></div>
           </div>
         </div>
 
@@ -480,11 +539,11 @@
 
           <div class="barcode-actions-v225">
             <button type="button" class="btn btn-primary" id="btn-scan-producto">
-              <span aria-hidden="true">▣</span>
+              <svg class="vendify-icon" aria-hidden="true"><use href="#vi-scan"></use></svg>
               <span>Escanear</span>
             </button>
             <button type="button" class="btn btn-secondary" id="btn-buscar-barcode">
-              <span aria-hidden="true">⌕</span>
+              <svg class="vendify-icon" aria-hidden="true"><use href="#vi-search"></use></svg>
               <span>Buscar datos</span>
             </button>
           </div>
@@ -554,19 +613,19 @@
       <div class="config-layout-v224">
         <nav class="config-tabs-v224" aria-label="Secciones de configuración">
           <button type="button" class="config-tab-v224 active" data-config-tab="general">
-            <span>⌂</span><span>General</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-settings"></use></svg><span>General</span>
           </button>
           <button type="button" class="config-tab-v224" data-config-tab="sucursales">
-            <span>⌂</span><span>Sucursales</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-store"></use></svg><span>Sucursales</span>
           </button>
           <button type="button" class="config-tab-v224" data-config-tab="catalogo">
-            <span>▦</span><span>Catálogo</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-inventory"></use></svg><span>Catálogo</span>
           </button>
           <button type="button" class="config-tab-v224" data-config-tab="datos">
-            <span>⇩</span><span>Datos</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-database"></use></svg><span>Datos</span>
           </button>
           <button type="button" class="config-tab-v224" data-config-tab="apariencia">
-            <span>◐</span><span>Apariencia</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-palette"></use></svg><span>Apariencia</span>
           </button>
         </nav>
 
@@ -998,19 +1057,19 @@
       <div class="inventory-layout">
         <nav class="inventory-tabs" aria-label="Secciones de inventario">
           <button type="button" class="inventory-tab active" data-inventory-tab="resumen">
-            <span>◫</span><span>Resumen</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-chart"></use></svg><span>Resumen</span>
           </button>
           <button type="button" class="inventory-tab" data-inventory-tab="movimientos">
-            <span>↕</span><span>Movimientos</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-history"></use></svg><span>Movimientos</span>
           </button>
           <button type="button" class="inventory-tab" data-inventory-tab="ajuste">
-            <span>±</span><span>Ajustar</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-refresh"></use></svg><span>Ajustar</span>
           </button>
           <button type="button" class="inventory-tab" data-inventory-tab="conteo">
-            <span>✓</span><span>Conteo físico</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-count"></use></svg><span>Conteo físico</span>
           </button>
           <button type="button" class="inventory-tab" data-inventory-tab="transferencias">
-            <span>⇄</span><span>Transferencias</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-transfer"></use></svg><span>Transferencias</span>
           </button>
         </nav>
 
@@ -1288,7 +1347,7 @@
       <div class="compras-layout-v230">
         <nav class="compras-tabs-v230">
           <button type="button" class="compras-tab-v230 active" data-compras-tab="compras">
-            <span>⌁</span><span>Compras</span>
+            <svg class="vendify-icon" aria-hidden="true"><use href="#vi-purchases"></use></svg><span>Compras</span>
           </button>
           <button type="button" class="compras-tab-v230" data-compras-tab="proveedores">
             <span>◇</span><span>Proveedores</span>
@@ -1334,7 +1393,7 @@
                 <option value="recibida">Recibidas</option>
                 <option value="anulada">Anuladas</option>
               </select>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-compras">↻</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-compras"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-refresh"></use></svg></button>
             </div>
 
             <div id="compras-list-v230" class="compras-list-v230"></div>
@@ -1354,7 +1413,7 @@
 
             <div class="compras-toolbar-v230 proveedores-toolbar-v230">
               <input id="proveedores-search" placeholder="Buscar proveedor..." autocomplete="off" />
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-proveedores">↻</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-proveedores"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-refresh"></use></svg></button>
             </div>
 
             <div id="proveedores-list-v230" class="proveedores-grid-v230"></div>
@@ -1564,7 +1623,7 @@
             <h3 class="config-section-title">Personas</h3>
             <p class="hint">Cada venta queda asociada al usuario que la realizó.</p>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-refrescar-equipo">↻ Actualizar</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-refrescar-equipo"><svg class="vendify-icon" aria-hidden="true"><use href="#vi-refresh"></use></svg><span>Actualizar</span></button>
         </div>
 
         <div id="equipo-lista" class="equipo-lista"></div>
@@ -1896,7 +1955,7 @@
             <span>Caja</span><strong id="diag-cash-v23011">—</strong>
           </div>
           <div class="diagnostic-local-card-v23011">
-            <span>Versión</span><strong>v2.30.1.2</strong>
+            <span>Versión</span><strong>v2.30.1.3</strong>
           </div>
         </div>
 
@@ -2059,7 +2118,7 @@
               <input type="search" id="venta-buscador" placeholder="Buscar nombre o código..." autocomplete="off" />
             </div>
             <button type="button" class="btn btn-primary btn-scan-venta-v210" id="btn-scan-venta">
-              <span aria-hidden="true">▣</span>
+              <svg class="vendify-icon" aria-hidden="true"><use href="#vi-scan"></use></svg>
               <span>Escanear</span>
             </button>
           </div>
