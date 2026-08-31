@@ -10165,3 +10165,136 @@ body {
     gap: 0 !important;
   }
 }
+
+
+/* ============================================================
+   Vendify v2.30.1.4 — Employee Stock Permission
+   ============================================================ */
+
+.equipo-permission-field-v23014 {
+  grid-column: span 2;
+}
+
+.permission-switch-v23014 {
+  width: 100%;
+  min-height: 66px;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 0 !important;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.permission-switch-v23014:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface-2) 92%, var(--primary-soft));
+}
+
+.permission-switch-v23014:has(input:focus-visible) {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.permission-switch-v23014:has(input:disabled) {
+  opacity: .62;
+  cursor: not-allowed;
+}
+
+.permission-switch-copy-v23014 strong {
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 780;
+}
+
+.permission-switch-copy-v23014 small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 8.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.switch-control-v23014 {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex: 0 0 42px;
+}
+
+.switch-control-v23014 input {
+  position: absolute;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track-v23014 {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 28%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background .16s ease;
+}
+
+.switch-track-v23014::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 5px rgba(15,23,42,.2);
+  transition: transform .16s ease;
+}
+
+.switch-control-v23014 input:checked + .switch-track-v23014 {
+  background: var(--primary);
+}
+
+.switch-control-v23014 input:checked + .switch-track-v23014::after {
+  transform: translateX(18px);
+}
+
+.equipo-permission-badge-v23014 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 730;
+  white-space: nowrap;
+}
+
+.equipo-permission-badge-v23014.enabled {
+  color: #15803d;
+  border-color: rgba(34,197,94,.3);
+  background: rgba(34,197,94,.07);
+}
+
+.equipo-permission-badge-v23014.disabled {
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+@media (max-width: 760px) {
+  .equipo-permission-field-v23014 {
+    grid-column: auto;
+  }
+  .permission-switch-v23014 {
+    min-height: 72px;
+  }
+}

@@ -1,40 +1,60 @@
-VENDIFY v2.30.1.3 — ICON HOTFIX 1
-====================================
-
-ERROR CORREGIDO
----------------
-Uncaught ReferenceError: iconV23011 is not defined
-en actualizarUIAutorizacionDescuento()
-
-CAUSA
------
-El navegador/Vercel estaba ejecutando una combinación donde el flujo de
-Venta llamaba al helper de iconos pero ese helper no estaba disponible en
-el app.js efectivamente cargado.
-
-CORRECCIÓN
-----------
-- iconV23011() ahora se define al comienzo absoluto de app.js.
-- existe una sola definición.
-- el botón de autorización de descuento tiene fallback defensivo y no puede
-  romper la apertura de Venta por un icono.
-- index.html solicita:
-    app.js?v=23013-hotfix1
-    styles.css?v=23013-hotfix1
-  para evitar reutilizar una copia vieja del navegador/CDN.
+VENDIFY v2.30.1.4 — PERMISOS STOCK + BACK GUARD
+=================================================
 
 INSTALACIÓN
 -----------
-Reemplazar EN CONJUNTO en Vercel:
-- index.html
-- app.js
-- styles.css
-- sw.js
+1. Supabase > SQL Editor:
+   ejecutar 01_permisos_stock_empleados.sql
 
-Después:
-1. Esperar a que termine el deployment.
-2. Cerrar todas las pestañas de Vendify.
-3. Abrir nuevamente la URL.
-4. Si está instalada como PWA, cerrarla completamente y volverla a abrir.
+2. Vercel:
+   reemplazar juntos:
+   index.html
+   app.js
+   styles.css
+   sw.js
 
-No hay SQL nuevo.
+3. Cerrar sesión y volver a ingresar en los empleados para recargar permisos.
+
+PERMISO NUEVO
+-------------
+Equipo > Crear/Editar empleado:
+"Modificar stock manualmente"
+
+Habilita:
+- botones + / -
+- ajuste manual con motivo
+- conteo físico
+
+NO habilita:
+- costos
+- editar/eliminar productos
+- compras/proveedores
+- transferencias
+- configuración/equipo
+
+Solo Propietario puede cambiarlo.
+
+USUARIOS EXISTENTES
+-------------------
+Backfill para no romper la operación actual:
+Owner/Admin/Manager -> habilitado
+Cashier -> deshabilitado
+
+Después el propietario puede cambiar Admin/Manager/Cashier individualmente.
+
+BACK / GESTO ATRÁS
+------------------
+El primer gesto Atrás con Vendify activa abre:
+"¿Salir de Vendify?"
+
+Cancelar -> permanece en Vendify.
+Salir -> navega atrás.
+
+Limitación web/PWA:
+Android/iOS no permiten a JavaScript cerrar forzosamente el proceso.
+En una PWA abierta sin historial previo puede hacer falta un segundo gesto
+Atrás después de confirmar para que el sistema la minimice/cierre.
+
+MEJORA EXTRA
+------------
+El modal de confirmación ya no muestra "Eliminar" para todas las acciones.

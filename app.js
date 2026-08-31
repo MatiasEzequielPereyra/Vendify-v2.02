@@ -414,6 +414,24 @@ async function cargarContextoApp() {
     ready: true,
   };
 
+  // Permisos personalizados del miembro prevalecen sobre los defaults
+  // históricos por rol.
+  try {
+    const { data: customPermissions, error: customPermissionsError } =
+      await supabaseClient.rpc("obtener_permisos_personalizados_v1");
+
+    if (!customPermissionsError && customPermissions) {
+      appContext.permissions = {
+        ...appContext.permissions,
+        ...customPermissions,
+      };
+    } else if (customPermissionsError) {
+      console.warn("[Vendify permisos] overrides no disponibles:", customPermissionsError);
+    }
+  } catch (permissionError) {
+    console.warn("[Vendify permisos] fallback a permisos por rol:", permissionError);
+  }
+
   // Si es un usuario interno, recuperamos nombre y username reales.
   const { data: employeeProfile, error: employeeProfileError } =
     await supabaseClient.rpc("obtener_perfil_empleado_actual");
@@ -535,8 +553,8 @@ function aplicarPermisosV2() {
   const esManager = role === "manager";
   const esCashier = role === "cashier";
 
-  const puedeGestionarProductos = esOwner || esAdmin || esManager;
-  const puedeAjustarStock = esOwner || esAdmin || esManager;
+  const puedeGestionarProductos = tienePermisoV2("manageProducts");
+  const puedeAjustarStock = tienePermisoV2("adjustStock");
   const puedeConfigurar = esOwner || esAdmin || esManager;
   const puedeExportar = esOwner || esAdmin || esManager;
   const puedeVerHistorial = esOwner || esAdmin || esManager;
@@ -564,11 +582,11 @@ function aplicarPermisosV2() {
   setHidden("#btn-user-settings", !puedeConfigurar);
   setHidden("#config-discount-pin-card", !(esOwner || esAdmin));
   setHidden("#btn-nueva-sucursal-v226", !(esOwner || esAdmin));
-  setHidden("#btn-transferir-stock-v226", esCashier);
+  setHidden("#btn-transferir-stock-v226", !(esOwner || esAdmin || esManager));
   setHidden("#btn-eliminar-todos-productos", !(esOwner || esAdmin));
   setHidden("#btn-export", !puedeExportar);
   setHidden("#btn-historial", !puedeVerHistorial);
-  setHidden("#btn-inventario", !(esOwner || esAdmin || esManager));
+  setHidden("#btn-inventario", !(esOwner || esAdmin || esManager || puedeAjustarStock));
   setHidden("#btn-compras", !(esOwner || esAdmin || esManager));
   setHidden("#btn-diagnostico-v23011", !(esOwner || esAdmin));
 
@@ -589,11 +607,20 @@ function aplicarPermisosV2() {
   // en memoria, el rol real sigue teniendo prioridad en la UI.
   if (esCashier) {
     document.querySelectorAll(
-      '[data-action="editar"], [data-action="eliminar"], [data-action="sumar"], [data-action="restar"], [data-action="ajustar"]'
+      '[data-action="editar"], [data-action="eliminar"]'
     ).forEach((el) => {
       el.hidden = true;
       el.classList.add("permiso-hidden");
     });
+
+    if (!puedeAjustarStock) {
+      document.querySelectorAll(
+        '[data-action="sumar"], [data-action="restar"], [data-action="ajustar"]'
+      ).forEach((el) => {
+        el.hidden = true;
+        el.classList.add("permiso-hidden");
+      });
+    }
   }
 }
 
@@ -1047,13 +1074,63 @@ async function obtenerNegocioAdminV3() {
 }
 
 async function listarEquipoV3() {
-  const { data, error } = await supabaseClient.rpc("listar_equipo_v3");
+  const [{ data, error }, permissionResult] = await Promise.all([
+    supabaseClient.rpc("listar_equipo_v3"),
+    supabaseClient.rpc("listar_permisos_stock_equipo_v1"),
+  ]);
+
   if (error) throw new Error(error.message || "No se pudo cargar el equipo");
-  return data || [];
+
+  const people = data || [];
+  const permissionMap = new Map(
+    (permissionResult?.data || []).map((row) => [
+      row.membership_id,
+      row.puede_gestionar_stock === true,
+    ])
+  );
+
+  if (permissionResult?.error) {
+    console.warn("[Equipo] permisos stock no disponibles:", permissionResult.error);
+  }
+
+  return people.map((item) => ({
+    ...item,
+    puede_gestionar_stock:
+      permissionMap.has(item.membership_id)
+        ? permissionMap.get(item.membership_id)
+        : ["owner", "admin", "manager"].includes(item.rol),
+  }));
+}
+
+async function actualizarPermisoStockMiembroV23014(membershipId, permitir) {
+  const { data, error } = await supabaseClient.rpc(
+    "actualizar_permiso_stock_miembro_v1",
+    {
+      p_membership_id: membershipId,
+      p_permitir: permitir === true,
+    }
+  );
+
+  if (error || data?.ok === false) {
+    throw new Error(
+      error?.message ||
+      data?.message ||
+      "No se pudo actualizar el permiso de stock"
+    );
+  }
+
+  return data;
 }
 
 async function abrirEquipo() {
   if (!exigirPermisoV2("manageEmployees", "No tenés permiso para administrar el equipo")) return;
+
+  const ownerCanSetStock = appContext.membership?.role === "owner";
+  if ($("#equipo-permiso-stock")) {
+    $("#equipo-permiso-stock").disabled = !ownerCanSetStock;
+  }
+  $("#equipo-permiso-stock-hint")?.classList.toggle("hidden", ownerCanSetStock);
+
   $("#modal-equipo")?.classList.remove("hidden");
   try {
     const negocio = await obtenerNegocioAdminV3();
@@ -1105,7 +1182,8 @@ async function renderEquipo() {
                  data-id="${item.membership_id}"
                  data-nombre="${escapeHtml(item.nombre || "")}"
                  data-username="${escapeHtml(item.username || "")}"
-                 data-rol="${item.rol}">
+                 data-rol="${item.rol}"
+                 data-stock="${item.puede_gestionar_stock ? "1" : "0"}">
            Editar
          </button>
          <button class="btn btn-ghost btn-sm"
@@ -1136,6 +1214,13 @@ async function renderEquipo() {
           <div class="equipo-meta">
             ${username}
             <span class="equipo-status ${item.activo ? "active" : "inactive"}">${item.activo ? "Activo" : "Inactivo"}</span>
+            ${
+              esOwner
+                ? `<span class="equipo-permission-badge-v23014 enabled">Stock manual</span>`
+                : `<span class="equipo-permission-badge-v23014 ${item.puede_gestionar_stock ? "enabled" : "disabled"}">
+                    Stock manual: ${item.puede_gestionar_stock ? "Sí" : "No"}
+                  </span>`
+            }
           </div>
         </div>
         <div>${rolControl}</div>
@@ -1153,6 +1238,9 @@ async function crearEmpleadoV3(e) {
   const username = normalizarLoginInterno($("#equipo-username").value);
   const rol = $("#equipo-rol").value;
   const password = $("#equipo-password").value;
+  const permisoStockSolicitado =
+    appContext.membership?.role === "owner" &&
+    $("#equipo-permiso-stock")?.checked === true;
   const errorEl = $("#equipo-error");
   const btn = $("#btn-crear-empleado");
 
@@ -1173,9 +1261,33 @@ async function crearEmpleadoV3(e) {
     return;
   }
 
+  if (appContext.membership?.role === "owner") {
+    try {
+      const people = await listarEquipoV3();
+      const created = people.find(
+        (person) =>
+          String(person.username || "").toLowerCase() === username.toLowerCase()
+      );
+
+      if (created?.membership_id) {
+        await actualizarPermisoStockMiembroV23014(
+          created.membership_id,
+          permisoStockSolicitado
+        );
+      }
+    } catch (permissionError) {
+      console.error("[Equipo] empleado creado, permiso stock pendiente:", permissionError);
+      mostrarToast(
+        "Empleado creado, pero revisá su permiso de stock desde Editar",
+        "info"
+      );
+    }
+  }
+
   $("#equipo-nombre").value = "";
   $("#equipo-username").value = "";
   $("#equipo-password").value = "";
+  if ($("#equipo-permiso-stock")) $("#equipo-permiso-stock").checked = false;
 
   mostrarToast(`Empleado @${username} creado`, "success");
   await renderEquipo();
@@ -1248,6 +1360,17 @@ function abrirEditarEmpleadoDesdeBoton(btn) {
   $("#editar-empleado-nombre").value = btn.dataset.nombre || "";
   $("#editar-empleado-username").value = btn.dataset.username || "";
   $("#editar-empleado-rol").value = btn.dataset.rol || "cashier";
+
+  const stockPermission = $("#editar-empleado-permiso-stock");
+  const ownerCanChangeStock = appContext.membership?.role === "owner";
+
+  if (stockPermission) {
+    stockPermission.checked = btn.dataset.stock === "1";
+    stockPermission.disabled = !ownerCanChangeStock;
+  }
+
+  $("#editar-stock-owner-hint")?.classList.toggle("hidden", ownerCanChangeStock);
+
   $("#editar-empleado-error").textContent = "";
   $("#modal-editar-empleado").classList.remove("hidden");
 }
@@ -1263,6 +1386,8 @@ async function guardarEdicionEmpleado(e) {
   const nombre = $("#editar-empleado-nombre").value.trim();
   const username = normalizarLoginInterno($("#editar-empleado-username").value);
   const rol = $("#editar-empleado-rol").value;
+  const permisoStock =
+    $("#editar-empleado-permiso-stock")?.checked === true;
   const errorEl = $("#editar-empleado-error");
   const btn = $("#btn-guardar-editar-empleado");
 
@@ -1286,6 +1411,18 @@ async function guardarEdicionEmpleado(e) {
   if (error || data?.error) {
     errorEl.textContent = data?.error || error?.message || "No se pudo actualizar";
     return;
+  }
+
+  if (appContext.membership?.role === "owner") {
+    try {
+      await actualizarPermisoStockMiembroV23014(
+        membershipId,
+        permisoStock
+      );
+    } catch (permissionError) {
+      errorEl.textContent = permissionError.message;
+      return;
+    }
   }
 
   cerrarEditarEmpleado();
@@ -2111,15 +2248,58 @@ function mostrarPreviewFoto(base64) {
 // =====================
 // Confirmación
 // =====================
-function confirmar(titulo, mensaje) {
+function confirmar(
+  titulo,
+  mensaje,
+  {
+    okText = null,
+    cancelText = "Cancelar",
+    danger = null,
+  } = {}
+) {
   return new Promise((resolve) => {
+    const destructive =
+      typeof danger === "boolean"
+        ? danger
+        : /eliminar|borrar|anular|desactivar|cerrar sesión|salir de vendify/i.test(
+            `${titulo} ${mensaje}`
+          );
+
+    const okButton = $("#btn-confirm-ok");
+    const cancelButton = $("#btn-confirm-cancel");
+
     $("#confirm-titulo").textContent = titulo;
     $("#confirm-mensaje").textContent = mensaje;
+
+    if (okButton) {
+      okButton.textContent =
+        okText || (destructive ? "Confirmar" : "Aceptar");
+      okButton.className = `btn ${destructive ? "btn-danger" : "btn-primary"}`;
+    }
+
+    if (cancelButton) cancelButton.textContent = cancelText;
+
     $("#modal-confirm").classList.remove("hidden");
     confirmCallback = resolve;
-    $("#btn-confirm-ok").onclick = () => { cerrarConfirm(); resolve(true); };
-    $("#btn-confirm-cancel").onclick = () => { cerrarConfirm(); resolve(false); };
-    $("#btn-cerrar-confirm").onclick = () => { cerrarConfirm(); resolve(false); };
+
+    if (okButton) {
+      okButton.onclick = () => {
+        cerrarConfirm();
+        resolve(true);
+      };
+    }
+
+    if (cancelButton) {
+      cancelButton.onclick = () => {
+        cerrarConfirm();
+        resolve(false);
+      };
+    }
+
+    $("#btn-cerrar-confirm").onclick = () => {
+      cerrarConfirm();
+      resolve(false);
+    };
   });
 }
 
@@ -2406,7 +2586,7 @@ async function confirmarAjusteStock() {
   const nota = $("#stock-nota")?.value.trim() || null;
 
   const { data, error } = await supabaseClient.rpc(
-    "ajustar_stock_inventario_v1",
+    "ajustar_stock_inventario_v2",
     {
       p_producto_id: p.id,
       p_sucursal_id: appContext.branch.id,
@@ -2563,13 +2743,10 @@ function cambiarStock(id, delta) {
 }
 
 async function cambiarStockEjecutarVQA(id, delta) {
-  const role = appContext.membership?.role;
-  if (!["owner", "admin", "manager"].includes(role)) {
-    mostrarToast("Tu rol no permite modificar stock", "error");
-    return;
-  }
-
-  if (!exigirPermisoV2("adjustStock", "No tenés permiso para ajustar stock")) return;
+  if (!exigirPermisoV2(
+    "adjustStock",
+    "El propietario no habilitó la modificación manual de stock para tu usuario"
+  )) return;
 
   const p = productos.find((x) => x.id === id);
   if (!p) return;
@@ -2584,7 +2761,7 @@ async function cambiarStockEjecutarVQA(id, delta) {
   // Cuando el producto ya tuvo actividad real, el backend devuelve
   // requiere_motivo=true y abrimos el ajuste profesional.
   const { data, error } = await supabaseClient.rpc(
-    "ajustar_stock_inicial_rapido_v1",
+    "ajustar_stock_inicial_rapido_v2",
     {
       p_producto_id: p.id,
       p_sucursal_id: appContext.branch.id,
@@ -2696,7 +2873,7 @@ function setupSecuritySessionGuardV2301() {
 // Vendify v2.30.1.1 — Stability & Data Integrity
 // ============================================================
 
-const VENDIFY_VERSION_V23011 = "2.30.1.3";
+const VENDIFY_VERSION_V23011 = "2.30.1.4";
 let ventaRequestIdV23011 = null;
 let ventaConfirmandoV23011 = false;
 let compraOperacionEnCursoV23011 = false;
@@ -3254,6 +3431,87 @@ function setupContextPickersV23013() {
   renderCashOptionsV23013();
 }
 
+
+// ============================================================
+// Vendify v2.30.1.4 — Protección de gesto Atrás / salida accidental
+// ============================================================
+
+let backGuardInstalledV23014 = false;
+let backGuardConfirmingV23014 = false;
+let backGuardAllowExitV23014 = false;
+
+function appVisibleV23014() {
+  return (
+    appContext?.ready === true &&
+    !$(".app")?.classList.contains("hidden")
+  );
+}
+
+function instalarEstadoBackGuardV23014() {
+  const current = history.state || {};
+
+  if (!current.vendifyBaseV23014) {
+    history.replaceState(
+      { ...current, vendifyBaseV23014: true },
+      "",
+      location.href
+    );
+  }
+
+  history.pushState(
+    { vendifyGuardV23014: true },
+    "",
+    location.href
+  );
+}
+
+async function manejarBackVendifyV23014() {
+  if (!appVisibleV23014()) return;
+
+  if (backGuardAllowExitV23014) {
+    backGuardAllowExitV23014 = false;
+    return;
+  }
+
+  history.pushState(
+    { vendifyGuardV23014: true },
+    "",
+    location.href
+  );
+
+  if (backGuardConfirmingV23014) return;
+  backGuardConfirmingV23014 = true;
+
+  const salir = await confirmar(
+    "¿Salir de Vendify?",
+    "Estás por salir de la aplicación. ¿Querés continuar?",
+    {
+      okText: "Salir",
+      cancelText: "Seguir en Vendify",
+      danger: true,
+    }
+  );
+
+  backGuardConfirmingV23014 = false;
+
+  if (!salir) return;
+
+  backGuardAllowExitV23014 = true;
+  history.go(-2);
+
+  setTimeout(() => {
+    backGuardAllowExitV23014 = false;
+  }, 1500);
+}
+
+function setupBackGuardV23014() {
+  if (backGuardInstalledV23014) return;
+  backGuardInstalledV23014 = true;
+
+  instalarEstadoBackGuardV23014();
+  window.addEventListener("popstate", manejarBackVendifyV23014);
+}
+
 // ============================================================
 // Vendify v2.30 — Menú Gestión compacto
 // ============================================================
@@ -3336,7 +3594,28 @@ let inventoryTransferProducts = [];
 let inventoryActiveTab = "resumen";
 
 function puedeGestionarInventario() {
-  return ["owner", "admin", "manager"].includes(appContext.membership?.role);
+  return (
+    ["owner", "admin", "manager"].includes(appContext.membership?.role) ||
+    tienePermisoV2("adjustStock")
+  );
+}
+
+function aplicarPermisosInventarioV23014() {
+  const role = appContext.membership?.role || "cashier";
+  const supervisor = ["owner", "admin", "manager"].includes(role);
+  const manualStock = tienePermisoV2("adjustStock");
+
+  document.querySelector('[data-inventory-tab="ajuste"]')
+    ?.classList.toggle("permiso-hidden", !manualStock);
+  document.querySelector('[data-inventory-tab="conteo"]')
+    ?.classList.toggle("permiso-hidden", !manualStock);
+  document.querySelector('[data-inventory-tab="movimientos"]')
+    ?.classList.toggle("permiso-hidden", !supervisor);
+  document.querySelector('[data-inventory-tab="transferencias"]')
+    ?.classList.toggle("permiso-hidden", !supervisor);
+
+  $("#inventory-recent-card-v23014")
+    ?.classList.toggle("permiso-hidden", !supervisor);
 }
 
 function inventoryMovementLabel(tipo) {
@@ -3402,7 +3681,21 @@ async function abrirInventario(tab = "resumen") {
   $("#inventory-summary-title").textContent = `Inventario · ${appContext.branch.nombre || "Sucursal"}`;
 
   $("#modal-inventario").classList.remove("hidden");
-  activateInventoryTab(tab);
+  aplicarPermisosInventarioV23014();
+
+  const role = appContext.membership?.role || "cashier";
+  const supervisor = ["owner", "admin", "manager"].includes(role);
+  const manualStock = tienePermisoV2("adjustStock");
+
+  let safeTab = tab;
+  if (["movimientos", "transferencias"].includes(safeTab) && !supervisor) {
+    safeTab = "resumen";
+  }
+  if (["ajuste", "conteo"].includes(safeTab) && !manualStock) {
+    safeTab = "resumen";
+  }
+
+  activateInventoryTab(safeTab);
 
   await refrescarInventarioProfesional();
 }
@@ -3487,7 +3780,9 @@ function renderResumenInventario() {
     });
   }
 
-  cargarMovimientosInventario({ limit: 6, target: "recent" });
+  if (["owner", "admin", "manager"].includes(appContext.membership?.role)) {
+    cargarMovimientosInventario({ limit: 6, target: "recent" });
+  }
 }
 
 async function cargarMovimientosInventario({ limit = 100, target = "table" } = {}) {
@@ -3660,7 +3955,7 @@ async function aplicarAjusteInventario(e) {
   }
 
   const { data, error } = await supabaseClient.rpc(
-    "ajustar_stock_inventario_v1",
+    "ajustar_stock_inventario_v2",
     {
       p_producto_id: id,
       p_sucursal_id: appContext.branch.id,
@@ -3784,6 +4079,11 @@ function actualizarProgresoConteo() {
 }
 
 async function aplicarConteoFisico() {
+  if (!exigirPermisoV2(
+    "adjustStock",
+    "El propietario no habilitó los conteos de stock para tu usuario"
+  )) return;
+
   if (conteoOperacionEnCursoV23011) return;
 
   if (!inventoryCountDraft.size) {
@@ -3816,7 +4116,7 @@ async function aplicarConteoFisico() {
   btn.textContent = "Aplicando...";
 
   const { data, error } = await supabaseClient.rpc(
-    "aplicar_conteo_fisico_v1",
+    "aplicar_conteo_fisico_v2",
     {
       p_sucursal_id: appContext.branch.id,
       p_items: items,
@@ -6182,6 +6482,22 @@ function inicializarEventos() {
   $("#btn-cerrar-equipo")?.addEventListener("click", cerrarEquipo);
   $("#modal-equipo .modal-backdrop")?.addEventListener("click", cerrarEquipo);
   $("#form-crear-empleado")?.addEventListener("submit", crearEmpleadoV3);
+
+  const createStockPermission = $("#equipo-permiso-stock");
+  const createRole = $("#equipo-rol");
+
+  if (createStockPermission) {
+    const ownerCanSet = appContext.membership?.role === "owner";
+    createStockPermission.disabled = !ownerCanSet;
+    $("#equipo-permiso-stock-hint")?.classList.toggle("hidden", ownerCanSet);
+  }
+
+  createRole?.addEventListener("change", () => {
+    if (!createStockPermission || appContext.membership?.role !== "owner") return;
+    createStockPermission.checked =
+      ["manager", "admin"].includes(createRole.value);
+  });
+
   $("#btn-refrescar-equipo")?.addEventListener("click", renderEquipo);
   $("#btn-generar-password")?.addEventListener("click", () => {
     $("#equipo-password").value = generarPasswordTemporal();
@@ -7418,9 +7734,9 @@ function renderGrid() {
   if (!grid) return;
 
   const role = appContext.membership?.role || "cashier";
-  const manage = ["owner", "admin", "manager"].includes(role);
-  const adjust = manage;
-  const costs = manage;
+  const manage = tienePermisoV2("manageProducts");
+  const adjust = tienePermisoV2("adjustStock");
+  const costs = tienePermisoV2("viewCosts");
 
   const totalStock = productos.reduce((a, p) => a + Number(p.stock || 0), 0);
   const costoTotal = productos.reduce(
@@ -7567,6 +7883,13 @@ function abrirModal(producto=null) {
   $("#precio-compra").value=producto?.precioCompra??""; $("#precio-venta").value=producto?.precioVenta??"";
   $("#stock").value=producto?.stock??0;
   $("#stock-minimo").value=0;
+
+  const puedeAjustarStockProducto = tienePermisoV2("adjustStock");
+  $("#stock").disabled = !puedeAjustarStockProducto;
+  $("#stock").title = puedeAjustarStockProducto
+    ? ""
+    : "El propietario no habilitó la modificación manual de stock";
+
   actualizarStockSmartForm(producto || null);
   $("#error-nombre").textContent="";
   $("#barcode-status-v29").textContent="";
@@ -7643,7 +7966,7 @@ async function guardarProducto(e) {
   btn.disabled = true;
 
   const { data, error } = await supabaseClient.rpc(
-    "guardar_producto_seguro_v1",
+    "guardar_producto_seguro_v2",
     {
       p_producto_id: productoEditandoId || null,
       p_sucursal_id: appContext.branch.id,
@@ -8986,6 +9309,7 @@ function init() {
   setupComprasV230();
   setupSecuritySessionGuardV2301();
   setupStabilityV23011();
+  setupBackGuardV23014();
   iniciarWatchdogRealtime();
   setupInstallPrompt();
   setupOnboarding();
