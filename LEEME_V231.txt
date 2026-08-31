@@ -1,0 +1,72 @@
+VENDIFY v2.31.0 — GROWTH FOUNDATION
+====================================
+
+ESTA ES UNA ACTUALIZACIÓN GRANDE.
+No ejecutes el SQL salteando el preflight.
+
+ORDEN RECOMENDADO
+-----------------
+A) Si YA instalaste v2.30.1.4:
+   1. 00_preflight_v231.sql
+   2. 02_v231_commercial_foundation.sql
+   3. 03_verify_v231.sql
+   4. subir frontend a Vercel
+
+B) Si NO instalaste v2.30.1.4:
+   1. 01_permisos_stock_empleados.sql
+   2. 00_preflight_v231.sql
+   3. 02_v231_commercial_foundation.sql
+   4. 03_verify_v231.sql
+   5. subir frontend a Vercel
+
+FRONTEND
+--------
+Reemplazar juntos:
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+Después cerrar todas las pestañas/PWA y volver a abrir Vendify.
+
+LO NUEVO
+--------
+- Dashboard del propietario
+- alertas operativas
+- reposición inteligente
+- onboarding comercial
+- importación CSV
+- respaldo JSON
+- planes/trial/límites
+- configuración de alertas e impresión
+- error logging
+- administración interna Vendify preparada
+- app-shell PWA/offline mejorado
+
+PLATFORM ADMIN
+--------------
+La migración NO convierte automáticamente a ningún usuario en administrador
+global de Vendify. Esto es intencional por seguridad.
+
+No agregues manualmente un platform admin hasta verificar primero toda la
+migración y decidir qué cuenta vas a utilizar para administración interna.
+
+PRIMERAS PRUEBAS
+----------------
+1. Owner:
+   Gestión > Dashboard.
+2. Cambiar 1/7/30/90 días.
+3. Abrir Alertas desde la campana.
+4. Configuración > Operación.
+5. Configuración > Datos > descargar plantilla CSV.
+6. Importar un CSV pequeño de prueba.
+7. Descargar respaldo JSON.
+8. Revisar Configuración > Plan actual.
+9. Crear usuario/sucursal hasta comprobar que los límites responden.
+10. Cortar internet y confirmar que Vendify informa correctamente el estado.
+
+IMPORTANTE
+----------
+La base de Mercado Pago y suscripciones comerciales queda preparada, pero
+esta release NO simula cobros. Esas integraciones van con credenciales,
+OAuth/webhooks y pruebas reales.

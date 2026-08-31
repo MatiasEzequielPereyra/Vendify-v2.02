@@ -1,0 +1,119 @@
+VENDIFY v2.31.0 — GROWTH / COMMERCIAL FOUNDATION
+=================================================
+
+OBJETIVO
+--------
+Convertir Vendify de un POS funcional en una base SaaS comercializable,
+sin inventar integraciones externas que todavía requieren credenciales.
+
+IMPLEMENTADO
+------------
+1. Dashboard del propietario
+   - ventas netas
+   - comparación con período anterior
+   - tickets y ticket promedio
+   - margen estimado claramente identificado como estimación
+   - devoluciones/anulaciones
+   - cajas abiertas
+   - evolución diaria
+   - top productos
+   - medios de pago
+   - reposición sugerida
+   - alertas
+   - actividad reciente
+
+2. Centro de alertas
+   - stock cero
+   - cobertura de stock baja
+   - ajustes grandes
+   - diferencias de caja
+   - devoluciones/anulaciones
+   - umbrales configurables
+
+3. Reposición inteligente
+   - reutiliza obtener_stock_inteligente_sucursal()
+   - días de cobertura
+   - sugerencia de unidades a reponer
+
+4. Onboarding comercial
+   - progreso inicial
+   - pasos accionables para dejar el negocio operativo
+   - se oculta al completarse / por usuario
+
+5. CSV
+   - plantilla descargable
+   - importación masiva
+   - máximo por lote
+   - detección conservadora de duplicados
+   - respeta permisos de stock
+   - respeta límites del plan
+
+6. Backups operativos
+   - export JSON Owner-only
+   - negocio
+   - sucursales / cajas
+   - categorías / productos
+   - stock
+   - proveedores / compras
+   - ventas / items / pagos
+   - equipo sin secretos
+
+7. Planes / trial / límites SaaS
+   - legacy
+   - trial
+   - starter
+   - pro
+   - business
+   - límites de sucursales, usuarios y productos
+   - validación backend / triggers
+   - estado visible en Configuración
+
+8. Configuración operativa
+   - cobertura crítica
+   - tamaño de ajuste grande
+   - diferencia de caja
+   - resumen diario
+   - ticket 58/80 mm
+   - apertura de impresión
+
+9. Observabilidad
+   - log de errores frontend -> backend
+   - versión de Vendify
+   - contexto sanitizado
+   - panel interno preparado para administración
+
+10. Administración interna Vendify
+   - tabla separada de platform admins
+   - no se habilita nadie automáticamente
+   - resumen global
+   - negocios / planes
+   - errores
+   - cambio de plan solo por platform admin
+
+11. PWA / offline foundation
+   - app-shell cache versionado
+   - navegación con fallback
+   - APIs externas siguen siendo network-owned
+   - no se inventa una venta offline todavía
+   - carrito / catálogo cacheado localmente desde frontend
+
+NO SE FINGE COMO TERMINADO
+--------------------------
+Estas partes necesitan otra fase e integración real:
+- Mercado Pago QR / OAuth / webhooks
+- cobro real de suscripciones
+- WhatsApp / email / push
+- impresión silenciosa directa a hardware
+- venta totalmente offline con cola transaccional
+
+Son integraciones externas: se deben probar con credenciales y servicios reales.
+
+QA ESTÁTICO
+-----------
+- node --check app.js: OK
+- IDs HTML duplicados: 0
+- funciones JS declaradas duplicadas: 0
+- Dashboard / alertas / onboarding / planes / CSV / backup: presentes
+- RPC de frontend: presentes
+- SQL de tablas/RPC principales: presente
+- filenames frontend clásicos preservados
