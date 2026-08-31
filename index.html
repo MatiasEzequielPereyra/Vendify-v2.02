@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <title>Vendify · Tu negocio, bajo control</title>
-  <link rel="stylesheet" href="styles.css?v=2310" />
+  <link rel="stylesheet" href="styles.css?v=2311" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-  <!-- Vendify v2.31.0 — iconos internos consistentes -->
+  <!-- Vendify v2.31.1 — iconos internos consistentes -->
   <svg class="vendify-icon-sprite" aria-hidden="true" focusable="false">
     <symbol id="vi-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="vi-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.52-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.05V3h4v.05a1.7 1.7 0 0 0 1.03 1.52 1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></symbol>
@@ -223,7 +223,7 @@
             <div class="brand-copy-vpro">
               <h1>Vendify</h1>
               <p class="subtitle">Ventas, stock y caja. Todo bajo control.</p>
-            </div><span class="app-version-v23011" title="Versión de Vendify">v2.31.0</span>
+            </div><span class="app-version-v23011" title="Versión de Vendify">v2.31.1</span>
           </div>
         </div>
 
@@ -431,6 +431,21 @@
         </div>
       </div>
     </header>
+
+    <section id="offline-sync-banner-v2311"
+             class="offline-sync-banner-v2311 hidden"
+             role="status"
+             aria-live="polite">
+      <div class="offline-sync-copy-v2311">
+        <svg class="vendify-icon" aria-hidden="true"><use href="#vi-wifi-off"></use></svg>
+        <span id="offline-sync-text-v2311">Ventas pendientes de sincronizar</span>
+      </div>
+      <button type="button"
+              class="btn btn-secondary btn-sm"
+              id="btn-sync-offline-sales-v2311">
+        Sincronizar
+      </button>
+    </section>
 
     <section id="commercial-onboarding-v231" class="commercial-onboarding-v231 hidden">
       <div class="commercial-onboarding-head-v231">
@@ -2197,7 +2212,7 @@
             <span>Caja</span><strong id="diag-cash-v23011">—</strong>
           </div>
           <div class="diagnostic-local-card-v23011">
-            <span>Versión</span><strong>v2.31.0</strong>
+            <span>Versión</span><strong>v2.31.1</strong>
           </div>
         </div>
 
@@ -2353,6 +2368,16 @@
         <button class="btn-icon" id="btn-cerrar-venta" aria-label="Cerrar">✕</button>
       </div>
 
+      <div id="offline-sale-banner-v2311" class="offline-sale-banner-v2311 hidden">
+        <svg class="vendify-icon" aria-hidden="true"><use href="#vi-wifi-off"></use></svg>
+        <div>
+          <strong>Modo sin conexión</strong>
+          <span id="offline-sale-message-v2311">
+            La venta quedará guardada y se sincronizará al volver internet.
+          </span>
+        </div>
+      </div>
+
       <div class="venta-body">
         <div class="venta-productos-col">
           <div class="venta-search-v29">
@@ -2474,6 +2499,6 @@
 
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-  <script src="app.js?v=2310"></script>
+  <script src="app.js?v=2311"></script>
 </body>
 </html>

@@ -1,0 +1,88 @@
+VENDIFY v2.31.1 — OFFLINE SALES + BACK NAVIGATION
+=================================================
+
+CORRECCIONES
+------------
+1. COBRO OFFLINE
+- El botón Cobrar ya no se deshabilita automáticamente sin internet.
+- Si la caja fue abierta/verificada previamente con internet:
+  - Efectivo: permitido.
+  - Transferencia: permitido.
+  - Débito/Crédito/Mercado Pago/Otro: requieren conexión.
+  - descuentos: requieren conexión.
+- La venta queda en una cola local persistente.
+- Se descuenta stock del catálogo local inmediatamente.
+- El mismo teléfono no puede vender más unidades que el stock local disponible.
+- Al reconectar se sincronizan en orden.
+- Se usa registrar_venta_v4 + request_id:
+  reintentar la misma venta no crea un duplicado.
+- Si el servidor rechaza una venta por stock/caja, queda en estado "revisión".
+- Nunca se elimina silenciosamente una venta rechazada.
+- Máximo: 200 ventas offline pendientes.
+
+2. CAJA OFFLINE
+- Cuando Supabase confirma una caja abierta por ese usuario se guarda una
+  prueba local asociada a usuario/negocio/sucursal/caja.
+- Validez máxima conservadora: 18 horas.
+- Si se abre Vendify sin internet, esa prueba permite continuar vendiendo.
+- Sin prueba válida, Vendify no inventa que la caja está abierta.
+
+3. FEEDBACK
+- "Cobrar offline" visible cuando está permitido.
+- Banner en Venta explicando modo sin conexión.
+- Banner global si existen ventas pendientes.
+- Contador sobre el indicador de conexión.
+- Ticket local dice "Pendiente de sincronizar".
+- Al volver internet muestra resultado de la sincronización.
+
+4. GESTO ATRÁS
+El orden ahora es:
+  popover -> modal superior -> pantalla principal -> confirmar salida
+
+Ejemplos:
+- Nuevo Producto abierto + Atrás -> cierra Nuevo Producto.
+- Scanner abierto + Atrás -> cierra Scanner.
+- Inventario abierto + Atrás -> cierra Inventario.
+- Venta con carrito + Atrás -> pregunta si querés cerrar ESA venta.
+- Todo cerrado + Atrás -> pregunta "¿Salir de Vendify?"
+
+5. SALIR
+- El guard ya no vuelve a atraparse antes de salir.
+- Al confirmar Salir se elimina el listener y se ejecuta navegación atrás.
+- Se intenta window.close() como fallback donde el contenedor PWA lo permite.
+- Si Android/iOS impide cierre programático, el guard queda desactivado y
+  el próximo gesto Atrás es completamente nativo.
+
+LIMITACIÓN WEB REAL
+-------------------
+Una web/PWA no tiene permiso universal para matar su propio proceso en
+Android/iOS. Ningún código JavaScript puede garantizarlo en todos los
+navegadores.
+
+La versión anterior se quedaba atrapada por su propio historial.
+v2.31.1 elimina ese problema. Si el SO no permite cierre programático,
+Vendify ya no intercepta el siguiente gesto.
+
+SEGURIDAD OFFLINE
+-----------------
+El servidor sigue siendo autoridad al sincronizar:
+- vuelve a validar usuario
+- negocio
+- sucursal
+- caja abierta
+- stock
+- precios
+- pagos
+- idempotencia
+
+Modificar localStorage no permite forzar al backend a aceptar una venta
+inválida.
+
+QA
+--
+- node --check app.js: OK
+- IDs HTML duplicados: 0
+- funciones JS duplicadas: 0
+- CSS parse: OK
+- bloqueo offline viejo: removido
+- Service Worker v2311: OK

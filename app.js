@@ -847,6 +847,8 @@ async function mostrarApp() {
     renderGrid();
     aplicarPermisosV2();
     actualizarContextSelectorLabelsV23013?.();
+    restaurarPruebaCajaOfflineV2311?.();
+    actualizarUIVentasOfflineV2311?.();
 
     if (restaurarCarritoV231?.()) {
       renderCarrito();
@@ -3255,7 +3257,22 @@ function setupStabilityV23011() {
 
   $("#connection-status-v23011")?.addEventListener(
     "click",
-    () => sincronizarTodoV23011({ toast: true })
+    async () => {
+      if (
+        navigator.onLine &&
+        typeof leerVentasOfflineV2311 === "function" &&
+        leerVentasOfflineV2311().length > 0
+      ) {
+        await sincronizarVentasOfflineV2311({
+          mostrarResumen: true,
+          incluirRevision: true,
+        });
+      }
+
+      await sincronizarTodoV23011({
+        toast: true,
+      });
+    }
   );
 
   $("#btn-diagnostico-v23011")?.addEventListener(
@@ -3528,58 +3545,233 @@ function setupContextPickersV23013() {
 
 
 // ============================================================
-// Vendify v2.30.1.4 — Protección de gesto Atrás / salida accidental
+// Vendify v2.31.1 — Navegación Atrás / salida accidental
 // ============================================================
 
-let backGuardInstalledV23014 = false;
-let backGuardConfirmingV23014 = false;
-let backGuardAllowExitV23014 = false;
+let backGuardInstalledV2311 = false;
+let backGuardExitConfirmingV2311 = false;
+let backGuardEnabledV2311 = true;
 
-function appVisibleV23014() {
+function appVisibleV2311() {
   return (
     appContext?.ready === true &&
     !$(".app")?.classList.contains("hidden")
   );
 }
 
-function instalarEstadoBackGuardV23014() {
+function armarBackGuardV2311() {
+  if (!backGuardEnabledV2311) return;
+
   const current = history.state || {};
 
-  if (!current.vendifyBaseV23014) {
-    history.replaceState(
-      { ...current, vendifyBaseV23014: true },
-      "",
-      location.href
-    );
-  }
+  history.replaceState(
+    {
+      ...current,
+      vendifyBaseV2311: true,
+    },
+    "",
+    location.href
+  );
 
   history.pushState(
-    { vendifyGuardV23014: true },
+    {
+      vendifyGuardV2311: true,
+    },
     "",
     location.href
   );
 }
 
-async function manejarBackVendifyV23014() {
-  if (!appVisibleV23014()) return;
+function rearmarBackGuardV2311() {
+  if (!backGuardEnabledV2311) return;
 
-  if (backGuardAllowExitV23014) {
-    backGuardAllowExitV23014 = false;
-    return;
-  }
+  const state = history.state || {};
+  if (state.vendifyGuardV2311) return;
 
   history.pushState(
-    { vendifyGuardV23014: true },
+    {
+      vendifyGuardV2311: true,
+    },
     "",
     location.href
   );
+}
 
-  if (backGuardConfirmingV23014) return;
-  backGuardConfirmingV23014 = true;
+function popoverAbiertoV2311() {
+  const menus = [
+    $("#gestion-menu-v230"),
+    $("#user-menu"),
+    $("#branch-menu-v23013"),
+    $("#cash-menu-v23013"),
+  ];
+
+  return menus.some(
+    (menu) =>
+      menu &&
+      !menu.classList.contains("hidden")
+  );
+}
+
+function cerrarPopoverAbiertoV2311() {
+  if (!popoverAbiertoV2311()) return false;
+
+  abrirCerrarGestionV230?.(false);
+  abrirCerrarMenuUsuarioV224?.(false);
+  cerrarContextPickersV23013?.();
+
+  return true;
+}
+
+function modalSuperiorVisibleV2311() {
+  const visibles = Array.from(
+    document.querySelectorAll(".modal")
+  ).filter((modal) => modalVisibleV23011(modal));
+
+  if (!visibles.length) return null;
+
+  return visibles
+    .map((modal, index) => ({
+      modal,
+      index,
+      z: Number.parseInt(
+        getComputedStyle(modal).zIndex || "0",
+        10
+      ) || 0,
+    }))
+    .sort((a, b) => {
+      if (b.z !== a.z) return b.z - a.z;
+      return b.index - a.index;
+    })[0]?.modal || null;
+}
+
+async function cerrarCapaSuperiorV2311() {
+  if (cerrarPopoverAbiertoV2311()) {
+    return true;
+  }
+
+  const modal = modalSuperiorVisibleV2311();
+  if (!modal) return false;
+
+  // Venta requiere cuidado para no perder el carrito con un gesto accidental.
+  if (modal.id === "modal-venta") {
+    if (carrito.length > 0) {
+      const cerrar = await confirmar(
+        "¿Cerrar esta venta?",
+        "El carrito actual se descartará.",
+        {
+          okText: "Cerrar venta",
+          cancelText: "Seguir vendiendo",
+          danger: false,
+        }
+      );
+
+      if (cerrar) cerrarVenta();
+    } else {
+      cerrarVenta();
+    }
+
+    return true;
+  }
+
+  // La confirmación genérica se interpreta como Cancelar al volver.
+  if (modal.id === "modal-confirm") {
+    $("#btn-confirm-cancel")?.click();
+    return true;
+  }
+
+  const closeButton =
+    modal.querySelector(
+      'button[id*="close"], button[id*="cerrar"]'
+    ) ||
+    modal.querySelector(
+      'button[id*="cancel"], button[id*="cancelar"]'
+    );
+
+  if (closeButton) {
+    closeButton.click();
+    return true;
+  }
+
+  // Fallback seguro: solo ocultamos una capa que realmente es modal.
+  modal.classList.add("hidden");
+  return true;
+}
+
+function intentarSalirVendifyV2311() {
+  backGuardEnabledV2311 = false;
+  window.removeEventListener(
+    "popstate",
+    manejarBackVendifyV2311
+  );
+
+  const currentUrl = location.href;
+  let moved = false;
+
+  const markMoved = () => {
+    moved = location.href !== currentUrl;
+  };
+
+  window.addEventListener(
+    "pagehide",
+    () => {
+      moved = true;
+    },
+    { once: true }
+  );
+
+  // En una pestaña normal, vuelve a la página anterior si existe.
+  history.back();
+
+  // Una ventana/PWA instalada puede no tener historial anterior.
+  // window.close() es un intento adicional; algunos contenedores PWA
+  // lo permiten y los navegadores comunes pueden ignorarlo.
+  setTimeout(() => {
+    markMoved();
+    if (moved || document.visibilityState === "hidden") return;
+
+    try {
+      window.close();
+    } catch {}
+  }, 180);
+
+  // Si el sistema operativo no permite cierre programático, dejamos de
+  // interceptar Atrás para que el siguiente gesto sea nativo.
+  setTimeout(() => {
+    markMoved();
+
+    if (!moved && document.visibilityState !== "hidden") {
+      mostrarToast(
+        "El sistema no permite cerrar esta PWA por código. El próximo gesto Atrás saldrá normalmente.",
+        "info"
+      );
+    }
+  }, 550);
+}
+
+async function manejarBackVendifyV2311() {
+  if (!backGuardEnabledV2311 || !appVisibleV2311()) {
+    return;
+  }
+
+  // En este punto el navegador ya consumió la entrada "guard" y estamos
+  // sobre la entrada base.
+  const handled = await cerrarCapaSuperiorV2311();
+
+  if (handled) {
+    rearmarBackGuardV2311();
+    return;
+  }
+
+  if (backGuardExitConfirmingV2311) {
+    rearmarBackGuardV2311();
+    return;
+  }
+
+  backGuardExitConfirmingV2311 = true;
 
   const salir = await confirmar(
     "¿Salir de Vendify?",
-    "Estás por salir de la aplicación. ¿Querés continuar?",
+    "No hay ninguna pantalla abierta. ¿Querés salir de la aplicación?",
     {
       okText: "Salir",
       cancelText: "Seguir en Vendify",
@@ -3587,32 +3779,34 @@ async function manejarBackVendifyV23014() {
     }
   );
 
-  backGuardConfirmingV23014 = false;
+  backGuardExitConfirmingV2311 = false;
 
-  if (!salir) return;
+  if (!salir) {
+    rearmarBackGuardV2311();
+    return;
+  }
 
-  backGuardAllowExitV23014 = true;
-  history.go(-2);
-
-  setTimeout(() => {
-    backGuardAllowExitV23014 = false;
-  }, 1500);
+  intentarSalirVendifyV2311();
 }
 
-function setupBackGuardV23014() {
-  if (backGuardInstalledV23014) return;
-  backGuardInstalledV23014 = true;
+function setupBackGuardV2311() {
+  if (backGuardInstalledV2311) return;
+  backGuardInstalledV2311 = true;
+  backGuardEnabledV2311 = true;
 
-  instalarEstadoBackGuardV23014();
-  window.addEventListener("popstate", manejarBackVendifyV23014);
+  armarBackGuardV2311();
+
+  window.addEventListener(
+    "popstate",
+    manejarBackVendifyV2311
+  );
 }
-
 
 // ============================================================
 // Vendify v2.31 — Commercial Foundation
 // ============================================================
 
-const VENDIFY_VERSION_V231 = "2.31.0";
+const VENDIFY_VERSION_V231 = "2.31.1";
 const VENDIFY_CART_PREFIX_V231 = "vendify_cart_v231";
 const VENDIFY_CONTEXT_PREFIX_V231 = "vendify_context_v231";
 const VENDIFY_PRODUCTS_PREFIX_V231 = "vendify_products_v231";
@@ -3852,20 +4046,686 @@ function restaurarCarritoV231() {
   }
 }
 
+const VENDIFY_OFFLINE_SALES_PREFIX_V2311 =
+  "vendify_offline_sales_v2311";
+const VENDIFY_CASH_PROOF_PREFIX_V2311 =
+  "vendify_cash_proof_v2311";
+const VENDIFY_OFFLINE_MAX_SALES_V2311 = 200;
+const VENDIFY_OFFLINE_CASH_PROOF_MAX_MS_V2311 =
+  18 * 60 * 60 * 1000;
+
+let offlineSalesSyncPromiseV2311 = null;
+
+function offlineSalesKeyV2311() {
+  const uid = sesionActual?.user?.id || "anon";
+  const business = appContext.business?.id || "none";
+
+  return `${VENDIFY_OFFLINE_SALES_PREFIX_V2311}:${uid}:${business}`;
+}
+
+function cashProofKeyV2311() {
+  const uid = sesionActual?.user?.id || "anon";
+  const business = appContext.business?.id || "none";
+  const branch = appContext.branch?.id || "none";
+  const cash = appContext.cashRegister?.id || "none";
+
+  return `${VENDIFY_CASH_PROOF_PREFIX_V2311}:${uid}:${business}:${branch}:${cash}`;
+}
+
+function leerVentasOfflineV2311() {
+  try {
+    const raw = localStorage.getItem(
+      offlineSalesKeyV2311()
+    );
+
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarVentasOfflineV2311(queue) {
+  try {
+    localStorage.setItem(
+      offlineSalesKeyV2311(),
+      JSON.stringify(queue || [])
+    );
+    return true;
+  } catch (error) {
+    console.error("[Offline sales] storage:", error);
+    return false;
+  }
+}
+
+function resumenColaOfflineV2311() {
+  const queue = leerVentasOfflineV2311();
+
+  return {
+    total: queue.length,
+    pending: queue.filter(
+      (sale) => sale.status !== "revision"
+    ).length,
+    revision: queue.filter(
+      (sale) => sale.status === "revision"
+    ).length,
+    queue,
+  };
+}
+
+function guardarPruebaCajaOfflineV2311() {
+  if (
+    !cajaAbiertaMiaV227() ||
+    !sesionActual?.user?.id ||
+    !appContext?.business?.id ||
+    !appContext?.branch?.id ||
+    !appContext?.cashRegister?.id
+  ) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(
+      cashProofKeyV2311(),
+      JSON.stringify({
+        savedAt: new Date().toISOString(),
+        userId: sesionActual.user.id,
+        businessId: appContext.business.id,
+        branchId: appContext.branch.id,
+        cashId: appContext.cashRegister.id,
+        estado: cajaEstadoV227,
+      })
+    );
+  } catch {}
+}
+
+function restaurarPruebaCajaOfflineV2311() {
+  if (
+    !sesionActual?.user?.id ||
+    !appContext?.business?.id ||
+    !appContext?.branch?.id ||
+    !appContext?.cashRegister?.id
+  ) {
+    return false;
+  }
+
+  try {
+    const raw = localStorage.getItem(
+      cashProofKeyV2311()
+    );
+
+    if (!raw) return false;
+
+    const proof = JSON.parse(raw);
+    const savedAt = new Date(
+      proof?.savedAt || 0
+    ).getTime();
+
+    const valid =
+      proof?.userId === sesionActual.user.id &&
+      proof?.businessId === appContext.business.id &&
+      proof?.branchId === appContext.branch.id &&
+      proof?.cashId === appContext.cashRegister.id &&
+      proof?.estado?.sesion &&
+      proof?.estado?.es_mia === true &&
+      Number.isFinite(savedAt) &&
+      Date.now() - savedAt <=
+        VENDIFY_OFFLINE_CASH_PROOF_MAX_MS_V2311;
+
+    if (!valid) return false;
+
+    cajaEstadoV227 = proof.estado;
+    renderEstadoCajaHeaderV227();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cajaOfflineHabilitadaV2311() {
+  if (cajaAbiertaMiaV227()) return true;
+  return restaurarPruebaCajaOfflineV2311();
+}
+
+function puedeCobrarOfflineV2311() {
+  if (navigator.onLine) return false;
+  if (!appContext?.ready) return false;
+  if (!tienePermisoV2("sell")) return false;
+  if (!appContext?.branch?.id) return false;
+  if (!appContext?.cashRegister?.id) return false;
+  if (!cajaOfflineHabilitadaV2311()) return false;
+
+  const { total } = resumenColaOfflineV2311();
+  return total < VENDIFY_OFFLINE_MAX_SALES_V2311;
+}
+
+function actualizarUIVentasOfflineV2311() {
+  const state = resumenColaOfflineV2311();
+  const globalBanner = $("#offline-sync-banner-v2311");
+  const globalText = $("#offline-sync-text-v2311");
+  const retry = $("#btn-sync-offline-sales-v2311");
+  const saleBanner = $("#offline-sale-banner-v2311");
+  const saleMessage = $("#offline-sale-message-v2311");
+  const connection = $("#connection-status-v23011");
+
+  const showGlobal =
+    state.total > 0;
+
+  globalBanner?.classList.toggle(
+    "hidden",
+    !showGlobal
+  );
+
+  if (globalText && showGlobal) {
+    if (state.revision > 0) {
+      globalText.textContent =
+        `${state.total} venta${state.total === 1 ? "" : "s"} pendiente${state.total === 1 ? "" : "s"} · ${state.revision} requiere${state.revision === 1 ? "" : "n"} revisión`;
+    } else if (navigator.onLine) {
+      globalText.textContent =
+        `${state.total} venta${state.total === 1 ? "" : "s"} esperando sincronización`;
+    } else {
+      globalText.textContent =
+        `${state.total} venta${state.total === 1 ? "" : "s"} guardada${state.total === 1 ? "" : "s"} sin conexión`;
+    }
+  }
+
+  if (retry) {
+    retry.disabled = !navigator.onLine;
+    retry.textContent =
+      navigator.onLine
+        ? "Sincronizar"
+        : "Esperando internet";
+  }
+
+  if (connection) {
+    connection.dataset.pendingOffline =
+      String(state.total);
+
+    connection.classList.toggle(
+      "has-offline-sales-v2311",
+      state.total > 0
+    );
+  }
+
+  const offline = !navigator.onLine;
+  saleBanner?.classList.toggle(
+    "hidden",
+    !offline
+  );
+
+  if (saleMessage && offline) {
+    if (puedeCobrarOfflineV2311()) {
+      saleMessage.textContent =
+        state.total > 0
+          ? `Podés seguir vendiendo. Hay ${state.total} venta${state.total === 1 ? "" : "s"} pendiente${state.total === 1 ? "" : "s"} de sincronización.`
+          : "Podés cobrar en Efectivo o Transferencia. La venta se sincronizará automáticamente al volver internet.";
+    } else {
+      saleMessage.textContent =
+        "Para vender sin conexión, esta caja debe haber sido abierta y verificada previamente con internet.";
+    }
+  }
+}
+
 function aplicarEstadoOfflineVentaV231() {
   const btn = $("#btn-cobrar");
   if (!btn) return;
 
   const offline = !navigator.onLine;
-  btn.classList.toggle("offline-disabled-v231", offline);
+
+  btn.classList.toggle(
+    "offline-enabled-v2311",
+    offline && puedeCobrarOfflineV2311()
+  );
+
+  btn.classList.toggle(
+    "offline-disabled-v231",
+    offline && !puedeCobrarOfflineV2311()
+  );
 
   if (offline) {
-    btn.disabled = true;
-    btn.title =
-      "El carrito está guardado. Reconectá internet para confirmar la venta.";
+    const enabled = puedeCobrarOfflineV2311();
+
+    btn.textContent = enabled
+      ? "Cobrar offline"
+      : "Cobro offline no disponible";
+
+    btn.disabled =
+      carrito.length === 0 ||
+      ventaConfirmandoV23011 ||
+      !enabled;
+
+    btn.title = enabled
+      ? "La venta quedará pendiente de sincronización"
+      : "La caja debe haber sido verificada abierta con internet";
   } else {
+    btn.textContent = "Cobrar";
     btn.title = "";
-    btn.disabled = carrito.length === 0 || ventaConfirmandoV23011;
+    btn.disabled =
+      carrito.length === 0 ||
+      ventaConfirmandoV23011;
+  }
+
+  actualizarUIVentasOfflineV2311();
+}
+
+function validarPagosOfflineV2311(pagos) {
+  const permitidos = new Set([
+    "Efectivo",
+    "Transferencia",
+  ]);
+
+  const invalidos = (pagos || []).filter(
+    (pago) => !permitidos.has(pago.medio_pago)
+  );
+
+  if (invalidos.length) {
+    throw new Error(
+      "Sin internet solo se permiten cobros en Efectivo o Transferencia."
+    );
+  }
+}
+
+function validarStockLocalVentaV2311(items) {
+  for (const item of items || []) {
+    const product = productos.find(
+      (p) => p.id === item.id
+    );
+
+    if (!product) {
+      throw new Error(
+        `No se encontró "${item.nombre}" en el catálogo local.`
+      );
+    }
+
+    if (
+      Number(product.stock || 0) <
+      Number(item.cantidad || 0)
+    ) {
+      throw new Error(
+        `Stock local insuficiente de "${product.nombre}".`
+      );
+    }
+  }
+}
+
+function aplicarVentaAlStockLocalV2311(items) {
+  for (const item of items || []) {
+    const product = productos.find(
+      (p) => p.id === item.id
+    );
+
+    if (!product) continue;
+
+    product.stock = Math.max(
+      0,
+      Number(product.stock || 0) -
+        Number(item.cantidad || 0)
+    );
+  }
+
+  guardarProductosOfflineV231?.();
+  renderGrid();
+
+  if (
+    !$("#modal-venta")?.classList.contains("hidden")
+  ) {
+    renderVentaProductos();
+  }
+}
+
+function aplicarVentaCajaLocalV2311(pagos, total) {
+  if (!cajaEstadoV227?.sesion || !cajaEstadoV227?.es_mia) {
+    return;
+  }
+
+  const cash = (pagos || [])
+    .filter(
+      (pago) => pago.medio_pago === "Efectivo"
+    )
+    .reduce(
+      (sum, pago) =>
+        sum + Number(pago.monto || 0),
+      0
+    );
+
+  const session = cajaEstadoV227.sesion;
+
+  session.ventas_total =
+    Number(session.ventas_total || 0) +
+    Number(total || 0);
+
+  session.ventas_efectivo =
+    Number(session.ventas_efectivo || 0) +
+    cash;
+
+  session.efectivo_esperado =
+    Number(session.efectivo_esperado || 0) +
+    cash;
+
+  session.tickets =
+    Number(session.tickets || 0) + 1;
+
+  guardarPruebaCajaOfflineV2311();
+  renderEstadoCajaHeaderV227();
+}
+
+function construirTicketOfflineV2311(sale) {
+  return {
+    venta: {
+      id: sale.request_id,
+      creado: sale.created_at,
+      subtotal: sale.totales.subtotal,
+      descuento_total: 0,
+      total: sale.totales.total,
+      estado: "pendiente_sincronizacion",
+      observacion: sale.observacion || null,
+    },
+    items: sale.items.map((item) => ({
+      producto_nombre: item.producto_nombre,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      subtotal:
+        Number(item.precio_unitario || 0) *
+        Number(item.cantidad || 0),
+    })),
+    pagos: sale.pagos.map((pago) => ({
+      ...pago,
+      operacion: "cobro",
+    })),
+  };
+}
+
+function registrarVentaOfflineV2311(
+  items,
+  pagos,
+  totales,
+  observacion
+) {
+  if (!puedeCobrarOfflineV2311()) {
+    throw new Error(
+      "La caja no está habilitada para ventas offline."
+    );
+  }
+
+  if (
+    totales?.tipo ||
+    Number(totales?.descuento || 0) > 0
+  ) {
+    throw new Error(
+      "Los descuentos requieren conexión para validar la autorización."
+    );
+  }
+
+  validarPagosOfflineV2311(pagos);
+  validarStockLocalVentaV2311(items);
+
+  const queue = leerVentasOfflineV2311();
+
+  if (
+    queue.length >=
+    VENDIFY_OFFLINE_MAX_SALES_V2311
+  ) {
+    throw new Error(
+      "Se alcanzó el máximo de ventas offline pendientes. Reconectá internet antes de continuar."
+    );
+  }
+
+  const requestId =
+    asegurarVentaRequestIdV23011();
+
+  const sale = {
+    request_id: requestId,
+    status: "pending",
+    attempts: 0,
+    last_error: null,
+    created_at: new Date().toISOString(),
+
+    user_id: sesionActual?.user?.id || null,
+    negocio_id: appContext.business.id,
+    sucursal_id: appContext.branch.id,
+    caja_id: appContext.cashRegister.id,
+
+    items: (items || []).map((item) => ({
+      producto_id: item.id,
+      producto_nombre: item.nombre,
+      cantidad: Number(item.cantidad),
+      precio_unitario: Number(item.precioVenta),
+    })),
+
+    pagos: (pagos || []).map((pago) => ({
+      medio_pago: pago.medio_pago,
+      monto: Number(pago.monto),
+    })),
+
+    totales: {
+      subtotal: Number(totales.subtotal || 0),
+      total: Number(totales.total || 0),
+    },
+
+    observacion:
+      String(observacion || "").trim() || null,
+  };
+
+  const saved = guardarVentasOfflineV2311([
+    ...queue,
+    sale,
+  ]);
+
+  if (!saved) {
+    throw new Error(
+      "No hay espacio suficiente para guardar la venta sin conexión."
+    );
+  }
+
+  aplicarVentaAlStockLocalV2311(items);
+  aplicarVentaCajaLocalV2311(
+    pagos,
+    totales.total
+  );
+
+  try {
+    localStorage.removeItem(
+      safeBusinessKeyV231(
+        VENDIFY_CART_PREFIX_V231
+      )
+    );
+  } catch {}
+
+  actualizarUIVentasOfflineV2311();
+
+  return construirTicketOfflineV2311(sale);
+}
+
+function esErrorRedV2311(error) {
+  const text = String(
+    error?.message ||
+    error ||
+    ""
+  ).toLowerCase();
+
+  return (
+    !navigator.onLine ||
+    text.includes("failed to fetch") ||
+    text.includes("network") ||
+    text.includes("load failed") ||
+    text.includes("internet")
+  );
+}
+
+async function sincronizarVentasOfflineV2311({
+  mostrarResumen = false,
+  incluirRevision = false,
+} = {}) {
+  if (!navigator.onLine) {
+    actualizarUIVentasOfflineV2311();
+    return {
+      synced: 0,
+      revision: 0,
+      pending: resumenColaOfflineV2311().total,
+    };
+  }
+
+  if (offlineSalesSyncPromiseV2311) {
+    return offlineSalesSyncPromiseV2311;
+  }
+
+  offlineSalesSyncPromiseV2311 = (async () => {
+    let queue = leerVentasOfflineV2311();
+    let synced = 0;
+    let revision = 0;
+    let stoppedByNetwork = false;
+
+    for (let index = 0; index < queue.length;) {
+      const sale = queue[index];
+
+      if (
+        sale.status === "revision" &&
+        !incluirRevision
+      ) {
+        revision += 1;
+        index += 1;
+        continue;
+      }
+
+      const payload = sale.items.map(
+        (item) => ({
+          producto_id: item.producto_id,
+          cantidad: Number(item.cantidad),
+        })
+      );
+
+      let response;
+
+      try {
+        response = await supabaseClient.rpc(
+          "registrar_venta_v4",
+          {
+            p_items: payload,
+            p_pagos: sale.pagos,
+            p_descuento_tipo: null,
+            p_descuento_valor: 0,
+            p_observacion: sale.observacion,
+            p_sucursal_id: sale.sucursal_id,
+            p_caja_id: sale.caja_id,
+            p_request_id: sale.request_id,
+          }
+        );
+      } catch (error) {
+        response = {
+          data: null,
+          error,
+        };
+      }
+
+      if (response?.error) {
+        if (esErrorRedV2311(response.error)) {
+          stoppedByNetwork = true;
+          break;
+        }
+
+        sale.attempts =
+          Number(sale.attempts || 0) + 1;
+
+        sale.last_error =
+          response.error.message ||
+          "La venta necesita revisión.";
+
+        sale.status = "revision";
+        revision += 1;
+        queue[index] = sale;
+        guardarVentasOfflineV2311(queue);
+        index += 1;
+        continue;
+      }
+
+      // registrar_venta_v4 es idempotente. Si el servidor ya la recibió
+      // antes de perder la respuesta, devuelve la misma venta y podemos
+      // quitarla de la cola sin duplicarla.
+      queue.splice(index, 1);
+      guardarVentasOfflineV2311(queue);
+      synced += 1;
+    }
+
+    actualizarUIVentasOfflineV2311();
+
+    if (synced > 0) {
+      try {
+        await cargarProductos();
+        renderGrid();
+        await cargarEstadoCajaV227();
+      } catch (refreshError) {
+        console.warn(
+          "[Offline sales] sincronizada, refresh pendiente:",
+          refreshError
+        );
+      }
+    }
+
+    const remaining = leerVentasOfflineV2311();
+    const reviewSales = remaining.filter(
+      (sale) => sale.status === "revision"
+    );
+
+    if (mostrarResumen) {
+      if (synced > 0 && reviewSales.length === 0) {
+        mostrarToast(
+          `${synced} venta${synced === 1 ? "" : "s"} offline sincronizada${synced === 1 ? "" : "s"}`,
+          "success"
+        );
+      } else if (reviewSales.length > 0) {
+        const firstError =
+          reviewSales[0]?.last_error ||
+          "Revisá stock y estado de caja.";
+
+        mostrarToast(
+          `${reviewSales.length} venta${reviewSales.length === 1 ? "" : "s"} requiere${reviewSales.length === 1 ? "" : "n"} revisión: ${firstError}`,
+          "error"
+        );
+      } else if (
+        stoppedByNetwork &&
+        remaining.length > 0
+      ) {
+        mostrarToast(
+          "La conexión volvió a cortarse. Las ventas siguen guardadas.",
+          "info"
+        );
+      }
+    }
+
+    return {
+      synced,
+      revision: reviewSales.length,
+      pending: remaining.length,
+    };
+  })().finally(() => {
+    offlineSalesSyncPromiseV2311 = null;
+  });
+
+  return offlineSalesSyncPromiseV2311;
+}
+
+function setupOfflineSalesV2311() {
+  $("#btn-sync-offline-sales-v2311")
+    ?.addEventListener("click", async () => {
+      await sincronizarVentasOfflineV2311({
+        mostrarResumen: true,
+        incluirRevision: true,
+      });
+    });
+
+  actualizarUIVentasOfflineV2311();
+
+  if (
+    navigator.onLine &&
+    leerVentasOfflineV2311().length > 0
+  ) {
+    setTimeout(() => {
+      sincronizarVentasOfflineV2311({
+        mostrarResumen: true,
+      });
+    }, 800);
   }
 }
 
@@ -5128,6 +5988,7 @@ async function cargarCommercialFoundationV231() {
 
 function setupCommercialFoundationV231() {
   setupObservabilityV231();
+  setupOfflineSalesV2311();
 
   $("#btn-dashboard-v231")?.addEventListener(
     "click",
@@ -5285,17 +6146,51 @@ function setupCommercialFoundationV231() {
 
   window.addEventListener("offline", () => {
     guardarCarritoV231();
+    guardarPruebaCajaOfflineV2311?.();
     aplicarEstadoOfflineVentaV231();
+    actualizarUIVentasOfflineV2311();
   });
 
   window.addEventListener(
     "online",
     async () => {
+      setConnectionStateV23011?.(
+        "syncing",
+        "Sincronizando"
+      );
+
+      await sincronizarVentasOfflineV2311({
+        mostrarResumen: true,
+      });
+
       aplicarEstadoOfflineVentaV231();
       await cargarCommercialFoundationV231();
+
+      try {
+        await cargarEstadoCajaV227();
+      } catch {}
+
       renderCarrito();
+      actualizarUIVentasOfflineV2311();
+
+      if (navigator.onLine) {
+        setConnectionStateV23011?.(
+          "online"
+        );
+      }
     }
   );
+
+  window.addEventListener("focus", () => {
+    if (
+      navigator.onLine &&
+      leerVentasOfflineV2311().length > 0
+    ) {
+      sincronizarVentasOfflineV2311({
+        mostrarResumen: false,
+      });
+    }
+  });
 }
 
 
@@ -7433,6 +8328,7 @@ function estadoVentaLabelV228(estado) {
     parcialmente_devuelta: "Dev. parcial",
     devuelta: "Devuelta",
     anulada: "Anulada",
+    pendiente_sincronizacion: "Pendiente de sincronizar",
   };
   return map[estado] || "Completada";
 }
@@ -7815,14 +8711,26 @@ function abrirVenta() {
     return;
   }
 
-  if (!cajaAbiertaMiaV227()) {
+  if (
+    !cajaAbiertaMiaV227() &&
+    !(
+      !navigator.onLine &&
+      restaurarPruebaCajaOfflineV2311?.()
+    )
+  ) {
     mostrarToast(
-      cajaEstadoV227?.sesion
-        ? "Esta caja está abierta por otro usuario"
-        : "Abrí la caja antes de comenzar a vender",
+      !navigator.onLine
+        ? "Para vender offline, esta caja debe haber sido abierta previamente con internet"
+        : cajaEstadoV227?.sesion
+          ? "Esta caja está abierta por otro usuario"
+          : "Abrí la caja antes de comenzar a vender",
       "info"
     );
-    abrirPanelCajaV227();
+
+    if (navigator.onLine) {
+      abrirPanelCajaV227();
+    }
+
     return;
   }
 
@@ -7938,63 +8846,120 @@ function renderCarrito() {
 }
 
 async function confirmarVenta() {
-  if (carrito.length === 0 || ventaConfirmandoV23011) return;
+  if (
+    carrito.length === 0 ||
+    ventaConfirmandoV23011
+  ) return;
 
-  if (!navigator.onLine) {
-    guardarCarritoV231?.();
+  const btn = $("#btn-cobrar");
+  const offline = !navigator.onLine;
+
+  const solicitudDescuento =
+    solicitudDescuentoActual();
+
+  if (
+    offline &&
+    solicitudDescuento.tipo &&
+    Number(solicitudDescuento.valor || 0) > 0
+  ) {
     mostrarToast(
-      "Sin conexión. El carrito quedó guardado y se podrá cobrar al reconectar.",
-      "info"
+      "Los descuentos requieren conexión para validar la autorización.",
+      "error"
     );
-    aplicarEstadoOfflineVentaV231?.();
     return;
   }
 
-  const btn = $("#btn-cobrar");
-
-  const solicitudDescuento = solicitudDescuentoActual();
   if (
+    !offline &&
     solicitudDescuento.tipo &&
     solicitudDescuento.valor > 0 &&
     !autorizacionDescuentoCoincide()
   ) {
-    mostrarToast("Autorizá el descuento con un PIN de administrador", "error");
+    mostrarToast(
+      "Autorizá el descuento con un PIN de administrador",
+      "error"
+    );
     abrirAutorizacionDescuento();
     return;
   }
 
-  const totales = calcularTotalesVentaV228();
+  const totales =
+    calcularTotalesVentaV228();
+
   let pagos;
 
   try {
-    pagos = obtenerPagosVentaV228(totales.total);
+    pagos =
+      obtenerPagosVentaV228(
+        totales.total
+      );
+
+    if (offline) {
+      validarPagosOfflineV2311(pagos);
+    }
   } catch (error) {
-    mostrarToast(error.message, "error");
+    mostrarToast(
+      error.message,
+      "error"
+    );
     return;
   }
 
   ventaConfirmandoV23011 = true;
   btn.disabled = true;
-  btn.textContent = "Cobrando...";
+  btn.textContent = offline
+    ? "Guardando..."
+    : "Cobrando...";
 
   try {
+    if (offline) {
+      const localTicket =
+        registrarVentaOfflineV2311(
+          carrito,
+          pagos,
+          totales,
+          $("#venta-observacion-v228")
+            .value.trim()
+        );
+
+      mostrarToast(
+        "Venta guardada offline. Se sincronizará automáticamente.",
+        "success"
+      );
+
+      descuentoAutorizacion = null;
+      ventaRequestIdV23011 = null;
+
+      cerrarVenta();
+      mostrarTicketV228(localTicket);
+      actualizarUIVentasOfflineV2311();
+      return;
+    }
+
     const data = await registrarVentaV3(
       carrito,
       pagos,
       totales,
-      $("#venta-observacion-v228").value.trim()
+      $("#venta-observacion-v228")
+        .value.trim()
     );
 
     if (!data) return;
 
-    // El servidor es la autoridad. Reconciliamos el catálogo completo,
-    // evitando restar dos veces localmente si la respuesta fue un retry.
+    // El servidor es la autoridad.
     await cargarProductos();
     renderGrid();
     await cargarEstadoCajaV227();
 
-    const total = Number(data?.venta?.total ?? totales.total);
-    mostrarToast(`Venta cobrada: ${formatearPrecio(total)}`, "success");
+    const total = Number(
+      data?.venta?.total ??
+      totales.total
+    );
+
+    mostrarToast(
+      `Venta cobrada: ${formatearPrecio(total)}`,
+      "success"
+    );
 
     descuentoAutorizacion = null;
     ventaRequestIdV23011 = null;
@@ -8011,13 +8976,19 @@ async function confirmarVenta() {
     mostrarTicketV228(data);
     refrescarOnboardingComercialV231?.();
     cargarBadgeAlertasV231?.();
+
   } catch (error) {
-    mostrarToast(error.message || "No se pudo registrar la venta", "error");
+    mostrarToast(
+      error.message ||
+      "No se pudo registrar la venta",
+      "error"
+    );
+
   } finally {
     ventaConfirmandoV23011 = false;
+
     if (btn) {
-      btn.textContent = "Cobrar";
-      btn.disabled = carrito.length === 0;
+      aplicarEstadoOfflineVentaV231();
     }
   }
 }
@@ -10508,7 +11479,49 @@ async function cambiarCajaDesdeSelectorV227(e) {
   await cargarEstadoCajaV227();
 }
 
-async function cargarEstadoCajaV227(){if(!appContext?.cashRegister?.id){cajaEstadoV227=null;renderEstadoCajaHeaderV227();return;}const{data,error}=await supabaseClient.rpc("obtener_estado_caja_v1",{p_caja_id:appContext.cashRegister.id});if(error){console.error("[V2.27] estado",error);cajaEstadoV227=null;renderEstadoCajaHeaderV227();return;}cajaEstadoV227=data;renderEstadoCajaHeaderV227();}
+async function cargarEstadoCajaV227() {
+  if (!appContext?.cashRegister?.id) {
+    cajaEstadoV227 = null;
+    renderEstadoCajaHeaderV227();
+    return;
+  }
+
+  if (!navigator.onLine) {
+    if (restaurarPruebaCajaOfflineV2311?.()) {
+      return;
+    }
+
+    cajaEstadoV227 = null;
+    renderEstadoCajaHeaderV227();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "obtener_estado_caja_v1",
+    {
+      p_caja_id: appContext.cashRegister.id,
+    }
+  );
+
+  if (error) {
+    console.error("[V2.27] estado", error);
+
+    if (
+      !navigator.onLine &&
+      restaurarPruebaCajaOfflineV2311?.()
+    ) {
+      return;
+    }
+
+    cajaEstadoV227 = null;
+    renderEstadoCajaHeaderV227();
+    return;
+  }
+
+  cajaEstadoV227 = data;
+  guardarPruebaCajaOfflineV2311?.();
+  renderEstadoCajaHeaderV227();
+}
 function cajaAbiertaMiaV227(){return Boolean(cajaEstadoV227?.sesion&&cajaEstadoV227?.es_mia);}
 function renderEstadoCajaHeaderV227(){const btn=$("#btn-caja-v227"),dot=$("#cash-status-dot-v227"),label=$("#cash-status-label-v227");if(!btn||!dot||!label)return;dot.classList.remove("open","closed","busy");if(!appContext?.cashRegister?.id){dot.classList.add("closed");label.textContent="Sin caja";return;}if(!cajaEstadoV227?.sesion){dot.classList.add("closed");label.textContent="Caja cerrada";return;}if(cajaEstadoV227.es_mia){dot.classList.add("open");label.textContent="Caja abierta";}else{dot.classList.add("busy");label.textContent="Caja ocupada";}}
 async function abrirPanelCajaV227(){if(!appContext?.cashRegister?.id){mostrarToast("Esta sucursal no tiene una caja activa","error");return;}await cargarEstadoCajaV227();await renderPanelCajaV227();await renderHistorialCajaV227();$("#cash-context-v227").textContent=`${appContext.branch?.nombre||"Sucursal"} · ${appContext.cashRegister?.nombre||"Caja"}`;$("#modal-caja-operativa-v227").classList.remove("hidden");}
@@ -11143,7 +12156,7 @@ function init() {
   setupComprasV230();
   setupSecuritySessionGuardV2301();
   setupStabilityV23011();
-  setupBackGuardV23014();
+  setupBackGuardV2311();
   setupCommercialFoundationV231();
   iniciarWatchdogRealtime();
   setupInstallPrompt();

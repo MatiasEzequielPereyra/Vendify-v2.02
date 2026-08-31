@@ -1,0 +1,69 @@
+VENDIFY v2.31.1
+=================
+
+NO HAY SQL NUEVO.
+
+INSTALACIÓN
+-----------
+Reemplazar JUNTOS en Vercel:
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+Después:
+1. Esperar deployment.
+2. Cerrar todas las pestañas de Vendify.
+3. Si usás PWA, cerrarla completamente.
+4. Volver a abrir con internet una vez para que el nuevo Service Worker
+   y el catálogo queden cacheados.
+
+PRUEBA OFFLINE
+--------------
+1. Entrar con internet.
+2. Abrir caja.
+3. Hacer una venta normal.
+4. Desactivar Wi-Fi/datos.
+5. Abrir Vender.
+6. Agregar producto.
+7. Elegir Efectivo.
+8. Debe aparecer "Cobrar offline".
+9. Cobrar.
+10. Stock local debe bajar.
+11. Repetir con otra venta.
+12. Reactivar internet.
+13. Debe sincronizar automáticamente.
+14. Revisar Historial y stock.
+
+PRUEBA CONFLICTO
+----------------
+- Teléfono queda offline con stock conocido.
+- Otro dispositivo online consume ese stock.
+- Teléfono realiza venta offline.
+- Al reconectar, el servidor puede rechazarla.
+- Vendify NO la borra: la marca como pendiente/revisión.
+
+GESTO ATRÁS
+-----------
+- Abrir Nuevo Producto -> Atrás: cierra Producto.
+- Abrir Configuración -> Atrás: cierra Configuración.
+- Abrir Scanner -> Atrás: cierra Scanner.
+- Abrir Venta vacía -> Atrás: cierra Venta.
+- Abrir Venta con carrito -> Atrás: pregunta por cerrar la venta.
+- Sin nada abierto -> Atrás: pregunta si querés salir.
+
+PAGOS OFFLINE
+-------------
+Permitidos:
+- Efectivo
+- Transferencia
+
+No permitidos offline:
+- Débito
+- Crédito
+- Mercado Pago
+- Otro
+- descuentos
+
+Esto es intencional: esos flujos necesitan confirmación externa o
+autorización del servidor.

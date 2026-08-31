@@ -10801,3 +10801,144 @@ body {
     width: 100%;
   }
 }
+
+
+/* ============================================================
+   Vendify v2.31.1 — Offline Sales / Navigation feedback
+   ============================================================ */
+
+.offline-sync-banner-v2311 {
+  width: min(1180px, calc(100% - 28px));
+  min-height: 44px;
+  margin: 10px auto 0;
+  padding: 7px 9px 7px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(245,158,11,.32);
+  border-radius: 12px;
+  background:
+    color-mix(
+      in srgb,
+      #f59e0b 7%,
+      var(--surface)
+    );
+  box-shadow: 0 3px 12px rgba(15,23,42,.04);
+}
+
+.offline-sync-banner-v2311.hidden {
+  display: none !important;
+}
+
+.offline-sync-copy-v2311 {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.offline-sync-copy-v2311 .vendify-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.offline-sale-banner-v2311 {
+  margin: 0 14px 10px;
+  padding: 9px 11px;
+  display: grid;
+  grid-template-columns: 20px minmax(0,1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(245,158,11,.32);
+  border-radius: 11px;
+  background:
+    color-mix(
+      in srgb,
+      #f59e0b 7%,
+      var(--surface)
+    );
+  color: #b45309;
+}
+
+.offline-sale-banner-v2311.hidden {
+  display: none !important;
+}
+
+.offline-sale-banner-v2311 strong,
+.offline-sale-banner-v2311 span {
+  display: block;
+}
+
+.offline-sale-banner-v2311 strong {
+  font-size: 10px;
+}
+
+.offline-sale-banner-v2311 span {
+  margin-top: 2px;
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.offline-sale-banner-v2311 .vendify-icon {
+  width: 18px;
+  height: 18px;
+}
+
+#btn-cobrar.offline-enabled-v2311 {
+  border-color: #d97706 !important;
+  background: #d97706 !important;
+  color: white !important;
+}
+
+#connection-status-v23011.has-offline-sales-v2311 {
+  position: relative;
+}
+
+#connection-status-v23011.has-offline-sales-v2311::after {
+  content: attr(data-pending-offline);
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: #f59e0b;
+  color: white;
+  font-size: 8px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.receipt-status-v228 {
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .offline-sync-banner-v2311 {
+    width: calc(100% - 16px);
+    margin-top: 7px;
+    border-radius: 10px;
+  }
+
+  .offline-sync-copy-v2311 {
+    font-size: 9px;
+  }
+
+  .offline-sync-banner-v2311 .btn {
+    min-width: auto;
+    white-space: nowrap;
+  }
+
+  .offline-sale-banner-v2311 {
+    margin: 0 8px 8px;
+  }
+}
